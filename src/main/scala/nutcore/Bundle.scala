@@ -80,6 +80,16 @@ class WriteBackIO extends NutCoreBundle {
   val rfData = Output(UInt(XLEN.W))
 }
 
+class SIMD_WriteBackIO() extends NutCoreBundle with HasNutCoreParameter{
+  val rfWen = Vec(Issue_Num,Output(Bool()))
+  val rfDest = Vec(Issue_Num,Output(UInt(5.W)))
+  val WriteData = Vec(Issue_Num,Output(UInt(XLEN.W)))
+  val rfSrc1 = Vec(Issue_Num,Input(UInt(5.W)))
+  val rfSrc2 = Vec(Issue_Num,Input(UInt(5.W)))
+  val ReadData1 = Vec(Issue_Num,Output(UInt(XLEN.W)))
+  val ReadData2 = Vec(Issue_Num,Output(UInt(XLEN.W)))
+}
+
 class CommitIO extends NutCoreBundle {
   val decode = new DecodeIO
   val isMMIO = Output(Bool())

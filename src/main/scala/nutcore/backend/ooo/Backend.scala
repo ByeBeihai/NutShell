@@ -681,18 +681,27 @@ class Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   val exu  = Module(new EXU)
   val wbu  = Module(new WBU)
 
-  PipelineConnect(isu.io.out, exu.io.in, exu.io.out.fire(), io.flush(0))
-  PipelineConnect(exu.io.out, wbu.io.in, true.B, io.flush(1))
+  wbu.io.in :=DontCare
+
+  PipelineConnect(isu.io.out(0), exu.io.in, exu.io.out.fire(), io.flush(0))
+  PipelineConnect(exu.io.out, wbu.io.in(0), true.B, io.flush(1))
 
   isu.io.in <> io.in
   
   isu.io.flush := io.flush(0)
   exu.io.flush := io.flush(1)
 
-  isu.io.wb <> wbu.io.wb
+  isu.io.wb.rfWen(0) := wbu.io.wb.rfWen(0)
+  isu.io.wb.rfDest(0):= wbu.io.wb.rfDest(0)
+  isu.io.wb.WriteData(0):=wbu.io.wb.WriteData(0)
+  isu.io.wb.ReadData1(0):=wbu.io.wb.ReadData1(0)
+  isu.io.wb.ReadData2(0):=wbu.io.wb.ReadData2(0)
+  wbu.io.wb.rfSrc1(0):=isu.io.wb.rfSrc1(0)
+  wbu.io.wb.rfSrc2(0):=isu.io.wb.rfSrc2(0)
+  
   io.redirect <> wbu.io.redirect
   // forward
-  isu.io.forward <> exu.io.forward  
+  isu.io.forward(0) <> exu.io.forward  
 
   io.memMMU.imem <> exu.io.memMMU.imem
   io.memMMU.dmem <> exu.io.memMMU.dmem

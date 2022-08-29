@@ -48,6 +48,8 @@ trait HasNutCoreParameter {
   val EnableOutOfOrderExec = Settings.get("EnableOutOfOrderExec")
   val EnableMultiCyclePredictor = false // false unless a customized condition branch predictor is included
   val EnableOutOfOrderMemAccess = false // enable out of order mem access will improve OoO backend's performance
+  //parameter for SIMD backend
+  val Issue_Num = 1
 }
 
 trait HasNutCoreConst extends HasNutCoreParameter {

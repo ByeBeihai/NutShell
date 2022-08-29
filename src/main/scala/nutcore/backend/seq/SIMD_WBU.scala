@@ -1,19 +1,3 @@
-/**************************************************************************************
-* Copyright (c) 2020 Institute of Computing Technology, CAS
-* Copyright (c) 2020 University of Chinese Academy of Sciences
-* 
-* NutShell is licensed under Mulan PSL v2.
-* You can use this software according to the terms and conditions of the Mulan PSL v2. 
-* You may obtain a copy of Mulan PSL v2 at:
-*             http://license.coscl.org.cn/MulanPSL2 
-* 
-* THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER 
-* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR 
-* FIT FOR A PARTICULAR PURPOSE.  
-*
-* See the Mulan PSL v2 for more details.  
-***************************************************************************************/
-
 package nutcore
 
 import chisel3._
@@ -22,7 +6,7 @@ import chisel3.util.experimental.BoringUtils
 import utils._
 import difftest._
 
-class WBU(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegFileParameter{
+class SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegFileParameter{
   val io = IO(new Bundle {
     val in = Vec(Issue_Num,Flipped(Decoupled(new CommitIO)))
     val wb = new SIMD_WriteBackIO
@@ -32,8 +16,7 @@ class WBU(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegFilePa
   val rf = new RegFile
 
   def WAW(index:Int):Bool={
-      val WaW = Wire(Vec(Issue_Num,Bool()))
-      WaW := VecInit((0 to Issue_Num-1).map(i=>false.B))
+      val WaW = Vec(Issue_Num,WireInit(false.B))
       for(j<- index+1 to Issue_Num-1){
           WAW(j) := io.in(j).bits.decode.ctrl.rfDest === io.in(index).bits.decode.ctrl.rfDest && io.in(j).bits.decode.ctrl.rfWen
       }
@@ -47,7 +30,6 @@ class WBU(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegFilePa
   io.wb.ReadData1(i):=rf.read(io.wb.rfSrc1(i))
   io.wb.ReadData2(i):=rf.read(io.wb.rfSrc2(i))
   }
-
   for(i<-0 to Issue_Num-1){
   when (io.wb.rfWen(i)) { rf.write(io.wb.rfDest(i), io.wb.WriteData(i)) }
   }
@@ -67,21 +49,20 @@ class WBU(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegFilePa
   runahead_redirect.io.pc := io.in(redirct_index).bits.decode.cf.pc // for debug only
   runahead_redirect.io.target_pc := io.in(redirct_index).bits.decode.cf.redirect.target // for debug only
   runahead_redirect.io.checkpoint_id := io.in(redirct_index).bits.decode.cf.runahead_checkpoint_id // make sure it is right
-
   // when(runahead_redirect.io.valid) {
   //   printf("DUT pc %x redirect to %x cpid %x\n", runahead_redirect.io.pc, runahead_redirect.io.target_pc, runahead_redirect.io.checkpoint_id)
   // }
 
-  //Debug(io.in(0).valid, "[COMMIT] pc = 0x%x inst %x wen %x wdst %x wdata %x mmio %x intrNO %x\n", io.in(0).bits.decode.cf.pc, io.in(0).bits.decode.cf.instr, io.wb.rfWen, io.wb.rfDest, io.wb.rfData, io.in(0).bits.isMMIO, io.in(0).bits.intrNO)
+  //Debug(io.in.valid, "[COMMIT] pc = 0x%x inst %x wen %x wdst %x wdata %x mmio %x intrNO %x\n", io.in.bits.decode.cf.pc, io.in.bits.decode.cf.instr, io.wb.rfWen, io.wb.rfDest, io.wb.rfData, io.in.bits.isMMIO, io.in.bits.intrNO)
 
   val falseWire = WireInit(false.B) // make BoringUtils.addSource happy
-  for(i <- 0 to Issue_Num-1){
+  for(i <- 0 to Issue_Num){
   BoringUtils.addSource(io.in(i).valid, "perfCntCondMinstret")
   BoringUtils.addSource(falseWire, "perfCntCondMultiCommit")
   }
   
   if (!p.FPGAPlatform) {
-  for(i <- 0 to Issue_Num-1){
+    for(i <- 0 to Issue_Num-1){
     val difftest_commit = Module(new DifftestInstrCommit)
     difftest_commit.io.clock    := clock
     difftest_commit.io.coreid   := 0.U
@@ -115,8 +96,8 @@ class WBU(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegFilePa
     // when(runahead_commit.io.valid) {
     //   printf("DUT commit branch %x\n", runahead_commit.io.pc)
     // }
-  } 
-  }else {
+    }
+  } else {
     for(i <- 0 to Issue_Num-1){
     BoringUtils.addSource(io.in(i).valid, "ilaWBUvalid")
     BoringUtils.addSource(io.in(i).bits.decode.cf.pc, "ilaWBUpc")
