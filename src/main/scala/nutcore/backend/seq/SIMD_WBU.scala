@@ -16,13 +16,13 @@ class SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegF
   val rf = new RegFile
 
   def WAW(index:Int):Bool={
-      val WaW = Vec(Issue_Num,WireInit(false.B))
+      val WaW = Wire(Vec(Issue_Num,Bool()))
+      WaW := VecInit((0 to Issue_Num-1).map(i=>false.B))
       for(j<- index+1 to Issue_Num-1){
           WAW(j) := io.in(j).bits.decode.ctrl.rfDest === io.in(index).bits.decode.ctrl.rfDest && io.in(j).bits.decode.ctrl.rfWen
       }
       WaW.reduce(_||_)
   }
-
   for(i <- 0 to Issue_Num-1){
   io.wb.rfWen(i) := io.in(i).bits.decode.ctrl.rfWen && io.in(i).valid && !WAW(i)
   io.wb.rfDest(i) := io.in(i).bits.decode.ctrl.rfDest
@@ -56,7 +56,7 @@ class SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegF
   //Debug(io.in.valid, "[COMMIT] pc = 0x%x inst %x wen %x wdst %x wdata %x mmio %x intrNO %x\n", io.in.bits.decode.cf.pc, io.in.bits.decode.cf.instr, io.wb.rfWen, io.wb.rfDest, io.wb.rfData, io.in.bits.isMMIO, io.in.bits.intrNO)
 
   val falseWire = WireInit(false.B) // make BoringUtils.addSource happy
-  for(i <- 0 to Issue_Num){
+  for(i <- 0 to Issue_Num-1){
   BoringUtils.addSource(io.in(i).valid, "perfCntCondMinstret")
   BoringUtils.addSource(falseWire, "perfCntCondMultiCommit")
   }

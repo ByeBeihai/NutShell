@@ -9,7 +9,7 @@ import difftest._
 
 class SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRegFileParameter{
     val io = IO(new Bundle{
-        val in = Vec(Issue_Num,Flipped(Decoupled(new DecodeIO)))
+        val in = Vec(2,Flipped(Decoupled(new DecodeIO)))
         val out = Vec(Issue_Num,Decoupled(new DecodeIO))
         val wb = Flipped(new SIMD_WriteBackIO)
         val forward = Vec(Issue_Num,Flipped(new ForwardIO))
@@ -42,16 +42,22 @@ class SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRegFil
     val src1Ready = VecInit((0 to Issue_Num-1).map(i => !sb.isBusy(rfSrc1(i))||src1ForwardNextCycle(i).reduce(_||_)||src1Forward(i).reduce(_||_)))
     val src2Ready = VecInit((0 to Issue_Num-1).map(i => !sb.isBusy(rfSrc2(i))||src2ForwardNextCycle(i).reduce(_||_)||src2Forward(i).reduce(_||_)))
 
-    val RAWinIssue = VecInit((0 to Issue_Num-1).map(i => {val raw = WireDefault(false.B) 
-                                                           for(j <- 0 to i-1){
-                                                                raw := raw || io.in(j).valid && (isDepend(rfSrc1(i),rfDest(j),rfWen(j))||isDepend(rfSrc2(i),rfDest(j),rfWen(j)))
+    val RAWinIssue = VecInit((0 to Issue_Num-1).map(i => {val raw = Wire(Vec(Issue_Num,Bool())) 
+                                                            for(j <- 0 to i-1){
+                                                                    raw(j) := io.in(j).valid && (isDepend(rfSrc1(i),rfDest(j),rfWen(j))||isDepend(rfSrc2(i),rfDest(j),rfWen(j)))
                                                             }
-                                                         raw}))
-    val FightforSource = VecInit((0 to Issue_Num-1).map(i => {val raw = WireDefault(false.B) 
-                                                           for(j <- 0 to i-1){
-                                                                raw := raw || io.in(j).valid && (io.in(j).bits.ctrl.fuType === io.in(i).bits.ctrl.fuType)
+                                                            for(j <- i to Issue_Num-1){
+                                                                    raw(j) := false.B 
                                                             }
-                                                         raw}))
+                                                            raw.reduce(_||_)}))
+    val FightforSource = VecInit((0 to Issue_Num-1).map(i => {val raw = Wire(Vec(Issue_Num,Bool()))  
+                                                            for(j <- 0 to i-1){
+                                                                raw(j) := io.in(j).valid && (io.in(j).bits.ctrl.fuType === io.in(i).bits.ctrl.fuType)
+                                                            }
+                                                            for(j <- i to Issue_Num-1){
+                                                                raw(j) := false.B 
+                                                            }
+                                                            raw.reduce(_||_)}))
     for(i <- 0 to Issue_Num-1){
         if(i == 0){
             io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i)
@@ -60,9 +66,8 @@ class SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRegFil
         }
     }
 
-    for(m <- 0 to Issue_Num-1){
-        io.in(m).ready := VecInit((0 to Issue_Num-1).map(i => !io.in(i).valid||io.out(i).fire())).reduce(_&&_)
-    }
+    io.in(0).ready := VecInit((0 to Issue_Num-1).map(i => !io.in(i).valid||io.out(i).fire())).reduce(_&&_)
+    io.in(1).ready := false.B
 
     for(i <- 0 to Issue_Num-1){
         io.out(i).bits.data.src1 := Mux1H(List(
