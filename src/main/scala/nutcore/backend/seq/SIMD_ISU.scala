@@ -24,6 +24,7 @@ class SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRegFil
     val rfWen  = VecInit((0 to Issue_Num-1).map(i => io.in(i).bits.ctrl.rfWen ))
 
     def isDepend(rfSrc: UInt, rfDest: UInt, wen: Bool): Bool = (rfSrc =/= 0.U) && (rfSrc === rfDest) && wen
+    def isCsrOp(i:Int):Bool = io.in(i).bits.ctrl.fuType === FuType.csr
 
     val forwardRfWen = VecInit((0 to Issue_Num-1).map(i => io.forward(i).wb.rfWen && io.forward(i).valid))
     val dontForward = VecInit((0 to Issue_Num-1).map(i => (io.forward(i).fuType =/= FuType.alu) && (io.forward(i).fuType =/= FuType.lsu)))
@@ -43,13 +44,13 @@ class SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRegFil
     val src2Ready = VecInit((0 to Issue_Num-1).map(i => !sb.isBusy(rfSrc2(i))||src2ForwardNextCycle(i).reduce(_||_)||src2Forward(i).reduce(_||_)))
 
     val RAWinIssue = VecInit((0 to Issue_Num-1).map(i => {val raw = Wire(Vec(Issue_Num,Bool())) 
-                                                            for(j <- 0 to i-1){
-                                                                    raw(j) := io.in(j).valid && (isDepend(rfSrc1(i),rfDest(j),rfWen(j))||isDepend(rfSrc2(i),rfDest(j),rfWen(j)))
-                                                            }
-                                                            for(j <- i to Issue_Num-1){
-                                                                    raw(j) := false.B 
-                                                            }
-                                                            raw.reduce(_||_)}))
+                                                        for(j <- 0 to i-1){
+                                                                raw(j) := io.in(j).valid && (isDepend(rfSrc1(i),rfDest(j),rfWen(j))||isDepend(rfSrc2(i),rfDest(j),rfWen(j)))
+                                                        }
+                                                        for(j <- i to Issue_Num-1){
+                                                                raw(j) := false.B 
+                                                        }
+                                                        raw.reduce(_||_)}))
     val FightforSource = VecInit((0 to Issue_Num-1).map(i => {val raw = Wire(Vec(Issue_Num,Bool()))  
                                                             for(j <- 0 to i-1){
                                                                 raw(j) := io.in(j).valid && (io.in(j).bits.ctrl.fuType === io.in(i).bits.ctrl.fuType)
@@ -58,11 +59,29 @@ class SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRegFil
                                                                 raw(j) := false.B 
                                                             }
                                                             raw.reduce(_||_)}))
+
+    val FrontHasCsrOp = VecInit((0 to Issue_Num-1).map(i => {val raw = Wire(Vec(Issue_Num,Bool())) 
+                                                            for(j <- 0 to i-1){
+                                                                raw(j) := io.in(j).valid && io.in(j).bits.ctrl.fuType === FuType.csr
+                                                            }
+                                                            for(j <- i to Issue_Num-1){
+                                                                raw(j) := false.B 
+                                                            }
+                                                            raw.reduce(_||_)}))
+    val FrontisClear = VecInit((0 to Issue_Num-1).map(i => {val raw = Wire(Vec(Issue_Num,Bool())) 
+                                                            for(j <- 0 to i-1){
+                                                                raw(j) := !io.in(j).valid && io.out(j).ready
+                                                            }
+                                                            for(j <- i to Issue_Num-1){
+                                                                raw(j) := false.B 
+                                                            }
+                                                            raw.reduce(_||_)}))
+
     for(i <- 0 to Issue_Num-1){
         if(i == 0){
             io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i)
         }else{
-            io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i) && !RAWinIssue(i) && !FightforSource(i)
+            io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i) && !RAWinIssue(i) && !FightforSource(i) && !FrontHasCsrOp(i) && !(isCsrOp(i) && !FrontisClear(i))
         }
     }
 

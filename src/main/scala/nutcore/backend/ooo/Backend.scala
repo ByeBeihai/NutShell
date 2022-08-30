@@ -678,13 +678,13 @@ class Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   })
 
   val isu  = Module(new SIMD_ISU)
-  val exu  = Module(new EXU)
+  val exu  = Module(new SIMD_EXU)
   val wbu  = Module(new SIMD_WBU)
 
   wbu.io.in :=DontCare
 
-  PipelineConnect(isu.io.out(0), exu.io.in, exu.io.out.fire(), io.flush(0))
-  PipelineConnect(exu.io.out, wbu.io.in(0), true.B, io.flush(1))
+  PipelineConnect(isu.io.out(0), exu.io.in(0), exu.io.out(0).fire(), io.flush(0))
+  PipelineConnect(exu.io.out(0), wbu.io.in(0), true.B, io.flush(1))
 
   isu.io.in <> io.in
   
@@ -701,7 +701,7 @@ class Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   
   io.redirect <> wbu.io.redirect
   // forward
-  isu.io.forward(0) <> exu.io.forward  
+  isu.io.forward(0) <> exu.io.forward(0)  
 
   io.memMMU.imem <> exu.io.memMMU.imem
   io.memMMU.dmem <> exu.io.memMMU.dmem

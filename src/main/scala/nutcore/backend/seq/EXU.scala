@@ -116,7 +116,7 @@ class EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
 
   io.in.ready := !io.in.valid || io.out.fire()
 
-  io.forward.valid := io.in.valid
+  io.forward.valid := io.in.valid & io.out.valid
   io.forward.wb.rfWen := io.in.bits.ctrl.rfWen
   io.forward.wb.rfDest := io.in.bits.ctrl.rfDest
   io.forward.wb.rfData := Mux(alu.io.out.fire(), aluOut, lsuOut)
