@@ -139,7 +139,7 @@ class SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
     io.forward(i).valid := io.in(i).valid & io.out(i).valid
     io.forward(i).wb.rfWen := io.in(i).bits.ctrl.rfWen && !WAWinExu(i)
     io.forward(i).wb.rfDest := io.in(i).bits.ctrl.rfDest
-    io.forward(i).wb.rfData := Mux(alu.io.out.fire() && i.U === WhoTakeAlu, aluOut, lsuOut)
+    io.forward(i).wb.rfData := MuxLookup(fuType(i),aluOut,List(FuType.alu->aluOut,FuType.lsu->lsuOut,FuType.csr->csrOut,FuType.mdu->mduOut))
     io.forward(i).fuType := io.in(i).bits.ctrl.fuType
   }
 
