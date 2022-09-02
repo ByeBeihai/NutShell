@@ -297,112 +297,55 @@ class LSExecUnit extends NutCoreModule {
     io.out.bits
   }
 
-  def genWmask(addr: UInt, sizeEncode: UInt): UInt = {
-    LookupTree(sizeEncode, List(
-      "b00".U -> 0x1.U, //0001 << addr(2:0)
-      "b01".U -> 0x3.U, //0011
-      "b10".U -> 0xf.U, //1111
-      "b11".U -> 0xff.U //11111111
-    )) << addr(2, 0)
-  }
-  def genWdata(data: UInt, sizeEncode: UInt): UInt = {
-    LookupTree(sizeEncode, List(
-      "b00".U -> Fill(8, data(7, 0)),
-      "b01".U -> Fill(4, data(15, 0)),
-      "b10".U -> Fill(2, data(31, 0)),
-      "b11".U -> data
-    ))
-  }
-
-  def genWmask32(addr: UInt, sizeEncode: UInt): UInt = {
-    LookupTree(sizeEncode, List(
-      "b00".U -> 0x1.U, //0001 << addr(1:0)
-      "b01".U -> 0x3.U, //0011
-      "b10".U -> 0xf.U  //1111
-    )) << addr(1, 0)
-  }
-  def genWdata32(data: UInt, sizeEncode: UInt): UInt = {
-    LookupTree(sizeEncode, List(
-      "b00".U -> Fill(4, data(7, 0)),
-      "b01".U -> Fill(2, data(15, 0)),
-      "b10".U -> data
-    ))
-  }
-
-  val dmem = io.dmem
-  val addrLatch = RegNext(addr)
+  val addrLatch = addr
   val isStore = valid && LSUOpType.isStore(func)
   val partialLoad = !isStore && (func =/= LSUOpType.ld)
 
-  val s_idle :: s_wait_tlb :: s_wait_resp :: s_partialLoad :: Nil = Enum(4)
+  val s_idle :: s_wait_resp :: Nil = Enum(2)
   val state = RegInit(s_idle)
 
   val dtlbFinish = WireInit(false.B)
   val dtlbPF = WireInit(false.B)
   val dtlbEnable = WireInit(false.B)
+  io.dtlbPF := dtlbPF
   if (Settings.get("HasDTLB")) {
     BoringUtils.addSink(dtlbFinish, "DTLBFINISH")
     BoringUtils.addSink(dtlbPF, "DTLBPF")
     BoringUtils.addSink(dtlbEnable, "DTLBENABLE")
   }
 
-  io.dtlbPF := dtlbPF
-
   switch (state) {
-    is (s_idle) { 
-      when (dmem.req.fire() && dtlbEnable)  { state := s_wait_tlb  }
-      when (dmem.req.fire() && !dtlbEnable) { state := s_wait_resp } 
-      //when (dmem.req.fire()) { state := Mux(isStore, s_partialLoad, s_wait_resp) }
-    }
-    is (s_wait_tlb) {
-      when (dtlbFinish && dtlbPF ) { state := s_idle }
-      when (dtlbFinish && !dtlbPF) { state := s_wait_resp/*Mux(isStore, s_partialLoad, s_wait_resp) */} 
-    }
-    is (s_wait_resp) { when (dmem.resp.fire()) { state := Mux(partialLoad, s_partialLoad, s_idle) } }
-    is (s_partialLoad) { state := s_idle }
+    is (s_idle) { when (io.dmem.req.fire()) { state := s_wait_resp } }
+    is (s_wait_resp) { when (io.dmem.resp.fire()) { state := s_idle } }
   }
 
-  Debug(dmem.req.fire(), "[LSU] %x, size %x, wdata_raw %x, isStore %x\n", addr, func(1,0), io.wdata, isStore)
-  Debug(dmem.req.fire(), "[LSU] dtlbFinish:%d dtlbEnable:%d dtlbPF:%d state:%d addr:%x dmemReqFire:%d dmemRespFire:%d dmemRdata:%x\n",dtlbFinish, dtlbEnable, dtlbPF, state,  dmem.req.bits.addr, dmem.req.fire(), dmem.resp.fire(), dmem.resp.bits.rdata)
-  Debug(dtlbFinish && dtlbEnable, "[LSU] dtlbFinish:%d dtlbEnable:%d dtlbPF:%d state:%d addr:%x dmemReqFire:%d dmemRespFire:%d dmemRdata:%x\n",dtlbFinish, dtlbEnable, dtlbPF, state,  dmem.req.bits.addr, dmem.req.fire(), dmem.resp.fire(), dmem.resp.bits.rdata)
+  Debug(io.dmem.req.fire(), "[LSU] %x, size %x, wdata_raw %x, isStore %x\n", addr, func(1,0), io.wdata, isStore)
 
   val size = func(1,0)
-  val reqAddr  = if (XLEN == 32) SignExt(addr, VAddrBits) else addr(VAddrBits-1,0)
-  val reqWdata = if (XLEN == 32) genWdata32(io.wdata, size) else genWdata(io.wdata, size)
-  val reqWmask = if (XLEN == 32) genWmask32(addr, size) else genWmask(addr, size)
-  dmem.req.bits.apply(
-    addr = reqAddr, 
-    size = size, 
-    wdata = reqWdata,
-    wmask = reqWmask,
-    cmd = Mux(isStore, SimpleBusCmd.write, SimpleBusCmd.read))
-  dmem.req.valid := valid && (state === s_idle) && !io.loadAddrMisaligned && !io.storeAddrMisaligned
-  dmem.resp.ready := true.B
-
-  io.out.valid := Mux( dtlbPF && state =/= s_idle || io.loadAddrMisaligned || io.storeAddrMisaligned, true.B, Mux(partialLoad, state === s_partialLoad, dmem.resp.fire() && (state === s_wait_resp)))
-  io.in.ready := (state === s_idle) || dtlbPF
-
-  Debug(io.out.fire(), "[LSU-EXECUNIT] state %x dresp %x dpf %x lm %x sm %x\n", state, dmem.resp.fire(), dtlbPF, io.loadAddrMisaligned, io.storeAddrMisaligned)
-
-  val rdata = dmem.resp.bits.rdata
-  val rdataLatch = RegNext(rdata)
-  val rdataSel64 = LookupTree(addrLatch(2, 0), List(
-    "b000".U -> rdataLatch(63, 0),
-    "b001".U -> rdataLatch(63, 8),
-    "b010".U -> rdataLatch(63, 16),
-    "b011".U -> rdataLatch(63, 24),
-    "b100".U -> rdataLatch(63, 32),
-    "b101".U -> rdataLatch(63, 40),
-    "b110".U -> rdataLatch(63, 48),
-    "b111".U -> rdataLatch(63, 56)
-  ))
-  val rdataSel32 = LookupTree(addrLatch(1, 0), List(
-    "b00".U -> rdataLatch(31, 0),
-    "b01".U -> rdataLatch(31, 8),
-    "b10".U -> rdataLatch(31, 16),
-    "b11".U -> rdataLatch(31, 24)
-  ))
-  val rdataSel = if (XLEN == 32) rdataSel32 else rdataSel64
+  val reqAddr  = Mux((XLEN>=VAddrBits).B,addr(VAddrBits-1,0),SignExt(addr,VAddrBits))
+  val reqWdata = LookupTree(func(1,0),List(
+                  0.U -> Fill(XLEN/8 ,io.wdata(7 ,0)),
+                  1.U -> Fill(XLEN/16,io.wdata(15,0)),
+                  2.U -> Fill(XLEN/32,io.wdata(31,0)),
+                  3.U -> Fill(XLEN/64,io.wdata(63,0))
+                ))
+  val reqWmask = LookupTree(func(1,0),List(
+                  0.U -> (0x1.U << addr(XLEN/32,0)), 
+                  1.U -> (0x3.U << addr(XLEN/32,0)), 
+                  2.U -> (0xf.U << addr(XLEN/32,0)), 
+                  3.U -> (0xff.U<< addr(XLEN/32,0)) 
+                ))
+  val rdata = io.dmem.resp.bits.rdata
+  val rdataSel = LookupTree(addr(XLEN/32, 0), List(
+                  0.U -> rdata(XLEN-1, 0),
+                  1.U -> rdata(XLEN-1, 8),
+                  2.U -> rdata(XLEN-1, 16),
+                  3.U -> rdata(XLEN-1, 24),
+                  4.U -> rdata(XLEN-1, 32),
+                  5.U -> rdata(XLEN-1, 40),
+                  6.U -> rdata(XLEN-1, 48),
+                  7.U -> rdata(XLEN-1, 56)
+                ))
   val rdataPartialLoad = LookupTree(func, List(
       LSUOpType.lb   -> SignExt(rdataSel(7, 0) , XLEN),
       LSUOpType.lh   -> SignExt(rdataSel(15, 0), XLEN),
@@ -412,13 +355,25 @@ class LSExecUnit extends NutCoreModule {
       LSUOpType.lwu  -> ZeroExt(rdataSel(31, 0), XLEN)
   ))
   val addrAligned = LookupTree(func(1,0), List(
-    "b00".U   -> true.B,            //b
+    "b00".U   -> true.B,              //b
     "b01".U   -> (addr(0) === 0.U),   //h
     "b10".U   -> (addr(1,0) === 0.U), //w
     "b11".U   -> (addr(2,0) === 0.U)  //d
   ))
-
+  io.dmem.req.bits.apply(
+    addr = reqAddr, 
+    size = size, 
+    wdata = reqWdata,
+    wmask = reqWmask,
+    cmd = Mux(isStore, SimpleBusCmd.write, SimpleBusCmd.read))
+  io.dmem.req.valid := valid && (state === s_idle) && !io.loadAddrMisaligned && !io.storeAddrMisaligned
+  io.dmem.resp.ready := true.B
   io.out.bits := Mux(partialLoad, rdataPartialLoad, rdata(XLEN-1,0))
+  io.out.valid := Mux( dtlbPF && state =/= s_idle || io.loadAddrMisaligned || io.storeAddrMisaligned, true.B, io.dmem.resp.fire() && (state === s_wait_resp))
+  io.in.ready := (state === s_idle) || dtlbPF
+
+  Debug(io.out.fire(), "[LSU-EXECUNIT] state %x dresp %x dpf %x lm %x sm %x\n", state, io.dmem.resp.fire(), dtlbPF, io.loadAddrMisaligned, io.storeAddrMisaligned)
+
 
   io.isMMIO := DontCare
 
@@ -431,8 +386,8 @@ class LSExecUnit extends NutCoreModule {
 
   Debug(io.loadAddrMisaligned || io.storeAddrMisaligned, "misaligned addr detected\n")
 
-  BoringUtils.addSource(dmem.isRead() && dmem.req.fire(), "perfCntCondMloadInstr")
-  BoringUtils.addSource(BoolStopWatch(dmem.isRead(), dmem.resp.fire()), "perfCntCondMloadStall")
-  BoringUtils.addSource(BoolStopWatch(dmem.isWrite(), dmem.resp.fire()), "perfCntCondMstoreStall")
+  BoringUtils.addSource(io.dmem.isRead() && io.dmem.req.fire(), "perfCntCondMloadInstr")
+  BoringUtils.addSource(BoolStopWatch(io.dmem.isRead(), io.dmem.resp.fire()), "perfCntCondMloadStall")
+  BoringUtils.addSource(BoolStopWatch(io.dmem.isWrite(), io.dmem.resp.fire()), "perfCntCondMstoreStall")
   BoringUtils.addSource(io.isMMIO, "perfCntCondMmmioInstr")
 }
