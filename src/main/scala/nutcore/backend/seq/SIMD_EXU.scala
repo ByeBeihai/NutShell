@@ -42,7 +42,7 @@ class SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   alu.io.out.ready := true.B
 
   //LSU
-  val lsu = Module(new SIMD_LSU)
+  val lsu = Module(new new_lsu)
   val WhoTakeLsu = WhoTakeIt(FuType.csr)
   val lsuTlbPF = WireInit(false.B)
   val lsuOut = lsu.access(valid = fuValids(FuType.lsu), src1 = src1(WhoTakeLsu), src2 = io.in(WhoTakeLsu).bits.data.imm, func = fuOpType(WhoTakeLsu), dtlbPF = lsuTlbPF)
