@@ -25,6 +25,7 @@ class SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRegFil
 
     def isDepend(rfSrc: UInt, rfDest: UInt, wen: Bool): Bool = (rfSrc =/= 0.U) && (rfSrc === rfDest) && wen
     def isCsrOp(i:Int):Bool = io.in(i).bits.ctrl.fuType === FuType.csr
+    def HasEnoughOperator(futype:UInt):Bool = futype === FuType.alu
 
     val forwardRfWen = VecInit((0 to Issue_Num-1).map(i => io.forward(i).wb.rfWen && io.forward(i).valid))
     val src1DependEX = VecInit((0 to Issue_Num-1).map(i=>VecInit((0 to Issue_Num-1).map(j => isDepend(rfSrc1(i), io.forward(j).wb.rfDest, forwardRfWen(j))))))
@@ -44,9 +45,9 @@ class SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRegFil
                                                                 raw(j) := false.B 
                                                         }
                                                         raw.reduce(_||_)}))
-    val FightforSource = VecInit((0 to Issue_Num-1).map(i => {val raw = Wire(Vec(Issue_Num,Bool()))  
+    val FightforOperator = VecInit((0 to Issue_Num-1).map(i => {val raw = Wire(Vec(Issue_Num,Bool()))  
                                                             for(j <- 0 to i-1){
-                                                                raw(j) := io.in(j).valid && (io.in(j).bits.ctrl.fuType === io.in(i).bits.ctrl.fuType)
+                                                                raw(j) := io.in(j).valid && (io.in(j).bits.ctrl.fuType === io.in(i).bits.ctrl.fuType) && !HasEnoughOperator(io.in(j).bits.ctrl.fuType)
                                                             }
                                                             for(j <- i to Issue_Num-1){
                                                                 raw(j) := false.B 
@@ -74,7 +75,7 @@ class SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRegFil
         if(i == 0){
             io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i)
         }else{
-            io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i) && !RAWinIssue(i) && !FightforSource(i) && !FrontHasCsrOp(i) && !(isCsrOp(i) && !FrontisClear(i))
+            io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i) && !RAWinIssue(i) && !FightforOperator(i) && !FrontHasCsrOp(i) && !(isCsrOp(i) && !FrontisClear(i))
         }
     }
 
@@ -101,6 +102,10 @@ class SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRegFil
         io.out(i).bits.data.imm  := io.in(i).bits.data.imm
         io.out(i).bits.cf <> io.in(i).bits.cf
         io.out(i).bits.ctrl := io.in(i).bits.ctrl
+        if(i > 0){
+            when(io.in(i).bits.ctrl.fuType === FuType.alu){
+                io.out(i).bits.ctrl.fuType := FuType.alu1
+        }}
         io.out(i).bits.ctrl.isSrc1Forward := src1DependEX(i).reduce(_||_)
         io.out(i).bits.ctrl.isSrc2Forward := src2DependEX(i).reduce(_||_)
     }

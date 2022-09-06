@@ -71,22 +71,11 @@ class new_lsu extends NutCoreModule with HasLSUConst {
   }
 
   val addr = src1
-  val addrLatch = addr
   val isStore = valid && LSUOpType.isStore(func)
   val partialLoad = !isStore && (func =/= LSUOpType.ld)
 
   val s_idle :: s_wait_resp :: Nil = Enum(2)
   val state = RegInit(s_idle)
-
-  val dtlbFinish = WireInit(false.B)
-  val dtlbPF = WireInit(false.B)
-  val dtlbEnable = WireInit(false.B)
-  io.dtlbPF := dtlbPF
-  if (Settings.get("HasDTLB")) {
-    BoringUtils.addSink(dtlbFinish, "DTLBFINISH")
-    BoringUtils.addSink(dtlbPF, "DTLBPF")
-    BoringUtils.addSink(dtlbEnable, "DTLBENABLE")
-  }
 
   switch (state) {
     is (s_idle) { when (io.dmem.req.fire()) { state := s_wait_resp } }
@@ -129,10 +118,10 @@ class new_lsu extends NutCoreModule with HasLSUConst {
       LSUOpType.lwu  -> ZeroExt(rdataSel(31, 0), XLEN)
   ))
   val addrAligned = LookupTree(func(1,0), List(
-    "b00".U   -> true.B,              //b
-    "b01".U   -> (addr(0) === 0.U),   //h
-    "b10".U   -> (addr(1,0) === 0.U), //w
-    "b11".U   -> (addr(2,0) === 0.U)  //d
+                  0.U   -> true.B,              
+                  1.U   -> (addr(0) === 0.U),   
+                  2.U   -> (addr(1,0) === 0.U), 
+                  3.U   -> (addr(2,0) === 0.U)  
   ))
   io.dmem.req.bits.apply(
     addr = reqAddr, 
@@ -143,20 +132,14 @@ class new_lsu extends NutCoreModule with HasLSUConst {
   io.dmem.req.valid := valid && (state === s_idle) && !io.loadAddrMisaligned && !io.storeAddrMisaligned
   io.dmem.resp.ready := true.B
   io.out.bits := Mux(partialLoad, rdataPartialLoad, rdata(XLEN-1,0))
-  io.out.valid := Mux( dtlbPF && state =/= s_idle || io.loadAddrMisaligned || io.storeAddrMisaligned, true.B, io.dmem.resp.fire() && (state === s_wait_resp))
-  io.in.ready := (state === s_idle) || dtlbPF
-
-  Debug(io.out.fire(), "[LSU-EXECUNIT] state %x dresp %x dpf %x lm %x sm %x\n", state, io.dmem.resp.fire(), dtlbPF, io.loadAddrMisaligned, io.storeAddrMisaligned)
-
-
+  io.out.valid := Mux( false.B && state =/= s_idle || io.loadAddrMisaligned || io.storeAddrMisaligned, true.B, io.dmem.resp.fire() && (state === s_wait_resp))
+  io.in.ready := (state === s_idle) || false.B
+  io.dtlbPF := false.B
   io.isMMIO := DontCare
+  Debug(io.out.fire(), "[LSU-EXECUNIT] state %x dresp %x dpf %x lm %x sm %x\n", state, io.dmem.resp.fire(), false.B, io.loadAddrMisaligned, io.storeAddrMisaligned)
 
-  val isAMO = WireInit(false.B)
-  BoringUtils.addSink(isAMO, "ISAMO2")
-  BoringUtils.addSource(addr, "LSUADDR")
-
-  io.loadAddrMisaligned :=  valid && !isStore && !isAMO && !addrAligned
-  io.storeAddrMisaligned := valid && (isStore || isAMO) && !addrAligned
+  io.loadAddrMisaligned :=  valid && !isStore && !addrAligned
+  io.storeAddrMisaligned := valid && isStore && !addrAligned
 
   Debug(io.loadAddrMisaligned || io.storeAddrMisaligned, "misaligned addr detected\n")
 
@@ -166,12 +149,14 @@ class new_lsu extends NutCoreModule with HasLSUConst {
   BoringUtils.addSource(io.isMMIO, "perfCntCondMmmioInstr")
 
 
-    val lsuMMIO = WireInit(false.B)
-    BoringUtils.addSink(lsuMMIO, "lsuMMIO")
+  val lsuMMIO = WireInit(false.B)
+  BoringUtils.addSink(lsuMMIO, "lsuMMIO")
 
-    val mmioReg = RegInit(false.B)
-    when (!mmioReg) { mmioReg := lsuMMIO }
-    when (io.out.valid) { mmioReg := false.B }
-    io.isMMIO := mmioReg && io.out.valid
+  val mmioReg = RegInit(false.B)
+  when (!mmioReg) { mmioReg := lsuMMIO }
+  when (io.out.valid) { mmioReg := false.B }
+  io.isMMIO := mmioReg && io.out.valid
+
+  BoringUtils.addSource(addr, "LSUADDR")
 }
 

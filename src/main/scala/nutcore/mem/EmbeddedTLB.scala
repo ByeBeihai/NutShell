@@ -145,9 +145,11 @@ class EmbeddedTLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasT
     val alreadyOutFinish = RegEnable(true.B, init=false.B, tlbExec.io.out.valid && !tlbExec.io.out.ready)
     when(alreadyOutFinish && tlbExec.io.out.fire()) { alreadyOutFinish := false.B}
     val tlbFinish = (tlbExec.io.out.valid && !alreadyOutFinish) || tlbExec.io.pf.isPF()
+    if(HasDTLB){
     BoringUtils.addSource(tlbFinish, "DTLBFINISH")
     BoringUtils.addSource(io.csrMMU.isPF(), "DTLBPF")
     BoringUtils.addSource(vmEnable, "DTLBENABLE")
+    }
   }
 
   // instruction page fault
