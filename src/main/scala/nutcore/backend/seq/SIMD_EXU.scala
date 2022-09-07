@@ -19,7 +19,7 @@ class SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
     val memMMU = Flipped(new MemMMUIO)
   })
 
-  def WhoTakeIt(futype:UInt):UInt = PriorityMux(VecInit((0 to Issue_Num-1).map(i => io.in(i).bits.ctrl.fuType === futype && io.in(i).valid)).zipWithIndex.map{case(a,b) => (a,b.U)})
+  def WhoTakeThisOperator(futype:UInt):UInt = PriorityMux(VecInit((0 to Issue_Num-1).map(i => io.in(i).bits.ctrl.fuType === futype && io.in(i).valid)).zipWithIndex.map{case(a,b) => (a,b.U)})
 
   val src1     = VecInit((0 to Issue_Num-1).map(i => io.in(i).bits.data.src1))
   val src2     = VecInit((0 to Issue_Num-1).map(i => io.in(i).bits.data.src2))
@@ -34,7 +34,7 @@ class SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
                                                  }))
   //ALU
   val alu = Module(new ALU(hasBru = true,NO1 = false))
-  val WhoTakeAlu = WhoTakeIt(FuType.alu)
+  val WhoTakeAlu = WhoTakeThisOperator(FuType.alu)
   val aluOut = alu.access(valid = fuValids(FuType.alu), src1 = src1(WhoTakeAlu), src2 = src2(WhoTakeAlu), func = fuOpType(WhoTakeAlu))
   alu.io.cfIn := io.in(WhoTakeAlu).bits.cf
   alu.io.offset := io.in(WhoTakeAlu).bits.data.imm
@@ -42,7 +42,7 @@ class SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
 
   //ALU1
   val alu1 = Module(new ALU(hasBru = true,NO1 = true))
-  val WhoTakeAlu1 = WhoTakeIt(FuType.alu1)
+  val WhoTakeAlu1 = WhoTakeThisOperator(FuType.alu1)
   val alu1Out = alu1.access(valid = fuValids(FuType.alu1), src1 = src1(WhoTakeAlu1), src2 = src2(WhoTakeAlu1), func = fuOpType(WhoTakeAlu1))
   alu1.io.cfIn := io.in(WhoTakeAlu1).bits.cf
   alu1.io.offset := io.in(WhoTakeAlu1).bits.data.imm
@@ -50,7 +50,7 @@ class SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
 
   //LSU
   val lsu = Module(new new_lsu)
-  val WhoTakeLsu = WhoTakeIt(FuType.csr)
+  val WhoTakeLsu = WhoTakeThisOperator(FuType.csr)
   val lsuOut = lsu.access(valid = fuValids(FuType.lsu), src1 = src1(WhoTakeLsu), src2 = io.in(WhoTakeLsu).bits.data.imm, func = fuOpType(WhoTakeLsu))
   lsu.io.wdata := src2(WhoTakeLsu)
   for(i <- 0 to Issue_Num-1){
@@ -61,13 +61,13 @@ class SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
 
   //MDU
   val mdu = Module(new MDU)
-  val WhoTakeMdu = WhoTakeIt(FuType.mdu)
+  val WhoTakeMdu = WhoTakeThisOperator(FuType.mdu)
   val mduOut = mdu.access(valid = fuValids(FuType.mdu), src1 = src1(WhoTakeMdu), src2 = src2(WhoTakeMdu), func = fuOpType(WhoTakeMdu))
   mdu.io.out.ready := true.B
 
   //CSRU
   val csr = Module(new CSR)
-  val WhoTakeCsr = WhoTakeIt(FuType.csr)
+  val WhoTakeCsr = WhoTakeThisOperator(FuType.csr)
   val csrOut = csr.access(valid = fuValids(FuType.csr), src1 = src1(WhoTakeCsr), src2 = src2(WhoTakeCsr), func = fuOpType(WhoTakeCsr))
   csr.io.cfIn := io.in(WhoTakeCsr).bits.cf
   csr.io.cfIn.exceptionVec(loadAddrMisaligned) := lsu.io.loadAddrMisaligned
@@ -82,26 +82,27 @@ class SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   csr.io.imemMMU <> io.memMMU.imem
   csr.io.dmemMMU <> io.memMMU.dmem
 
+  //connect wires
   val empty_RedirectIO = Wire(new RedirectIO)
   empty_RedirectIO.target := 0.U
   empty_RedirectIO.rtype := 0.U
   empty_RedirectIO.valid := false.B
 
+  val IcantWrite = VecInit((0 to Issue_Num-1).map(i => {val raw = Wire(Vec(Issue_Num,Bool())) 
+                                                          for(j <- 0 to i){
+                                                              raw(j) := ((lsu.io.loadAddrMisaligned || lsu.io.storeAddrMisaligned) && j.U === WhoTakeLsu) || (csr.io.wenFix && fuValids(FuType.csr) && j.U === WhoTakeCsr)
+                                                          }
+                                                          for(j <- i+1 to Issue_Num-1){
+                                                              raw(j) := false.B 
+                                                          }
+                                                          raw.reduce(_||_)
+                                                      }))
+
   for(i <- 0 to Issue_Num-1){
-    io.out(i).bits.decode := DontCare
+    io.out(i).bits.decode <> io.in(i).bits
   }
   for(k <- 0 to Issue_Num-1){
-    (io.out(k).bits.decode.ctrl, io.in(k).bits.ctrl) match { case (o, i) =>
-        o.rfWen := i.rfWen && (!lsu.io.loadAddrMisaligned && !lsu.io.storeAddrMisaligned || !fuValids(FuType.lsu)) && !(csr.io.wenFix && fuValids(FuType.csr))
-        o.rfDest := i.rfDest
-        o.fuType := i.fuType
-    }
-  }
-  for(k <- 0 to Issue_Num-1){
-    io.out(k).bits.decode.cf.pc := io.in(k).bits.cf.pc
-    io.out(k).bits.decode.cf.instr := io.in(k).bits.cf.instr
-    io.out(k).bits.decode.cf.runahead_checkpoint_id := io.in(k).bits.cf.runahead_checkpoint_id
-    io.out(k).bits.decode.cf.isBranch := io.in(k).bits.cf.isBranch
+    io.out(k).bits.decode.ctrl.rfWen := io.in(k).bits.ctrl.rfWen && !IcantWrite(k)
     io.out(k).bits.decode.cf.redirect <> Mux(csr.io.redirect.valid && WhoTakeCsr === k.U, csr.io.redirect, 
                                                 Mux(alu.valid && WhoTakeAlu === k.U,alu.io.redirect,
                                                   Mux(alu1.valid && WhoTakeAlu1 === k.U,alu1.io.redirect,empty_RedirectIO)))
