@@ -676,7 +676,7 @@ class Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
 
     val redirect = new RedirectIO
   })
-
+  Debug("------------------------ BACKEND ------------------------\n")
   val isu  = Module(new SIMD_ISU)
   val exu  = Module(new SIMD_EXU)
   val wbu  = Module(new SIMD_WBU)

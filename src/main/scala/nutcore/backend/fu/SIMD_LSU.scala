@@ -7,6 +7,14 @@ import utils._
 import bus.simplebus._
 import top.Settings
 
+class SIMD_LSU_IO extends FunctionUnitIO {
+  val wdata = Input(UInt(XLEN.W))
+  val dmem = new SimpleBusUC(addrBits = VAddrBits)
+  val isMMIO = Output(Bool())
+  val loadAddrMisaligned = Output(Bool()) // TODO: refactor it for new backend
+  val storeAddrMisaligned = Output(Bool()) // TODO: refactor it for new backend
+}
+
 class SIMD_LSU extends NutCoreModule with HasLSUConst {
   val io = IO(new UnpipeLSUIO)
   val (valid, src1, src2, func) = (io.in.valid, io.in.bits.src1, io.in.bits.src2, io.in.bits.func)
@@ -59,14 +67,13 @@ class SIMD_LSU extends NutCoreModule with HasLSUConst {
     io.isMMIO := mmioReg && io.out.valid
 }
 class new_lsu extends NutCoreModule with HasLSUConst {
-  val io = IO(new UnpipeLSUIO)
+  val io = IO(new SIMD_LSU_IO)
   val (valid, src1, src2, func) = (io.in.valid, io.in.bits.src1, io.in.bits.src2, io.in.bits.func)
-  def access(valid: Bool, src1: UInt, src2: UInt, func: UInt, dtlbPF: Bool): UInt = {
+  def access(valid: Bool, src1: UInt, src2: UInt, func: UInt): UInt = {
     this.valid := valid
     this.src1 := src1+src2
     this.src2 := src2
     this.func := func
-    dtlbPF := io.dtlbPF
     io.out.bits
   }
 
@@ -134,7 +141,6 @@ class new_lsu extends NutCoreModule with HasLSUConst {
   io.out.bits := Mux(partialLoad, rdataPartialLoad, rdata(XLEN-1,0))
   io.out.valid := Mux( false.B && state =/= s_idle || io.loadAddrMisaligned || io.storeAddrMisaligned, true.B, io.dmem.resp.fire() && (state === s_wait_resp))
   io.in.ready := (state === s_idle) || false.B
-  io.dtlbPF := false.B
   io.isMMIO := DontCare
   Debug(io.out.fire(), "[LSU-EXECUNIT] state %x dresp %x dpf %x lm %x sm %x\n", state, io.dmem.resp.fire(), false.B, io.loadAddrMisaligned, io.storeAddrMisaligned)
 

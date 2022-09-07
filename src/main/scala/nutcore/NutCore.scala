@@ -146,7 +146,6 @@ class NutCore(implicit val p: NutCoreConfig) extends NutCoreModule {
 
   } else {
     val backend = Module(new Backend_inorder)
-
     PipelineVector2Connect(new DecodeIO, frontend.io.out(0), frontend.io.out(1), backend.io.in(0), backend.io.in(1), frontend.io.flushVec(1), 4)
 
     val mmioXbar = Module(new SimpleBusCrossbarNto1(2))
@@ -170,6 +169,4 @@ class NutCore(implicit val p: NutCoreConfig) extends NutCoreModule {
 
     io.mmio <> mmioXbar.io.out
   }
-
-  Debug("------------------------ BACKEND ------------------------\n")
 }

@@ -53,7 +53,7 @@ class SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegF
   //   printf("DUT pc %x redirect to %x cpid %x\n", runahead_redirect.io.pc, runahead_redirect.io.target_pc, runahead_redirect.io.checkpoint_id)
   // }
 
-  //Debug(io.in.valid, "[COMMIT] pc = 0x%x inst %x wen %x wdst %x wdata %x mmio %x intrNO %x\n", io.in.bits.decode.cf.pc, io.in.bits.decode.cf.instr, io.wb.rfWen, io.wb.rfDest, io.wb.rfData, io.in.bits.isMMIO, io.in.bits.intrNO)
+  Debug(io.in(0).valid, "[COMMIT] pc = 0x%x inst %x wen %x wdst %x wdata %x mmio %x intrNO %x\n", io.in(0).bits.decode.cf.pc, io.in(0).bits.decode.cf.instr, io.wb.rfWen(0), io.wb.rfDest(0), io.wb.WriteData(0), io.in(0).bits.isMMIO, io.in(0).bits.intrNO)
 
   val falseWire = WireInit(false.B) // make BoringUtils.addSource happy
   for(i <- 0 to Issue_Num-1){
