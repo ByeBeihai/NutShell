@@ -21,6 +21,7 @@ import chisel3.util._
 import chisel3.util.experimental.BoringUtils
 
 import utils._
+import difftest._
 
 trait HasRegFileParameter {
   val NRReg = 32
@@ -43,4 +44,56 @@ class ScoreBoard extends HasRegFileParameter {
     // Note that rf(0) is always free.
     busy := Cat(((busy & ~clearMask) | setMask)(NRReg-1, 1), 0.U(1.W))
   }
+}
+
+class InstQueue extends NutCoreModule with HasRegFileParameter{
+  val io = IO(new Bundle{
+        val setnum     = Input(UInt(log2Up(Queue_num).W))
+        val clearno    = Vec(FuType.num, Input(UInt(log2Up(Queue_num).W)))
+        val clearvalid = Vec(FuType.num, Input(Bool()))
+        val HeadPtr    = Output(UInt(log2Up(Queue_num).W))
+        val flush      = Input(Bool())
+    })
+  val QueueValid = Reg(Vec(32,UInt(1.W)))
+  val QueueFlag  = Reg(Vec(32,UInt(1.W)))
+  val HeadPtr = RegInit(0.U(log2Up(Queue_num).W))
+  val FlagNow = RegInit(0.U(1.W))
+  def update(setnum: UInt) = {
+    val newHeadPtr = setnum +& HeadPtr
+    when(newHeadPtr === Queue_num.U){
+      HeadPtr := 0.U
+      FlagNow := !FlagNow
+    }otherwise{
+      HeadPtr := newHeadPtr
+    }  
+    for(i <- 0 to Queue_num-1){
+      when(i.U >= HeadPtr && i.U<newHeadPtr){
+        QueueValid(i) := true.B
+        QueueFlag(i) := FlagNow
+      }
+    }
+  }
+  def clear(clearnum:UInt) = {
+    QueueValid(clearnum) := false.B
+  }
+  def flushqueue() = {
+    for(i <- 0 to Queue_num-1){
+      QueueValid(i) := 0.U
+      QueueFlag(i) := 0.U
+      HeadPtr := 0.U
+      FlagNow := 0.U
+    }
+  }
+  when(io.flush || reset.asBool){
+    flushqueue()
+  }otherwise{
+    update(io.setnum)
+    for(i <- 0 to FuType.num-1){
+      when(io.clearvalid(i)){
+        clear(io.clearno(i))
+      }
+    }
+  }
+  io.HeadPtr:=HeadPtr
+  Debug("[Inst_Q] Headptr %x FlagNow %x set_num %x flush %x\n", HeadPtr,FlagNow,io.setnum,io.flush)
 }

@@ -29,6 +29,8 @@ class SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegF
   io.wb.WriteData(i) := io.in(i).bits.commits(io.in(i).bits.decode.ctrl.fuType)
   io.wb.ReadData1(i):=rf.read(io.wb.rfSrc1(i))
   io.wb.ReadData2(i):=rf.read(io.wb.rfSrc2(i))
+  io.wb.valid(i) :=io.in(i).valid
+  io.wb.InstNo(i) := io.in(i).bits.decode.InstNo
   }
   for(i<-0 to Issue_Num-1){
   when (io.wb.rfWen(i)) { rf.write(io.wb.rfDest(i), io.wb.WriteData(i)) }

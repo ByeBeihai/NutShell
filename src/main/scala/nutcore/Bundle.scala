@@ -68,10 +68,11 @@ class CtrlFlowIO extends NutCoreBundle {
   val isBranch = Output(Bool())
 }
 
-class DecodeIO extends NutCoreBundle {
+class DecodeIO extends NutCoreBundle with HasNutCoreParameter{
   val cf = new CtrlFlowIO
   val ctrl = new CtrlSignalIO
   val data = new DataSrcIO
+  val InstNo = Output(UInt(log2Up(Queue_num).W))
 }
 
 class WriteBackIO extends NutCoreBundle {
@@ -88,6 +89,8 @@ class SIMD_WriteBackIO() extends NutCoreBundle with HasNutCoreParameter{
   val rfSrc2 = Vec(Issue_Num,Input(UInt(5.W)))
   val ReadData1 = Vec(Issue_Num,Output(UInt(XLEN.W)))
   val ReadData2 = Vec(Issue_Num,Output(UInt(XLEN.W)))
+  val valid = Vec(Issue_Num,Output(Bool()))
+  val InstNo = Vec(Issue_Num,Output(UInt(log2Up(Queue_num).W)))
 }
 
 class CommitIO extends NutCoreBundle {

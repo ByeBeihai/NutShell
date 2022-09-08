@@ -696,6 +696,8 @@ class Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   isu.io.wb.WriteData(0):=wbu.io.wb.WriteData(0)
   isu.io.wb.ReadData1(0):=wbu.io.wb.ReadData1(0)
   isu.io.wb.ReadData2(0):=wbu.io.wb.ReadData2(0)
+  isu.io.wb.valid(0):=wbu.io.wb.valid(0)
+  isu.io.wb.InstNo(0):=wbu.io.wb.InstNo(0)
   wbu.io.wb.rfSrc1(0):=isu.io.wb.rfSrc1(0)
   wbu.io.wb.rfSrc2(0):=isu.io.wb.rfSrc2(0)
   
