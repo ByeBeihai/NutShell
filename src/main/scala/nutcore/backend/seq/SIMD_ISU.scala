@@ -120,14 +120,12 @@ class SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRegFil
     val q = Module(new InstQueue)
     q.io.setnum := io.out.map(i => i.fire().asUInt).reduce(_+&_)
     q.io.flush  := io.flush
-    q.io.clearno:=DontCare
-    q.io.clearvalid:=DontCare
-    q.io.clearvalid(0) := io.wb.valid(0).asBool
-    q.io.clearno(0) := io.wb.InstNo(0)
+    q.io.clearnum:=io.wb.valid(0)
 
     for(i <- 0 to Issue_Num-1){
         io.out(i).bits.InstNo := q.io.HeadPtr + i.U
     }
+    Debug("[SIMD_ISU] valid %x\n", io.in(0).valid)
     Debug(io.out(0).fire(),"[SIMD_ISU] InstNo %x\n", io.out(0).bits.InstNo)
 }
 class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRegFileParameter{
