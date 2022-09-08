@@ -673,7 +673,7 @@ class Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
     val flush = Input(UInt(2.W))
     val dmem = new SimpleBusUC(addrBits = VAddrBits)
     val memMMU = Flipped(new MemMMUIO)
-
+    val isufire = Vec(2, Output(Bool()))
     val redirect = new RedirectIO
   })
   Debug("------------------------ BACKEND ------------------------\n")
@@ -687,6 +687,8 @@ class Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   PipelineConnect(exu.io.out(0), wbu.io.in(0), true.B, io.flush(1))
 
   isu.io.in <> io.in
+  io.isufire(0) := isu.io.out(0).fire
+  io.isufire(1) := DontCare
   
   isu.io.flush := io.flush(0)
   exu.io.flush := io.flush(1)
