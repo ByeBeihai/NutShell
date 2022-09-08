@@ -128,6 +128,7 @@ class SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRegFil
     for(i <- 0 to Issue_Num-1){
         io.out(i).bits.InstNo := q.io.HeadPtr + i.U
     }
+    Debug(io.out(0).fire(),"[SIMD_ISU] InstNo %x\n", io.out(0).bits.InstNo)
 }
 class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRegFileParameter{
     val io = IO(new Bundle{

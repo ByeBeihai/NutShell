@@ -101,6 +101,7 @@ class SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   for(i <- 0 to Issue_Num-1){
     io.out(i).bits.decode <> io.in(i).bits
   }
+  Debug(io.out(0).fire(),"[SIMD_EXU] InstNo %x\n", io.out(0).bits.decode.InstNo)
   for(k <- 0 to Issue_Num-1){
     io.out(k).bits.decode.ctrl.rfWen := io.in(k).bits.ctrl.rfWen && !IcantWrite(k)
     io.out(k).bits.decode.cf.redirect <> Mux(csr.io.redirect.valid && WhoTakeCsr === k.U, csr.io.redirect, 
