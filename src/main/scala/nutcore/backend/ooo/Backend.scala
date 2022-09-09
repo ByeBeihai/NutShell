@@ -711,3 +711,105 @@ class Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   io.memMMU.dmem <> exu.io.memMMU.dmem
   io.dmem <> exu.io.dmem
 }
+class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
+  val io = IO(new Bundle {
+    val in = Vec(2, Flipped(Decoupled(new DecodeIO)))
+    val flush = Input(UInt(2.W))
+    val dmem = new SimpleBusUC(addrBits = VAddrBits)
+    val memMMU = Flipped(new MemMMUIO)
+    val isufire = Vec(2, Output(Bool()))
+    val redirect = new RedirectIO
+  })
+  Debug("------------------------ BACKEND ------------------------\n")
+  val isu  = Module(new new_SIMD_ISU)
+  val exu  = Module(new new_SIMD_EXU)
+  val wbu  = Module(new new_SIMD_WBU)
+
+  wbu.io.in :=DontCare
+
+  //connect isu and exu : issue-way to FuType.num-way
+  val exu_bits_next = Wire(Vec(FuType.num,new DecodeIO))
+  val exu_bits      = RegInit(0.U.asTypeOf(Vec(FuType.num,new DecodeIO)))
+  exu_bits_next := exu_bits
+  val exu_valid = Reg(Vec(FuType.num,Bool()))
+  val exu_valid_next = Wire(Vec(FuType.num,Bool()))
+  (0 to FuType.num-1).map(i => exu_valid_next(i) := exu_valid(i))
+  (0 to FuType.num-1).map(i => when(exu.io.out(i).fire()){exu_valid_next(i) := false.B})
+
+  def MultiOperatorMatch(futype1:UInt,futype2:UInt):Bool = (futype1 ===FuType.alu || futype1 ===FuType.alu1) && (futype2 ===FuType.alu || futype2 === FuType.alu1)
+  for(i <- 0 to FuType.num-1){
+    exu.io.in(i).bits := exu_bits(i)
+    exu.io.in(i).valid := exu_valid(i)
+  } 
+  for(i <- 0 to Issue_Num-1){
+    isu.io.out(i).ready := false.B
+  }
+  val match_operaotr = Wire(Vec(FuType.num,Vec(FuType.num,Bool())))
+  for(i <- 0 to FuType.num-1){
+    for(j <- 0 to FuType.num-1){
+      match_operaotr(i)(j) := false.B
+    }
+  }
+
+  for(i <- 0 to Issue_Num-1){
+    for(j <- 0 to FuType.num-1){
+      val issue_matched = (0 to j).map( k => {if(k == j){
+                                              false.B
+                                            } else{
+                                            match_operaotr(i)(k)
+                                            }
+                                            }).reduce(_||_)
+      val operator_matched = (0 to i).map( k => {if(k == i){
+                                                  false.B
+                                                }else{match_operaotr(k)(j)}}).reduce(_||_)
+      when(isu.io.out(i).valid && exu.io.in(j).ready && (isu.io.out(i).bits.ctrl.fuType === j.U || MultiOperatorMatch(isu.io.out(i).bits.ctrl.fuType,j.U))){   
+        isu.io.out(i).ready := true.B
+        exu_bits_next(j) := isu.io.in(i).bits
+        exu_valid_next(j) := true.B
+      }
+    }
+  }
+  exu_bits := exu_bits_next
+  
+  when(reset.asBool || io.flush(0)){
+    (0 to FuType.num-1).map(i => exu_valid(i) := false.B)
+  }.otherwise{
+    exu_valid := exu_valid_next
+  }
+
+  //connect exu and wbu
+  for(i <- 0 to FuType.num-1){
+  PipelineConnect(exu.io.out(i), wbu.io.in(i), true.B, io.flush(1))
+  }
+
+  isu.io.in <> io.in
+  io.isufire(0) := isu.io.out(0).fire
+  io.isufire(1) := DontCare
+  
+  isu.io.flush := io.flush(0)
+  exu.io.flush := io.flush(1)
+
+  for(i <- 0 to FuType.num-1){
+    isu.io.wb.rfWen(i) := wbu.io.wb.rfWen(i)
+    isu.io.wb.rfDest(i):= wbu.io.wb.rfDest(i)
+    isu.io.wb.WriteData(i):=wbu.io.wb.WriteData(i)
+    isu.io.wb.valid(i):=wbu.io.wb.valid(i)
+    isu.io.wb.InstNo(i):=wbu.io.wb.InstNo(i)
+  }
+  for(i <- 0 to Issue_Num-1){
+    isu.io.wb.ReadData1(i):=wbu.io.wb.ReadData1(i)
+    isu.io.wb.ReadData2(i):=wbu.io.wb.ReadData2(i)
+    wbu.io.wb.rfSrc1(i):=isu.io.wb.rfSrc1(i)
+    wbu.io.wb.rfSrc2(i):=isu.io.wb.rfSrc2(i)
+  }
+  
+  io.redirect <> wbu.io.redirect
+  // forward
+  for(i <- 0 to FuType.num-1){
+    isu.io.forward(i) <> exu.io.forward(i)  
+  }
+
+  io.memMMU.imem <> exu.io.memMMU.imem
+  io.memMMU.dmem <> exu.io.memMMU.dmem
+  io.dmem <> exu.io.dmem
+}

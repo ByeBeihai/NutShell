@@ -52,6 +52,7 @@ class InstQueue extends NutCoreModule with HasRegFileParameter{
         val clearnum   = Input(UInt(log2Up(Queue_num).W))
         val HeadPtr    = Output(UInt(log2Up(Queue_num).W))
         val TailPtr    = Output(UInt(log2Up(Queue_num).W))
+        val Flag       = Output(UInt(1.W))
         val flush      = Input(Bool())
     })
   val QueueValid = Reg(Vec(32,UInt(1.W)))
@@ -104,6 +105,7 @@ class InstQueue extends NutCoreModule with HasRegFileParameter{
   }
   io.HeadPtr:=HeadPtr
   io.TailPtr:=TailPtr
+  io.Flag   :=FlagNow
   Debug("[Inst_Q] Headptr %x TailPtr %x FlagNow %x set_num %x flush %x\n", HeadPtr,TailPtr, FlagNow,io.setnum,io.flush)
 }
 

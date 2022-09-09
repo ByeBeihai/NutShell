@@ -73,6 +73,7 @@ class DecodeIO extends NutCoreBundle with HasNutCoreParameter{
   val ctrl = new CtrlSignalIO
   val data = new DataSrcIO
   val InstNo = Output(UInt(log2Up(Queue_num).W))
+  val InstFlag = Output(UInt(1.W))
 }
 
 class WriteBackIO extends NutCoreBundle {
@@ -91,6 +92,17 @@ class SIMD_WriteBackIO() extends NutCoreBundle with HasNutCoreParameter{
   val ReadData2 = Vec(Issue_Num,Output(UInt(XLEN.W)))
   val valid = Vec(Issue_Num,Output(Bool()))
   val InstNo = Vec(Issue_Num,Output(UInt(log2Up(Queue_num).W)))
+}
+class new_SIMD_WriteBackIO() extends NutCoreBundle with HasNutCoreParameter{
+  val rfWen = Vec(FuType.num,Output(Bool()))
+  val rfDest = Vec(FuType.num,Output(UInt(5.W)))
+  val WriteData = Vec(FuType.num,Output(UInt(XLEN.W)))
+  val rfSrc1 = Vec(Issue_Num,Input(UInt(5.W)))
+  val rfSrc2 = Vec(Issue_Num,Input(UInt(5.W)))
+  val ReadData1 = Vec(Issue_Num,Output(UInt(XLEN.W)))
+  val ReadData2 = Vec(Issue_Num,Output(UInt(XLEN.W)))
+  val valid = Vec(FuType.num,Output(Bool()))
+  val InstNo = Vec(FuType.num,Output(UInt(log2Up(Queue_num).W)))
 }
 
 class CommitIO extends NutCoreBundle {
