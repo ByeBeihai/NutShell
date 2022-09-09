@@ -101,7 +101,7 @@ class new_lsu extends NutCoreModule with HasLSUConst {
                   2.U -> (0xf.U << addr(XLEN/32,0)), 
                   3.U -> (0xff.U<< addr(XLEN/32,0)) 
                 ))
-  val rdata = Mux(state === s_wait_fire,rdatacache, io.dmem.resp.bits.rdata)
+  val rdata = Mux(state ===s_wait_fire,rdatacache, io.dmem.resp.bits.rdata)
   val rdataSel = LookupTree(addr(XLEN/32, 0), List(
                   0.U -> rdata(XLEN-1, 0),
                   1.U -> rdata(XLEN-1, 8),

@@ -106,3 +106,42 @@ class InstQueue extends NutCoreModule with HasRegFileParameter{
   io.TailPtr:=TailPtr
   Debug("[Inst_Q] Headptr %x TailPtr %x FlagNow %x set_num %x flush %x\n", HeadPtr,TailPtr, FlagNow,io.setnum,io.flush)
 }
+
+class InstBoard extends NutCoreModule with HasRegFileParameter{
+  val io = IO(new Bundle{
+      val Wen        = Vec(NRReg, Input(Bool()))
+      val clear      = Vec(NRReg, Input(Bool()))
+      val WInstNo    = Vec(NRReg, Input(UInt(log2Up(Queue_num).W)))
+      val valid      = Vec(NRReg, Output(Bool()))
+      val RInstNo    = Vec(NRReg, Output(UInt(log2Up(Queue_num).W)))
+      val flush      = Input(Bool())
+  })
+  val validBoard = Reg(Vec(NRReg,Bool()))
+  val InstBoard  = Reg(Vec(NRReg,UInt(log2Up(Queue_num).W)))
+  def flushboard() = {
+    for(i <- 0 to NRReg-1){
+      validBoard(i) := false.B
+      InstBoard(i)  := 0.U
+    }
+  }
+  def update() = {
+    for(i <- 1 to NRReg-1){
+      when(io.Wen(i)){
+        InstBoard(i) := io.WInstNo(i)
+        validBoard(i):= true.B
+      }.elsewhen(io.clear(i)){
+        InstBoard(i) := false.B
+      }
+    }
+  }
+
+  when(io.flush || reset.asBool){
+    flushboard()
+  }otherwise{
+    update()
+  }
+
+  io.valid  := validBoard
+  io.RInstNo:= InstBoard
+}
+

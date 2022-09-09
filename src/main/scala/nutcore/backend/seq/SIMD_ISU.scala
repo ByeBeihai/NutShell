@@ -34,6 +34,7 @@ class SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRegFil
     val src2DependWB = VecInit((0 to Issue_Num-1).map(i=>VecInit((0 to Issue_Num-1).map(j => isDepend(rfSrc2(i), io.wb.rfDest(j), io.wb.rfWen(j))))))
 
     val sb = new ScoreBoard
+    val InstBoard = Module(new InstBoard)
     val src1Ready = VecInit((0 to Issue_Num-1).map(i => !sb.isBusy(rfSrc1(i))||src1DependEX(i).reduce(_||_)||src1DependWB(i).reduce(_||_)))
     val src2Ready = VecInit((0 to Issue_Num-1).map(i => !sb.isBusy(rfSrc2(i))||src2DependEX(i).reduce(_||_)||src2DependWB(i).reduce(_||_)))
 
@@ -109,10 +110,6 @@ class SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRegFil
         io.out(i).bits.ctrl.isSrc1Forward := src1DependEX(i).reduce(_||_)
         io.out(i).bits.ctrl.isSrc2Forward := src2DependEX(i).reduce(_||_)
     }
-    val wbClearMask = VecInit((0 to Issue_Num-1).map(i=>Mux(io.wb.rfWen(i) && !VecInit((0 to Issue_Num-1).map(j=>isDepend(io.wb.rfDest(i), io.forward(j).wb.rfDest, forwardRfWen(j)))).reduce(_||_), sb.mask(io.wb.rfDest(i)), 0.U(NRReg.W)))).reduce(_|_)
-    val isuFireSetMask = VecInit((0 to Issue_Num-1).map(i=>Mux(io.out(i).fire()&&rfWen(i), sb.mask(rfDest(i)), 0.U))).reduce(_|_)
-    when (io.flush) { sb.update(0.U, Fill(NRReg, 1.U(1.W)))}
-    .otherwise { sb.update(isuFireSetMask, wbClearMask) }
 
     io.wb.rfSrc1 := VecInit((0 to Issue_Num-1).map(i => rfSrc1(i)))
     io.wb.rfSrc2 := VecInit((0 to Issue_Num-1).map(i => rfSrc2(i)))
@@ -125,7 +122,26 @@ class SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRegFil
     for(i <- 0 to Issue_Num-1){
         io.out(i).bits.InstNo := q.io.HeadPtr + i.U
     }
-    Debug("[SIMD_ISU] valid %x\n", io.in(0).valid)
+
+    InstBoard.io.Wen     := VecInit((0 to NRReg-1).map(i => VecInit((0 to Issue_Num-1).map(j => i.U === rfDest(j)&&io.out(j).fire()&&rfWen(j))).reduce(_|_)))
+    InstBoard.io.WInstNo := VecInit((0 to NRReg-1).map(i => {val raw = Wire(UInt(log2Up(Queue_num).W))
+                                                                 raw:= 0.U
+                                                            for(j <- 0 to Issue_Num-1){
+                                                                when(i.U === rfDest(j)&&io.out(j).fire()&&rfWen(j)){
+                                                                    raw := io.out(j).bits.InstNo
+                                                                }}
+                                                            raw}))
+    InstBoard.io.clear   := VecInit((0 to NRReg-1).map(i => VecInit((0 to Issue_Num-1).map(j => io.wb.rfWen(j) && i.U === io.wb.rfDest(j) && io.wb.InstNo(j) === InstBoard.io.RInstNo(i))).reduce(_|_)))
+    InstBoard.io.flush   := io.flush
+
+    val wbClearMask = VecInit((0 to Issue_Num-1).map(i=>Mux(io.wb.rfWen(i) && InstBoard.io.RInstNo(io.wb.rfDest(i)) === io.wb.InstNo(i), sb.mask(io.wb.rfDest(i)), 0.U(NRReg.W)))).reduce(_|_)
+    val isuFireSetMask = VecInit((0 to Issue_Num-1).map(i=>Mux(io.out(i).fire()&&rfWen(i), sb.mask(rfDest(i)), 0.U))).reduce(_|_)
+    when (io.flush) { sb.update(0.U, Fill(NRReg, 1.U(1.W)))}
+    .otherwise { sb.update(isuFireSetMask, wbClearMask) }
+
+    Debug("[SIMD_ISU] valid %x rfSrc1 %x rfsrc1ready %x rfsrc2ready %x InstBoard.io.RInstNo(io.wb.rfDest(0)) %x io.wb.InstNo(0) %x\n", io.in(0).valid,rfSrc1(0), src1Ready(0),src2Ready(0), InstBoard.io.RInstNo(io.wb.rfDest(0)),io.wb.InstNo(0))
+    Debug("[SIMD_ISU] InstBoard.io.Wen(0e) %x InstBoard.io.WInstNo(0e) %x \n", InstBoard.io.Wen(14),InstBoard.io.WInstNo(14))
+    Debug("[SIMD_ISU] InstBoard.io.clear(0e) %x InstBoard.io.Rinstno(0e) %x \n", InstBoard.io.clear(14),InstBoard.io.RInstNo(14))
     Debug(io.out(0).fire(),"[SIMD_ISU] InstNo %x\n", io.out(0).bits.InstNo)
 }
 class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRegFileParameter{
