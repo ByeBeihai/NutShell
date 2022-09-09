@@ -142,6 +142,7 @@ class SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
     io.forward(i).wb.rfDest := io.in(i).bits.ctrl.rfDest
     io.forward(i).wb.rfData := MuxLookup(fuType(i),aluOut,List(FuType.alu->aluOut,FuType.alu1->alu1Out,FuType.lsu->lsuOut,FuType.csr->csrOut,FuType.mdu->mduOut))
     io.forward(i).fuType := io.in(i).bits.ctrl.fuType
+    io.forward(i).InstNo := io.in(i).bits.InstNo
   }
 
   if (!p.FPGAPlatform) {

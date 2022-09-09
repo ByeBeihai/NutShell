@@ -124,6 +124,7 @@ class ForwardIO extends NutCoreBundle {
   val valid = Output(Bool())
   val wb = new WriteBackIO
   val fuType = Output(FuType())
+  val InstNo = Output(UInt(log2Up(Queue_num).W))
 }
 
 class MMUIO extends NutCoreBundle {
