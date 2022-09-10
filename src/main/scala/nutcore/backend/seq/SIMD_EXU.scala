@@ -234,10 +234,10 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   val csridx = FuType.csr
   val csr = Module(new CSR)
   val csrOut = csr.access(valid = io.in(csridx).valid, src1 = src1(csridx), src2 = src2(csridx), func = fuOpType(csridx))
-  csr.io.cfIn := io.in(csridx).bits.cf
+  csr.io.cfIn := Mux(io.in(csridx).valid, io.in(csridx).bits.cf,io.in(lsuidx).bits.cf)
   csr.io.cfIn.exceptionVec(loadAddrMisaligned) := lsu.io.loadAddrMisaligned && !io.flush
   csr.io.cfIn.exceptionVec(storeAddrMisaligned) := lsu.io.storeAddrMisaligned && !io.flush
-  csr.io.instrValid := (io.in(csridx).valid) && !io.flush //need to know what does it mean
+  csr.io.instrValid := (io.in(csridx).valid || lsu.io.loadAddrMisaligned || lsu.io.storeAddrMisaligned) && !io.flush //need to know what does it mean
   csr.io.isBackendException := false.B
   for(i <- 0 to FuType.num-1){
     io.out(i).bits.intrNO := csr.io.intrNO
@@ -294,6 +294,10 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
     io.forward(i).wb.rfData := MuxLookup(fuType(i),aluOut,Array(FuType.alu->aluOut,FuType.alu1->alu1Out,FuType.lsu->lsuOut,FuType.csr->csrOut,FuType.mdu->mduOut))
     io.forward(i).fuType := io.in(i).bits.ctrl.fuType
     io.forward(i).InstNo := io.in(i).bits.InstNo
+  }
+
+  when(csr.io.cfIn.exceptionVec.reduce(_||_)){
+    io.out(lsuidx).bits.decode.cf.redirect := io.out(csridx).bits.decode.cf.redirect
   }
 
   if (!p.FPGAPlatform) {
