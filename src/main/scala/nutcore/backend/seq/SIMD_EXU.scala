@@ -65,6 +65,7 @@ class SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   val WhoTakeMdu = WhoTakeThisOperator(FuType.mdu)
   val mduOut = mdu.access(valid = fuValids(FuType.mdu), src1 = src1(WhoTakeMdu), src2 = src2(WhoTakeMdu), func = fuOpType(WhoTakeMdu))
   mdu.io.out.ready := true.B
+  mdu.io.flush := io.flush
 
   //CSRU
   val csr = Module(new CSR)
