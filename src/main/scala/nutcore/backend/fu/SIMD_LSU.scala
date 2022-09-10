@@ -13,6 +13,7 @@ class SIMD_LSU_IO extends FunctionUnitIO {
   val isMMIO = Output(Bool())
   val loadAddrMisaligned = Output(Bool()) // TODO: refactor it for new backend
   val storeAddrMisaligned = Output(Bool()) // TODO: refactor it for new backend
+  val flush = Input(Bool())
 }
 
 class SIMD_LSU extends NutCoreModule with HasLSUConst {
@@ -85,7 +86,7 @@ class new_lsu extends NutCoreModule with HasLSUConst {
   val s_idle :: s_wait_resp :: s_wait_fire ::Nil = Enum(3)
   val state = RegInit(s_idle)
 
-  Debug(io.dmem.req.fire(), "[LSU] %x, size %x, wdata_raw %x, isStore %x\n", addr, func(1,0), io.wdata, isStore)
+  Debug( "[LSU] addr %x, size %x, wdata_raw %x, isStore %x reqfire %x\n", addr, func(1,0), io.wdata, isStore,io.dmem.req.fire())
 
   val size = func(1,0)
   val reqAddr  = Mux((XLEN>=VAddrBits).B,addr(VAddrBits-1,0),SignExt(addr,VAddrBits))
@@ -132,20 +133,23 @@ class new_lsu extends NutCoreModule with HasLSUConst {
     wdata = reqWdata,
     wmask = reqWmask,
     cmd = Mux(isStore, SimpleBusCmd.write, SimpleBusCmd.read))
-  io.dmem.req.valid := valid && (state === s_idle) && !io.loadAddrMisaligned && !io.storeAddrMisaligned
+  io.dmem.req.valid := valid && (state === s_idle) && !io.loadAddrMisaligned && !io.storeAddrMisaligned && !io.flush
   io.dmem.resp.ready := true.B
   io.out.bits := Mux(partialLoad, rdataPartialLoad, rdata(XLEN-1,0))
   io.out.valid := Mux( false.B && state =/= s_idle || io.loadAddrMisaligned || io.storeAddrMisaligned, true.B, io.dmem.resp.fire() && (state === s_wait_resp)|| state ===s_wait_fire)
   io.in.ready := (state === s_idle)
   io.isMMIO := DontCare
-  Debug(io.out.fire(), "[LSU-EXECUNIT] state %x dresp %x dpf %x lm %x sm %x\n", state, io.dmem.resp.fire(), false.B, io.loadAddrMisaligned, io.storeAddrMisaligned)
+  Debug("[LSU-EXECUNIT] state %x dresp %x dpf %x lm %x sm %x resfire %x \n", state, io.dmem.resp.fire(), false.B, io.loadAddrMisaligned, io.storeAddrMisaligned,io.dmem.resp.fire())
 
   switch (state) {
-    is (s_idle) { when (io.dmem.req.fire()) { state := s_wait_resp } }
-    is (s_wait_resp) { when (io.dmem.resp.fire() && io.out.fire()) { state := s_idle 
+    is (s_idle) { when(io.flush){
+                    state := s_idle
+                }.elsewhen (io.dmem.req.fire()){ 
+                    state := s_wait_resp } }
+    is (s_wait_resp) { when (io.dmem.resp.fire() && io.out.fire() || io.flush) { state := s_idle 
                       }.elsewhen(io.dmem.resp.fire() && !io.out.fire()) {state := s_wait_fire
                                                                         rdatacache := rdata} }
-    is (s_wait_fire) { when(io.out.fire()){state := s_idle}}
+    is (s_wait_fire) { when(io.out.fire() || io.flush){state := s_idle}}
   }
 
   io.loadAddrMisaligned :=  valid && !isStore && !addrAligned

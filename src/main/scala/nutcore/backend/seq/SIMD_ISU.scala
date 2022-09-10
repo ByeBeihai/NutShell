@@ -154,12 +154,15 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
         val wb = Flipped(new new_SIMD_WriteBackIO)
         val forward = Vec(FuType.num,Flipped(new ForwardIO))
         val flush = Input(Bool())
+        val num_enterwbu = Input(UInt(log2Up(Queue_num).W))
+        val TailPtr = Output(UInt(log2Up(Queue_num).W))
     })
     for(i<-0 to Issue_Num-1){
         io.out(i):=DontCare
     }
     val sb = new ScoreBoard
     val InstBoard = Module(new InstBoard)
+    val q = Module(new InstQueue)
 
     val rfSrc1 = VecInit((0 to Issue_Num-1).map(i => io.in(i).bits.ctrl.rfSrc1))
     val rfSrc2 = VecInit((0 to Issue_Num-1).map(i => io.in(i).bits.ctrl.rfSrc2))
@@ -208,7 +211,7 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
 
     for(i <- 0 to Issue_Num-1){
         if(i == 0){
-            io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i)
+            io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i) &&(io.in(i).bits.ctrl.fuType =/= FuType.csr || io.in(i).bits.ctrl.fuType===FuType.csr && q.io.TailPtr === q.io.HeadPtr)
         }else{
             io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i) && !RAWinIssue(i) && !FrontHasCsrOp(i) && !(isCsrOp(i) && !FrontisClear(i))
         }
@@ -244,15 +247,20 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
     io.wb.rfSrc1 := VecInit((0 to Issue_Num-1).map(i => rfSrc1(i)))
     io.wb.rfSrc2 := VecInit((0 to Issue_Num-1).map(i => rfSrc2(i)))
 
-    val q = Module(new InstQueue)
     q.io.setnum := io.out.map(i => i.fire().asUInt).reduce(_+&_)
     q.io.flush  := io.flush
-    q.io.clearnum:=io.wb.valid(0)
-    val invalidnum = io.in.map(i => (!i.valid).asUInt).reduce(_+&_)
+    q.io.clearnum:=io.num_enterwbu
+    val invalidnum = (0 to Issue_Num-1).map(i => {
+                                            if(i == 0){
+                                                0.U
+                                            }else{
+                                                (0 to i-1).map(j => (!io.in(j).valid).asUInt).reduce(_+&_)
+                                            }})
     for(i <- 0 to Issue_Num-1){
-        io.out(i).bits.InstNo := q.io.HeadPtr + i.U - invalidnum
+        io.out(i).bits.InstNo := q.io.HeadPtr + i.U - invalidnum(i)
         io.out(i).bits.InstFlag:= q.io.Flag
     }
+    io.TailPtr := q.io.TailPtr
 
     InstBoard.io.Wen     := VecInit((0 to NRReg-1).map(i => VecInit((0 to Issue_Num-1).map(j => i.U === rfDest(j)&&io.out(j).fire()&&rfWen(j))).reduce(_|_)))
     InstBoard.io.WInstNo := VecInit((0 to NRReg-1).map(i => {val raw = Wire(UInt(log2Up(Queue_num).W))
@@ -270,8 +278,9 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
     when (io.flush) { sb.update(0.U, Fill(NRReg, 1.U(1.W)))}
     .otherwise { sb.update(isuFireSetMask, wbClearMask) }
 
-    Debug("[SIMD_ISU] valid %x rfSrc1 %x rfsrc1ready %x rfsrc2ready %x InstBoard.io.RInstNo(io.wb.rfDest(0)) %x io.wb.InstNo(0) %x\n", io.in(0).valid,rfSrc1(0), src1Ready(0),src2Ready(0), InstBoard.io.RInstNo(io.wb.rfDest(0)),io.wb.InstNo(0))
-    Debug("[SIMD_ISU] InstBoard.io.Wen(0e) %x InstBoard.io.WInstNo(0e) %x \n", InstBoard.io.Wen(14),InstBoard.io.WInstNo(14))
-    Debug("[SIMD_ISU] InstBoard.io.clear(0e) %x InstBoard.io.Rinstno(0e) %x \n", InstBoard.io.clear(14),InstBoard.io.RInstNo(14))
+    for(i <- 0 to Issue_Num-1){
+    Debug("[SIMD_ISU] issue %x valid %x rfSrc1 %x rfSrc2 %x rfdata1 %x rfdata2 %x rfsrc1ready %x rfsrc2ready %x\n", i.U,io.in(i).valid,rfSrc1(i),rfSrc2(i), io.out(i).bits.data.src1,io.out(i).bits.data.src2,src1Ready(i),src2Ready(i))
+    Debug("[SIMD_ISU] issue %x pc %x inst %x futype %x futypeop %x src1ex %x src2ex %x src1wb %x src2wb %x \n",i.U,io.in(i).bits.cf.pc,io.in(i).bits.cf.instr,io.in(i).bits.ctrl.fuType,io.in(i).bits.ctrl.fuOpType,src1DependEX(i).reduce(_|_),src2DependEX(i).reduce(_|_),src1DependWB(i).reduce(_|_),src2DependWB(i).reduce(_|_))
     Debug(io.out(0).fire(),"[SIMD_ISU] InstNo %x\n", io.out(0).bits.InstNo)
+    }
 }

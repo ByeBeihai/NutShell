@@ -47,22 +47,47 @@ class MulDivIO(val len: Int) extends Bundle {
   val in = Flipped(DecoupledIO(Vec(2, Output(UInt(len.W)))))
   val sign = Input(Bool())
   val out = DecoupledIO(Output(UInt((len * 2).W)))
+  val flush = Input(Bool())
 }
 
 class Multiplier(len: Int) extends NutCoreModule {
   val io = IO(new MulDivIO(len))
   val latency = 1
 
+  val s_idle :: s_mul :: s_wait:: Nil = Enum(3)
+  val state = RegInit(s_idle)
+  val cnt = RegInit(0.U(log2Up(5000).W))
+
   def DSPInPipe[T <: Data](a: T) = RegNext(a)
   def DSPOutPipe[T <: Data](a: T) = RegNext(RegNext(RegNext(a)))
   val mulRes = (DSPInPipe(io.in.bits(0)).asSInt * DSPInPipe(io.in.bits(1)).asSInt)
   io.out.bits := DSPOutPipe(mulRes).asUInt
-  io.out.valid := DSPOutPipe(DSPInPipe(io.in.fire()))
+  io.out.valid := state === s_mul && cnt === 4.U || state === s_wait
+  io.in.ready := state === s_idle
 
-  val busy = RegInit(false.B)
-  when (io.in.valid && !busy) { busy := true.B }
-  when (io.out.valid) { busy := false.B }
-  io.in.ready := (if (latency == 0) true.B else !busy)
+  when(io.flush){
+    state := s_idle
+    cnt := 0.U
+  }.elsewhen(io.in.fire()){
+    state := s_mul
+    cnt := 1.U
+  }.elsewhen(io.out.fire()){
+    state := s_idle
+    cnt := 0.U
+  }.elsewhen(io.out.valid && !io.out.fire()){
+    state := s_wait
+    cnt := 0.U
+  }.elsewhen(state === s_wait && io.out.fire()){
+    state := s_idle
+    cnt := 0.U
+  }otherwise{
+    state := state
+    when(state === s_mul){
+      cnt := cnt +& 1.U
+    }otherwise{
+      cnt := cnt
+    }
+  }
 }
 
 class Divider(len: Int = 64) extends NutCoreModule {
@@ -75,7 +100,7 @@ class Divider(len: Int = 64) extends NutCoreModule {
 
   val s_idle :: s_log2 :: s_shift :: s_compute :: s_finish :: Nil = Enum(5)
   val state = RegInit(s_idle)
-  val newReq = (state === s_idle) && io.in.fire()
+  val newReq = (state === s_idle) && io.in.fire() && !io.flush
 
   val (a, b) = (io.in.bits(0), io.in.bits(1))
   val divBy0 = b === 0.U(len.W)
@@ -92,7 +117,9 @@ class Divider(len: Int = 64) extends NutCoreModule {
   val aValx2Reg = RegEnable(Cat(aVal, "b0".U), newReq)
 
   val cnt = Counter(len)
-  when (newReq) {
+  when(io.flush){
+    state := s_idle
+  }.elsewhen (newReq) {
     state := s_log2
   } .elsewhen (state === s_log2) {
     // `canSkipShift` is calculated as following:
@@ -130,6 +157,7 @@ class Divider(len: Int = 64) extends NutCoreModule {
 }
 
 class MDUIO extends FunctionUnitIO {
+  val flush = Input(Bool())
 }
 
 class MDU extends NutCoreModule {
@@ -150,6 +178,8 @@ class MDU extends NutCoreModule {
 
   val mul = Module(new Multiplier(XLEN + 1))
   val div = Module(new Divider(XLEN))
+  mul.io.flush := io.flush
+  div.io.flush := io.flush
   List(mul.io, div.io).map { case x =>
     x.sign := isDivSign
     x.out.ready := io.out.ready

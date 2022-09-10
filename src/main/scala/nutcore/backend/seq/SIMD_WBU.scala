@@ -124,14 +124,20 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
 
   val rf = new RegFile
 
+  val redirct_index = PriorityMux(VecInit((0 to FuType.num-1).map(i => io.in(i).bits.decode.cf.redirect.valid && io.in(i).valid)).zipWithIndex.map{case(a,b)=>(a,b.U)})
+  io.redirect := io.in(redirct_index).bits.decode.cf.redirect
+  io.redirect.valid := VecInit((0 to FuType.num-1).map(i => io.in(i).bits.decode.cf.redirect.valid && io.in(i).valid)).reduce(_||_)
+
+  val FronthasRedirect = VecInit((0 to FuType.num-1).map(i => i.U > redirct_index))
+
   for(i <- 0 to FuType.num-1){
-    io.wb.rfWen(i) := io.in(i).bits.decode.ctrl.rfWen && io.in(i).valid 
+    io.wb.rfWen(i) := io.in(i).bits.decode.ctrl.rfWen && io.in(i).valid && !FronthasRedirect(i)
     io.wb.rfDest(i) := io.in(i).bits.decode.ctrl.rfDest
     io.wb.WriteData(i) := io.in(i).bits.commits(io.in(i).bits.decode.ctrl.fuType)
     io.wb.valid(i) :=io.in(i).valid
     io.wb.InstNo(i) := io.in(i).bits.decode.InstNo
   }
-  for(i<-0 to Issue_Num-1){
+  for(i<-0 to FuType.num-1){
     when (io.wb.rfWen(i)) { rf.write(io.wb.rfDest(i), io.wb.WriteData(i)) }
   }
   for(i <- 0 to Issue_Num-1){
@@ -141,10 +147,6 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   for(i <- 0 to FuType.num-1){
     io.in(i).ready := true.B
   }
-
-  val redirct_index = PriorityMux(VecInit((0 to FuType.num-1).map(i => io.in(i).bits.decode.cf.redirect.valid && io.in(i).valid)).zipWithIndex.map{case(a,b)=>(a,b.U)})
-  io.redirect := io.in(redirct_index).bits.decode.cf.redirect
-  io.redirect.valid := VecInit((0 to Issue_Num-1).map(i => io.in(i).bits.decode.cf.redirect.valid && io.in(i).valid)).reduce(_||_)
   
   val runahead_redirect = Module(new DifftestRunaheadRedirectEvent)
   runahead_redirect.io.clock := clock
@@ -158,26 +160,30 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   // }
 
   val falseWire = WireInit(false.B) // make BoringUtils.addSource happy
-  for(i <- 0 to Issue_Num-1){
+  for(i <- 0 to 0){
   BoringUtils.addSource(io.in(i).valid, "perfCntCondMinstret")
   BoringUtils.addSource(falseWire, "perfCntCondMultiCommit")
   }
-  
+
+  for(i <- 0 to FuType.num-1){
+    Debug("[SIMD_WBU] issue %x valid %x pc %x wen %x wdata %x futype %x instno %x redirectvalid %x redirecttarget %x \n",i.U,io.in(i).valid,io.in(i).bits.decode.cf.pc,io.wb.rfWen(i),io.wb.WriteData(i),io.in(i).bits.decode.ctrl.fuType,io.in(i).bits.decode.InstNo,io.in(i).bits.decode.cf.redirect.valid,io.in(i).bits.decode.cf.redirect.target)
+  }
+  Debug("[SIMD_WBU] redirctindex %x redirctvalid %x redircttarget %x \n",redirct_index,io.redirect.valid,io.redirect.target)
   if (!p.FPGAPlatform) {
-    for(i <- 0 to Issue_Num-1){
+    for(i <- 0 to FuType.num-1){
     val difftest_commit = Module(new DifftestInstrCommit)
     difftest_commit.io.clock    := clock
     difftest_commit.io.coreid   := 0.U
     difftest_commit.io.index    := i.U
 
-    difftest_commit.io.valid    := RegNext(io.in(i).valid)
+    difftest_commit.io.valid    := RegNext(io.in(i).valid && !FronthasRedirect(i))
     difftest_commit.io.pc       := RegNext(SignExt(io.in(i).bits.decode.cf.pc, AddrBits))
     difftest_commit.io.instr    := RegNext(io.in(i).bits.decode.cf.instr)
     difftest_commit.io.skip     := RegNext(io.in(i).bits.isMMIO)
     difftest_commit.io.isRVC    := RegNext(io.in(i).bits.decode.cf.instr(1,0)=/="b11".U)
     difftest_commit.io.rfwen    := RegNext(io.wb.rfWen(i) && io.wb.rfDest(i) =/= 0.U) // && valid(ringBufferTail)(i) && commited(ringBufferTail)(i)
     difftest_commit.io.fpwen    := false.B
-    // difftest.io.wdata    := RegNext(io.wb.rfData)
+    //difftest_commit.io.wdata    := RegNext(io.wb.WriteData(i))
     difftest_commit.io.wdest    := RegNext(io.wb.rfDest(i))
     difftest_commit.io.wpdest   := RegNext(io.wb.rfDest(i))
 
@@ -200,7 +206,7 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     // }
     }
   } else {
-    for(i <- 0 to Issue_Num-1){
+    for(i <- 0 to 0){
     BoringUtils.addSource(io.in(i).valid, "ilaWBUvalid")
     BoringUtils.addSource(io.in(i).bits.decode.cf.pc, "ilaWBUpc")
     BoringUtils.addSource(io.wb.rfWen(i), "ilaWBUrfWen")
