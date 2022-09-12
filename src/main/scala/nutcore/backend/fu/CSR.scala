@@ -712,7 +712,6 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   io.out.valid := valid
 
   // perfcnt
-
   val generalPerfCntList = Map(
     "Mcycle"      -> (0xb00, "perfCntCondMcycle"     ),
     "Minstret"    -> (0xb02, "perfCntCondMinstret"   ),
