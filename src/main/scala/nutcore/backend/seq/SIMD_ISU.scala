@@ -257,8 +257,10 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
                                                 (0 to i-1).map(j => (!io.in(j).valid).asUInt).reduce(_+&_)
                                             }})
     for(i <- 0 to Issue_Num-1){
-        io.out(i).bits.InstNo := q.io.HeadPtr + i.U - invalidnum(i)
-        io.out(i).bits.InstFlag:= q.io.Flag
+        val mightbeInstNo = q.io.HeadPtr +& i.U - invalidnum(i)
+        val startNewQueue = mightbeInstNo >= Queue_num.U
+        io.out(i).bits.InstNo := Mux(startNewQueue,mightbeInstNo-Queue_num.U,mightbeInstNo)
+        io.out(i).bits.InstFlag:= Mux(startNewQueue,!q.io.Flag,q.io.Flag)
     }
     io.TailPtr := q.io.TailPtr
 

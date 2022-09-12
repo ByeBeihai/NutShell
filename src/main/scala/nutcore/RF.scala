@@ -63,31 +63,44 @@ class InstQueue extends NutCoreModule with HasRegFileParameter{
   def update(setnum: UInt,clearnum:UInt) = {
     val newHeadPtr = setnum +& HeadPtr
     val newTailPtr = clearnum +& TailPtr
-    when(newTailPtr === Queue_num.U){
-      TailPtr := 0.U
+    when(newTailPtr >= Queue_num.U){
+      TailPtr := newTailPtr - Queue_num.U
     }otherwise{
       TailPtr := newTailPtr
     }
     for(i <- 0 to Queue_num-1){
-      when(i.U >= TailPtr && i.U<newTailPtr){
-        QueueValid(i) := false.B
+      when(newTailPtr >= Queue_num.U){
+        when(i.U >= TailPtr && i.U <= (Queue_num-1).U || i.U < newTailPtr - Queue_num.U){
+          QueueValid(i) := false.B
+        }
+      }.otherwise{
+        when(i.U >= TailPtr && i.U<newTailPtr){
+          QueueValid(i) := false.B
+        }
       }
     }
-    when(newHeadPtr === Queue_num.U){
-      HeadPtr := 0.U
+    when(newHeadPtr >= Queue_num.U){
+      HeadPtr := newHeadPtr-Queue_num.U
       FlagNow := !FlagNow
     }otherwise{
       HeadPtr := newHeadPtr
     }  
     for(i <- 0 to Queue_num-1){
-      when(i.U >= HeadPtr && i.U<newHeadPtr){
-        QueueValid(i) := true.B
-        QueueFlag(i) := FlagNow
+      when(newHeadPtr >= Queue_num.U){
+        when(i.U >= HeadPtr && i.U <= (Queue_num-1).U){
+          QueueValid(i) := true.B
+          QueueFlag(i) := FlagNow
+        }.elsewhen(i.U < newHeadPtr - Queue_num.U){
+          QueueValid(i) := true.B
+          QueueFlag(i) := !FlagNow
+        }
+      }.otherwise{
+        when(i.U >= HeadPtr && i.U<newHeadPtr){
+          QueueValid(i) := true.B
+          QueueFlag(i) := FlagNow
+        }
       }
     }
-  }
-  def clear(clearnum:UInt) = {
-    QueueValid(clearnum) := false.B
   }
   def flushqueue() = {
     for(i <- 0 to Queue_num-1){

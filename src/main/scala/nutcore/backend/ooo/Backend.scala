@@ -798,7 +798,7 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   }
 
   val TailPtr = isu.io.TailPtr
-  val ptrleft = (Queue_num+1).U-TailPtr
+  val ptrleft = (Queue_num).U-TailPtr
   val enoughspace = ptrleft>=(FuType.num).U
   val space = Mux(enoughspace,(FuType.num).U,(FuType.num).U-ptrleft)
   val continusfire = (0 to FuType.num-1).map(i => {if(i == 0){
