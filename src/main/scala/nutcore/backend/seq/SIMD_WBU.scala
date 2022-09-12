@@ -159,10 +159,13 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   //   printf("DUT pc %x redirect to %x cpid %x\n", runahead_redirect.io.pc, runahead_redirect.io.target_pc, runahead_redirect.io.checkpoint_id)
   // }
 
-  val falseWire = WireInit(false.B) // make BoringUtils.addSource happy
+  val commit_num = io.in.map(i => i.valid.asUInt).reduce(_+&_)
   for(i <- 0 to 0){
   BoringUtils.addSource(io.in(i).valid, "perfCntCondMinstret")
-  BoringUtils.addSource(falseWire, "perfCntCondMultiCommit")
+  BoringUtils.addSource(commit_num=/=0.U, "perfCntCondMultiCommit")
+  BoringUtils.addSource(commit_num===2.U, "perfCntCondMultiCommit2")
+  BoringUtils.addSource(commit_num===3.U, "perfCntCondMultiCommit3")
+  BoringUtils.addSource(commit_num===4.U, "perfCntCondMultiCommit4")
   }
 
   for(i <- 0 to FuType.num-1){

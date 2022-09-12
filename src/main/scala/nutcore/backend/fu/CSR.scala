@@ -738,9 +738,9 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     "MbpRRight"   -> (0xb16, "MbpRRight"             ),
     "MbpRWrong"   -> (0xb17, "MbpRWrong"             ),
     "Ml2cacheHit" -> (0xb18, "perfCntCondMl2cacheHit"),
-    "Custom1"     -> (0xb19, "Custom1"               ),
-    "Custom2"     -> (0xb1a, "Custom2"               ),
-    "Custom3"     -> (0xb1b, "Custom3"               ),
+    "MultiCommit2"-> (0xb19, "perfCntCondMultiCommit2"),
+    "MultiCommit3"-> (0xb1a, "perfCntCondMultiCommit3"),
+    "MultiCommit4"-> (0xb1b, "perfCntCondMultiCommit4"),
     "Custom4"     -> (0xb1c, "Custom4"               ),
     "Custom5"     -> (0xb1d, "Custom5"               ),
     "Custom6"     -> (0xb1e, "Custom6"               ),
@@ -822,7 +822,13 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   BoringUtils.addSink(pendingLS, "perfCntSrcMpendingLS")
   BoringUtils.addSink(pendingSCmt, "perfCntSrcMpendingSCmt")
   BoringUtils.addSink(pendingSReq, "perfCntSrcMpendingSReq")
-  when(perfCntCond(0xb03 & 0x7f)) { perfCnts(0xb02 & 0x7f) := perfCnts(0xb02 & 0x7f) + 2.U } // Minstret += 2 when MultiCommit
+  when(perfCntCond(0xb03 & 0x7f)) { when(perfCntCond(0xb19 & 0x7f)){
+                                      perfCnts(0xb02 & 0x7f) := perfCnts(0xb02 & 0x7f) + 2.U 
+                                  }.elsewhen(perfCntCond(0xb1a & 0x7f)){
+                                      perfCnts(0xb02 & 0x7f) := perfCnts(0xb02 & 0x7f) + 3.U 
+                                  }.elsewhen(perfCntCond(0xb1b & 0x7f)){
+                                      perfCnts(0xb02 & 0x7f) := perfCnts(0xb02 & 0x7f) + 4.U 
+                                  }} // Minstret += 2 when MultiCommit
   if (hasPerfCnt) {
     when(true.B) { perfCnts(0xb63 & 0x7f) := perfCnts(0xb63 & 0x7f) + pendingLS } 
     when(true.B) { perfCnts(0xb64 & 0x7f) := perfCnts(0xb64 & 0x7f) + pendingSCmt } 

@@ -20,6 +20,7 @@ class SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRegFil
     }
     val sb = new ScoreBoard
     val InstBoard = Module(new InstBoard)
+    val q = Module(new InstQueue)
 
     val rfSrc1 = VecInit((0 to Issue_Num-1).map(i => io.in(i).bits.ctrl.rfSrc1))
     val rfSrc2 = VecInit((0 to Issue_Num-1).map(i => io.in(i).bits.ctrl.rfSrc2))
@@ -116,7 +117,6 @@ class SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRegFil
     io.wb.rfSrc1 := VecInit((0 to Issue_Num-1).map(i => rfSrc1(i)))
     io.wb.rfSrc2 := VecInit((0 to Issue_Num-1).map(i => rfSrc2(i)))
 
-    val q = Module(new InstQueue)
     q.io.setnum := io.out.map(i => i.fire().asUInt).reduce(_+&_)
     q.io.flush  := io.flush
     q.io.clearnum:=io.wb.valid(0)
