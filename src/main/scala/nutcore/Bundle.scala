@@ -111,6 +111,12 @@ class CommitIO extends NutCoreBundle {
   val intrNO = Output(UInt(XLEN.W))
   val commits = Output(Vec(FuType.num, UInt(XLEN.W)))
 }
+class SIMD_CommitIO extends NutCoreBundle {
+  val decode = new DecodeIO
+  val isMMIO = Output(Bool())
+  val intrNO = Output(UInt(XLEN.W))
+  val commits = Output(UInt(XLEN.W))
+}
 
 class OOCommitIO extends NutCoreBundle with HasBackendConst{
   val decode = new DecodeIO

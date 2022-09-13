@@ -780,9 +780,9 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
     exu_valid := exu_valid_next
   }
 
-  //connect exu and wbu FuType.num-way to FuType.num-way
-  val wbu_bits_next = Wire(Vec(FuType.num,new CommitIO))
-  val wbu_bits      = RegInit(0.U.asTypeOf(Vec(FuType.num,new CommitIO)))
+  //connect exu and wbu : FuType.num-way to FuType.num-way
+  val wbu_bits_next = Wire(Vec(FuType.num,new SIMD_CommitIO))
+  val wbu_bits      = RegInit(0.U.asTypeOf(Vec(FuType.num,new SIMD_CommitIO)))
   wbu_bits_next := wbu_bits
   val wbu_valid = Reg(Vec(FuType.num,Bool()))
   val wbu_valid_next = Wire(Vec(FuType.num,Bool()))

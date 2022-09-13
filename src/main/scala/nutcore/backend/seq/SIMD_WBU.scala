@@ -117,7 +117,7 @@ class SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegF
 }
 class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegFileParameter{
   val io = IO(new Bundle {
-    val in = Vec(FuType.num,Flipped(Decoupled(new CommitIO)))
+    val in = Vec(FuType.num,Flipped(Decoupled(new SIMD_CommitIO)))
     val wb = new new_SIMD_WriteBackIO
     val redirect = new RedirectIO
   })
@@ -133,7 +133,7 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   for(i <- 0 to FuType.num-1){
     io.wb.rfWen(i) := io.in(i).bits.decode.ctrl.rfWen && io.in(i).valid && !FronthasRedirect(i)
     io.wb.rfDest(i) := io.in(i).bits.decode.ctrl.rfDest
-    io.wb.WriteData(i) := io.in(i).bits.commits(io.in(i).bits.decode.ctrl.fuType)
+    io.wb.WriteData(i) := io.in(i).bits.commits
     io.wb.valid(i) :=io.in(i).valid
     io.wb.InstNo(i) := io.in(i).bits.decode.InstNo
   }

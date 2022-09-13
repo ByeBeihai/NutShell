@@ -177,7 +177,7 @@ class SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
 class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   val io = IO(new Bundle {
     val in = Vec(FuType.num,Flipped(Decoupled(new DecodeIO)))
-    val out = Vec(FuType.num,Decoupled(new CommitIO))
+    val out = Vec(FuType.num,Decoupled(new SIMD_CommitIO))
     val flush = Input(Bool())
     val dmem = new SimpleBusUC(addrBits = VAddrBits)
     val forward = Vec(FuType.num,new ForwardIO)
@@ -248,7 +248,6 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
                               }
                               raw.reduce(_||_)
                             }
-
   val csr = Module(new CSR)
   val csrOut = csr.access(valid = io.in(csridx).valid, src1 = src1(csridx), src2 = src2(csridx), func = fuOpType(csridx))
   csr.io.cfIn := Mux(io.in(csridx).valid, io.in(csridx).bits.cf,io.in(lsuidx).bits.cf)
@@ -296,16 +295,18 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   }
   for(k <- 0 to FuType.num-1){
     io.out(k).bits.commits:= DontCare
-    io.out(k).bits.commits(FuType.alu) := aluOut
-    io.out(k).bits.commits(FuType.lsu) := lsuOut
-    io.out(k).bits.commits(FuType.csr) := csrOut
-    io.out(k).bits.commits(FuType.mdu) := mduOut
-    io.out(k).bits.commits(FuType.alu1):= alu1Out
   }
+  io.out(FuType.alu).bits.commits := aluOut
+  io.out(FuType.lsu).bits.commits := lsuOut
+  io.out(FuType.csr).bits.commits := csrOut
+  io.out(FuType.mdu).bits.commits := mduOut
+  io.out(FuType.alu1).bits.commits:= alu1Out
+
   for(i <- 0 to FuType.num-1){
     io.in(i).ready := !io.in(i).valid || io.out(i).fire()
   }
   //io.in(alu1idx).ready := false.B
+  
   for(i <- 0 to FuType.num-1){
     io.forward(i).valid := io.in(i).valid & io.out(i).valid
     io.forward(i).wb.rfWen := io.in(i).bits.ctrl.rfWen && !IcantWrite(i)
