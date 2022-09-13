@@ -41,7 +41,7 @@ class SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   alu.io.out.ready := true.B
 
   //ALU1
-  val alu1 = Module(new ALU(hasBru = true,NO1 = false))
+  val alu1 = Module(new ALU(hasBru = false,NO1 = false))
   val WhoTakeAlu1 = WhoTakeThisOperator(FuType.alu1)
   val alu1Out = alu1.access(valid = fuValids(FuType.alu1), src1 = src1(WhoTakeAlu1), src2 = src2(WhoTakeAlu1), func = fuOpType(WhoTakeAlu1))
   alu1.io.cfIn := io.in(WhoTakeAlu1).bits.cf
@@ -193,7 +193,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
 
   //ALU
   val aluidx = FuType.alu
-  val alu = Module(new ALU(hasBru = true,NO1 = false))
+  val alu = Module(new ALU(hasBru = true,NO1 = true))
   val aluOut = alu.access(valid = io.in(aluidx).valid, src1 = src1(aluidx), src2 = src2(aluidx), func = fuOpType(aluidx))
   alu.io.cfIn := io.in(aluidx).bits.cf
   alu.io.offset := io.in(aluidx).bits.data.imm
@@ -288,7 +288,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   for(i <- 0 to FuType.num-1){
     io.in(i).ready := !io.in(i).valid || io.out(i).fire()
   }
-  //io.in(alu1idx).ready := false.B
+  io.in(alu1idx).ready := false.B
   for(i <- 0 to FuType.num-1){
     io.forward(i).valid := io.in(i).valid & io.out(i).valid
     io.forward(i).wb.rfWen := io.in(i).bits.ctrl.rfWen && !IcantWrite(i)
