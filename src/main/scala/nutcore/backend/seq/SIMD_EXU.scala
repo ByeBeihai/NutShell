@@ -219,6 +219,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   }
   io.dmem <> lsu.io.dmem
   lsu.io.out.ready := io.out(lsuidx).ready
+
   lsu.io.flush := io.flush
 
   //MDU
@@ -233,12 +234,27 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
 
   //CSRU
   val csridx = FuType.csr
+  val BeforeCSRhasRedirect = {val raw = Wire(Vec(FuType.num,Bool())) 
+                              for(i <- 0  to FuType.num-1){
+                                if(i == 3){
+                                  raw(i) := false.B
+                                }else{
+                                  when(notafter(io.in(i).bits.InstNo,io.in(csridx).bits.InstNo,io.in(i).bits.InstFlag,io.in(csridx).bits.InstFlag)&&io.out(i).bits.decode.cf.redirect.valid){
+                                    raw(i) := true.B
+                                  }.otherwise{
+                                    raw(i) := false.B
+                                  }
+                                }
+                              }
+                              raw.reduce(_||_)
+                            }
+
   val csr = Module(new CSR)
   val csrOut = csr.access(valid = io.in(csridx).valid, src1 = src1(csridx), src2 = src2(csridx), func = fuOpType(csridx))
   csr.io.cfIn := Mux(io.in(csridx).valid, io.in(csridx).bits.cf,io.in(lsuidx).bits.cf)
-  csr.io.cfIn.exceptionVec(loadAddrMisaligned) := lsu.io.loadAddrMisaligned && !io.flush
-  csr.io.cfIn.exceptionVec(storeAddrMisaligned) := lsu.io.storeAddrMisaligned && !io.flush
-  csr.io.instrValid := (io.in(csridx).valid || lsu.io.loadAddrMisaligned || lsu.io.storeAddrMisaligned) && !io.flush //need to know what does it mean
+  csr.io.cfIn.exceptionVec(loadAddrMisaligned) := lsu.io.loadAddrMisaligned && !BeforeCSRhasRedirect
+  csr.io.cfIn.exceptionVec(storeAddrMisaligned) := lsu.io.storeAddrMisaligned && !BeforeCSRhasRedirect
+  csr.io.instrValid := (io.in(csridx).valid || lsu.io.loadAddrMisaligned || lsu.io.storeAddrMisaligned) && !BeforeCSRhasRedirect //need to know what does it mean
   csr.io.isBackendException := false.B
   for(i <- 0 to FuType.num-1){
     io.out(i).bits.intrNO := csr.io.intrNO
@@ -265,15 +281,16 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   }
   for(k <- 0 to FuType.num-1){
     io.out(k).bits.decode.ctrl.rfWen := io.in(k).bits.ctrl.rfWen && !IcantWrite(k)
-    io.out(k).bits.decode.cf.redirect <> Mux(csr.io.redirect.valid && csridx === k.U, csr.io.redirect, 
-                                            Mux(alu.valid && aluidx === k.U,alu.io.redirect,
-                                                Mux(alu1.valid && alu1idx === k.U,alu1.io.redirect,empty_RedirectIO)))
+    io.out(k).bits.decode.cf.redirect <> empty_RedirectIO
   }
+  io.out(csridx).bits.decode.cf.redirect <> csr.io.redirect
+  io.out(aluidx).bits.decode.cf.redirect <> alu.io.redirect
+  io.out(alu1idx).bits.decode.cf.redirect <> alu1.io.redirect
   for(i <- 0 to FuType.num-1){
     io.out(i).valid := MuxLookup(i.U, io.in(i).valid,Array(FuType.alu -> io.in(aluidx).valid,
                                                            FuType.lsu -> lsu.io.out.valid,
                                                            FuType.mdu -> mdu.io.out.valid,
-                                                           FuType.csr -> io.in(csridx).valid,
+                                                           FuType.csr -> csr.io.instrValid,
                                                            FuType.mou -> false.B,
                                                            FuType.alu1-> io.in(alu1idx).valid))
   }
@@ -288,7 +305,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   for(i <- 0 to FuType.num-1){
     io.in(i).ready := !io.in(i).valid || io.out(i).fire()
   }
-  io.in(alu1idx).ready := false.B
+  //io.in(alu1idx).ready := false.B
   for(i <- 0 to FuType.num-1){
     io.forward(i).valid := io.in(i).valid & io.out(i).valid
     io.forward(i).wb.rfWen := io.in(i).bits.ctrl.rfWen && !IcantWrite(i)
@@ -296,10 +313,6 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
     io.forward(i).wb.rfData := MuxLookup(fuType(i),aluOut,Array(FuType.alu->aluOut,FuType.alu1->alu1Out,FuType.lsu->lsuOut,FuType.csr->csrOut,FuType.mdu->mduOut))
     io.forward(i).fuType := io.in(i).bits.ctrl.fuType
     io.forward(i).InstNo := io.in(i).bits.InstNo
-  }
-
-  when(csr.io.cfIn.exceptionVec.reduce(_||_)){
-    io.out(lsuidx).bits.decode.cf.redirect := io.out(csridx).bits.decode.cf.redirect
   }
 
   if (!p.FPGAPlatform) {

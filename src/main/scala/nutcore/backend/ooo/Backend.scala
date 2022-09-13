@@ -837,8 +837,15 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   }
   val num_enterwbu = exu.io.out.map(i => i.fire().asUInt).reduce(_+&_)
   wbu_bits := wbu_bits_next
-  when(reset.asBool || io.flush(1)){
-    wbu_valid_next := 0.U.asTypeOf(Vec(FuType.num,Bool()))
+  val FronthasRedirect = (0 to FuType.num-1).map(i => {if(i == 0){
+                                                        false.B 
+                                                      }else{
+                                                        (0 to i-1).map(j => wbu_bits_next(j).decode.cf.redirect.valid && wbu_valid_next(j)).reduce(_||_)
+                                                      }})
+  for(i <- 0 to FuType.num-1){
+    when(reset.asBool || FronthasRedirect(i)){
+      wbu_valid_next(i) := false.B
+    }
   }
   wbu_valid:= wbu_valid_next
 
@@ -863,8 +870,8 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
     wbu.io.wb.rfSrc1(i):=isu.io.wb.rfSrc1(i)
     wbu.io.wb.rfSrc2(i):=isu.io.wb.rfSrc2(i)
   }
-  
-  io.redirect <> wbu.io.redirect
+  val redirct_index = PriorityMux(VecInit((0 to FuType.num-1).map(i => wbu_bits_next(i).decode.cf.redirect.valid && wbu_valid_next(i))).zipWithIndex.map{case(a,b)=>(a,b.U)})
+  io.redirect <> wbu_bits_next(redirct_index).decode.cf.redirect
   // forward
   for(i <- 0 to FuType.num-1){
     isu.io.forward(i) <> exu.io.forward(i)  
