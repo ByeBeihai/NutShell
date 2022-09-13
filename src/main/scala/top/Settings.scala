@@ -71,8 +71,8 @@ object PXIeSettings {
 
 object OOOSettings {
   def apply() = Map(
-    "EnableMultiIssue" -> true,
-    "EnableOutOfOrderExec" -> true
+    "EnableMultiIssue" -> false,
+    "EnableOutOfOrderExec" -> false
   )
 }
 

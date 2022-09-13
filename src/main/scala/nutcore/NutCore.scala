@@ -100,11 +100,7 @@ class NutCore(implicit val p: NutCoreConfig) extends NutCoreModule {
   val io = IO(new NutCoreIO)
 
   // Frontend
-  val frontend = (Settings.get("IsRV32"), Settings.get("EnableOutOfOrderExec")) match {
-    case (true, _)      => Module(new Frontend_inorder)
-    case (false, true)  => Module(new Frontend_inorder)
-    case (false, false) => Module(new Frontend_inorder)
-  }
+  val frontend = Module(new Frontend_ooo)
   
   // Backend
   /*
@@ -147,7 +143,7 @@ class NutCore(implicit val p: NutCoreConfig) extends NutCoreModule {
     io.mmio <> mmioXbar.io.out
 
   } else {
-  */
+    */
     val backend = Module(new new_Backend_inorder)
     //PipelineVector2Connect(new DecodeIO, frontend.io.out(0), frontend.io.out(1), backend.io.in(0), backend.io.in(1), frontend.io.flushVec(1), 4)
     backend.io.in :=DontCare
