@@ -234,12 +234,13 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
 
   //CSRU
   val csridx = FuType.csr
+  val csr_bits = Mux(io.in(csridx).valid, io.in(csridx).bits,io.in(lsuidx).bits)
   val BeforeCSRhasRedirect = {val raw = Wire(Vec(FuType.num,Bool())) 
                               for(i <- 0  to FuType.num-1){
                                 if(i == 3){
                                   raw(i) := false.B
                                 }else{
-                                  when(notafter(io.in(i).bits.InstNo,io.in(csridx).bits.InstNo,io.in(i).bits.InstFlag,io.in(csridx).bits.InstFlag)&&io.out(i).bits.decode.cf.redirect.valid){
+                                  when(notafter(io.in(i).bits.InstNo,csr_bits.InstNo,io.in(i).bits.InstFlag,csr_bits.InstFlag)&&io.out(i).bits.decode.cf.redirect.valid){
                                     raw(i) := true.B
                                   }.otherwise{
                                     raw(i) := false.B
@@ -306,7 +307,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
     io.in(i).ready := !io.in(i).valid || io.out(i).fire()
   }
   //io.in(alu1idx).ready := false.B
-  
+
   for(i <- 0 to FuType.num-1){
     io.forward(i).valid := io.in(i).valid & io.out(i).valid
     io.forward(i).wb.rfWen := io.in(i).bits.ctrl.rfWen && !IcantWrite(i)
@@ -342,7 +343,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
         Debug("[SIMD_EXU] issue %x valid %x outvalid %x pc %x futype %x instrno %x outdata %x \n", i.U,io.in(i).valid, io.out(i).valid,io.in(i).bits.cf.pc, io.in(i).bits.ctrl.fuType, io.in(i).bits.InstNo, io.out(i).bits.commits(i))
       }
       for(i<- 0 to FuType.num-1){
-      Debug("[SIMD_EXU] [Issue: %x ]TakeBranch %x BranchTo %x \n", i.U, io.out(i).bits.decode.cf.redirect.valid, io.out(i).bits.decode.cf.redirect.target)
+      Debug("[SIMD_EXU] [Issue: %x ]BeforeCSRhasRedirect %x TakeBranch %x BranchTo %x \n", i.U,BeforeCSRhasRedirect, io.out(i).bits.decode.cf.redirect.valid, io.out(i).bits.decode.cf.redirect.target)
       }
   }
 }

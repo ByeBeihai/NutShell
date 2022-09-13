@@ -202,7 +202,7 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
                                                             raw.reduce(_||_)}))
     val FrontisClear = VecInit((0 to Issue_Num-1).map(i => {val raw = Wire(Vec(Issue_Num,Bool())) 
                                                             for(j <- 0 to i-1){
-                                                                raw(j) := !io.in(j).valid && io.out(j).ready
+                                                                raw(j) := !io.in(j).valid
                                                             }
                                                             for(j <- i to Issue_Num-1){
                                                                 raw(j) := false.B 
@@ -214,11 +214,12 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
             io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i) &&(io.in(i).bits.ctrl.fuType =/= FuType.csr || io.in(i).bits.ctrl.fuType===FuType.csr && q.io.TailPtr === q.io.HeadPtr)
         }else{
             io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i) && !RAWinIssue(i) && !FrontHasCsrOp(i) && !(isCsrOp(i) && !FrontisClear(i))
+            Debug("[SIMD_ISU] RAWinIssue %x FrontHasCsrOp %x isCsrOp %x FrontisClear %x \n",RAWinIssue(i),FrontHasCsrOp(i),isCsrOp(i),FrontisClear(i))
         }
     }
 
     io.in(0).ready := VecInit((0 to Issue_Num-1).map(i => !io.in(i).valid||io.out(i).fire())).reduce(_&&_)
-    io.in(1).ready := false.B
+    io.in(1).ready := VecInit((0 to Issue_Num-1).map(i => !io.in(i).valid||io.out(i).fire())).reduce(_&&_)
 
     for(i <- 0 to Issue_Num-1){
         io.out(i).bits.data.src1 := Mux1H(List(
@@ -282,7 +283,7 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
 
     for(i <- 0 to Issue_Num-1){
     Debug("[SIMD_ISU] issue %x valid %x rfSrc1 %x rfSrc2 %x rfdata1 %x rfdata2 %x rfsrc1ready %x rfsrc2ready %x\n", i.U,io.in(i).valid,rfSrc1(i),rfSrc2(i), io.out(i).bits.data.src1,io.out(i).bits.data.src2,src1Ready(i),src2Ready(i))
-    Debug("[SIMD_ISU] issue %x pc %x inst %x futype %x futypeop %x src1ex %x src2ex %x src1wb %x src2wb %x \n",i.U,io.in(i).bits.cf.pc,io.in(i).bits.cf.instr,io.in(i).bits.ctrl.fuType,io.in(i).bits.ctrl.fuOpType,src1DependEX(i).reduce(_|_),src2DependEX(i).reduce(_|_),src1DependWB(i).reduce(_|_),src2DependWB(i).reduce(_|_))
+    Debug("[SIMD_ISU] issue %x outvalid %x InstNo %x pc %x inst %x futype %x futypeop %x src1ex %x src2ex %x src1wb %x src2wb %x \n",i.U,io.out(i).valid,io.out(i).bits.InstNo,io.in(i).bits.cf.pc,io.in(i).bits.cf.instr,io.in(i).bits.ctrl.fuType,io.in(i).bits.ctrl.fuOpType,src1DependEX(i).reduce(_|_),src2DependEX(i).reduce(_|_),src1DependWB(i).reduce(_|_),src2DependWB(i).reduce(_|_))
     Debug(io.out(0).fire(),"[SIMD_ISU] InstNo %x\n", io.out(0).bits.InstNo)
     }
 }

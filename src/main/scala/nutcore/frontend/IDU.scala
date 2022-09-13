@@ -200,11 +200,12 @@ class IDU(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstrType
   io.in(1) <> decoder2.io.in
   io.out(0) <> decoder1.io.out
   io.out(1) <> decoder2.io.out
+  /*
   if(!EnableMultiIssue){
     io.in(1).ready := false.B
     decoder2.io.in.valid := false.B
   }
-
+  */
   val checkpoint_id = RegInit(0.U(64.W))
 
   // debug runahead

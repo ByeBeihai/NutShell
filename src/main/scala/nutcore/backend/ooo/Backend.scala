@@ -750,6 +750,11 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
       match_operaotr(i)(j) := false.B
     }
   }
+  val FrontisClear = (0 to Issue_Num-1).map(i => {if(i == 0){
+                                                    true.B
+                                                  }else{
+                                                    (0 to i-1).map(j => isu.io.out(j).fire() || !isu.io.in(j).valid).reduce(_&_)
+                                                  }})
 
   for(i <- 0 to Issue_Num-1){
     for(j <- 0 to FuType.num-1){
@@ -762,13 +767,14 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
       val operator_matched = (0 to i).map( k => {if(k == i){
                                                   false.B
                                                 }else{match_operaotr(k)(j)}}).reduce(_||_)
-      when(!operator_matched && !issue_matched && isu.io.out(i).valid && exu.io.in(j).ready && (isu.io.out(i).bits.ctrl.fuType === j.U || MultiOperatorMatch(isu.io.out(i).bits.ctrl.fuType,j.U))){   
+      when(FrontisClear(i) && !operator_matched && !issue_matched && isu.io.out(i).valid && exu.io.in(j).ready && (isu.io.out(i).bits.ctrl.fuType === j.U || MultiOperatorMatch(isu.io.out(i).bits.ctrl.fuType,j.U))){   
         isu.io.out(i).ready := true.B
         exu_bits_next(j) := isu.io.out(i).bits
         exu_valid_next(j) := true.B
         match_operaotr(i)(j) := true.B 
         exu_bits_next(j).ctrl.fuType := j.U
       }
+      Debug("i %x j %x operator_matched %x issue_matched %x isu.io.out.valid %x exu.io.in.ready %x isu.io.out.bits.ctrl.fuType === j.U %x MultiOperatorMatch(isu.io.out(i).bits.ctrl.fuType,j.U) %x \n",i.U,j.U,operator_matched,issue_matched,isu.io.out(i).valid,exu.io.in(j).ready,isu.io.out(i).bits.ctrl.fuType === j.U,MultiOperatorMatch(isu.io.out(i).bits.ctrl.fuType,j.U))
     }
   }
   exu_bits := exu_bits_next
@@ -851,7 +857,7 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
 
   isu.io.in <> io.in
   io.isufire(0) := isu.io.out(0).fire
-  io.isufire(1) := DontCare
+  io.isufire(1) := isu.io.out(1).fire
   isu.io.num_enterwbu := num_enterwbu
   
   isu.io.flush := io.flush(0)

@@ -49,7 +49,7 @@ trait HasNutCoreParameter {
   val EnableMultiCyclePredictor = false // false unless a customized condition branch predictor is included
   val EnableOutOfOrderMemAccess = false // enable out of order mem access will improve OoO backend's performance
   //parameter for SIMD backend
-  val Issue_Num = 1
+  val Issue_Num = 2
   val Queue_num = 32
 }
 
@@ -145,10 +145,11 @@ class NutCore(implicit val p: NutCoreConfig) extends NutCoreModule {
   } else {
     */
     val backend = Module(new new_Backend_inorder)
-    //PipelineVector2Connect(new DecodeIO, frontend.io.out(0), frontend.io.out(1), backend.io.in(0), backend.io.in(1), frontend.io.flushVec(1), 4)
+    //newPipelineVector2Connect(new DecodeIO, frontend.io.out(0), frontend.io.out(1), backend.io.in(0), backend.io.in(1),backend.io.isufire(0),backend.io.isufire(1) ,frontend.io.flushVec(1), 4)
     backend.io.in :=DontCare
-    frontend.io.out(1).ready := false.B
+    //frontend.io.out(1).ready := false.B
     PipelineConnect(frontend.io.out(0), backend.io.in(0), backend.io.isufire(0), frontend.io.flushVec(1))
+    PipelineConnect(frontend.io.out(1), backend.io.in(1), backend.io.isufire(1), frontend.io.flushVec(1))
 
     val mmioXbar = Module(new SimpleBusCrossbarNto1(2))
     val dmemXbar = Module(new SimpleBusCrossbarNto1(4))
