@@ -241,6 +241,7 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
         io.out(i).bits.data.imm  := io.in(i).bits.data.imm
         io.out(i).bits.cf <> io.in(i).bits.cf
         io.out(i).bits.ctrl := io.in(i).bits.ctrl
+        io.out(i).bits.ctrl.isBru := ALUOpType.isBru(io.in(i).bits.ctrl.fuOpType)
         io.out(i).bits.ctrl.isSrc1Forward := src1DependEX(i).reduce(_||_)
         io.out(i).bits.ctrl.isSrc2Forward := src2DependEX(i).reduce(_||_)
     }

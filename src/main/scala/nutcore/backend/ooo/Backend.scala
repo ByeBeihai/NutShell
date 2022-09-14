@@ -736,7 +736,7 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   (0 to FuType.num-1).map(i => exu_valid_next(i) := exu_valid(i))
   (0 to FuType.num-1).map(i => when(exu.io.out(i).fire()){exu_valid_next(i) := false.B})
 
-  def MultiOperatorMatch(futype1:UInt,futype2:UInt):Bool = (futype1 ===FuType.alu || futype1 ===FuType.alu1) && (futype2 ===FuType.alu || futype2 === FuType.alu1)
+  def MultiOperatorMatch(futype1:UInt,futype2:UInt,isBru:Bool):Bool = (futype1 === FuType.alu) && (futype2 ===FuType.alu || futype2 === FuType.alu1) && !isBru
   for(i <- 0 to FuType.num-1){
     exu.io.in(i).bits := exu_bits(i)
     exu.io.in(i).valid := exu_valid(i)
@@ -767,14 +767,14 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
       val operator_matched = (0 to i).map( k => {if(k == i){
                                                   false.B
                                                 }else{match_operaotr(k)(j)}}).reduce(_||_)
-      when(FrontisClear(i) && !operator_matched && !issue_matched && isu.io.out(i).valid && exu.io.in(j).ready && (isu.io.out(i).bits.ctrl.fuType === j.U || MultiOperatorMatch(isu.io.out(i).bits.ctrl.fuType,j.U))){   
+      when(FrontisClear(i) && !operator_matched && !issue_matched && isu.io.out(i).valid && exu.io.in(j).ready && (isu.io.out(i).bits.ctrl.fuType === j.U || MultiOperatorMatch(isu.io.out(i).bits.ctrl.fuType,j.U,isu.io.out(i).bits.ctrl.isBru))){   
         isu.io.out(i).ready := true.B
         exu_bits_next(j) := isu.io.out(i).bits
         exu_valid_next(j) := true.B
         match_operaotr(i)(j) := true.B 
         exu_bits_next(j).ctrl.fuType := j.U
       }
-      Debug("i %x j %x operator_matched %x issue_matched %x isu.io.out.valid %x exu.io.in.ready %x isu.io.out.bits.ctrl.fuType === j.U %x MultiOperatorMatch(isu.io.out(i).bits.ctrl.fuType,j.U) %x \n",i.U,j.U,operator_matched,issue_matched,isu.io.out(i).valid,exu.io.in(j).ready,isu.io.out(i).bits.ctrl.fuType === j.U,MultiOperatorMatch(isu.io.out(i).bits.ctrl.fuType,j.U))
+      Debug("i %x j %x operator_matched %x issue_matched %x isu.io.out.valid %x exu.io.in.ready %x isu.io.out.bits.ctrl.fuType === j.U %x MultiOperatorMatch(isu.io.out(i).bits.ctrl.fuType,j.U) %x \n",i.U,j.U,operator_matched,issue_matched,isu.io.out(i).valid,exu.io.in(j).ready,isu.io.out(i).bits.ctrl.fuType === j.U,MultiOperatorMatch(isu.io.out(i).bits.ctrl.fuType,j.U,isu.io.out(i).bits.ctrl.isBru))
     }
   }
   exu_bits := exu_bits_next
