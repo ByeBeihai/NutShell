@@ -107,6 +107,7 @@ class Frontend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule with
   PipelineConnect2(ifu.io.out, ibf.io.in, ifu.io.flushVec(0))
   PipelineConnect(ibf.io.out, idu.io.in(0), idu.io.out(0).fire(), ifu.io.flushVec(1))
   idu.io.in(1) := DontCare
+  //PipelineVector2Connect(new CtrlFlowIO, ibf.io.out(0), ibf.io.out(1), idu.io.in(0), idu.io.in(1), ifu.io.flushVec(1), if (true) 8 else 4)
 
   ibf.io.flush := ifu.io.flushVec(1)
   io.out <> idu.io.out

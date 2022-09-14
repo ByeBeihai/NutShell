@@ -145,7 +145,7 @@ class InstBoard extends NutCoreModule with HasRegFileParameter{
         InstBoard(i) := io.WInstNo(i)
         validBoard(i):= true.B
       }.elsewhen(io.clear(i)){
-        InstBoard(i) := false.B
+        validBoard(i) := false.B
       }
     }
   }

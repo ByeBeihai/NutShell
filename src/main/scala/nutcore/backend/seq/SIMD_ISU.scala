@@ -160,7 +160,6 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
     for(i<-0 to Issue_Num-1){
         io.out(i):=DontCare
     }
-    val sb = new ScoreBoard
     val InstBoard = Module(new InstBoard)
     val q = Module(new InstQueue)
 
@@ -180,8 +179,8 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
     val src1DependWB = VecInit((0 to Issue_Num-1).map(i=>VecInit((0 to FuType.num-1).map(j => isLatestData(rfSrc1(i),io.wb.InstNo(j)) && isDepend(rfSrc1(i), io.wb.rfDest(j), io.wb.rfWen(j))))))
     val src2DependWB = VecInit((0 to Issue_Num-1).map(i=>VecInit((0 to FuType.num-1).map(j => isLatestData(rfSrc2(i),io.wb.InstNo(j)) && isDepend(rfSrc2(i), io.wb.rfDest(j), io.wb.rfWen(j))))))
 
-    val src1Ready = VecInit((0 to Issue_Num-1).map(i => !sb.isBusy(rfSrc1(i))||src1DependEX(i).reduce(_||_)||src1DependWB(i).reduce(_||_)))
-    val src2Ready = VecInit((0 to Issue_Num-1).map(i => !sb.isBusy(rfSrc2(i))||src2DependEX(i).reduce(_||_)||src2DependWB(i).reduce(_||_)))
+    val src1Ready = VecInit((0 to Issue_Num-1).map(i => !InstBoard.io.valid(rfSrc1(i))||src1DependEX(i).reduce(_||_)||src1DependWB(i).reduce(_||_)))
+    val src2Ready = VecInit((0 to Issue_Num-1).map(i => !InstBoard.io.valid(rfSrc2(i))||src2DependEX(i).reduce(_||_)||src2DependWB(i).reduce(_||_)))
 
     val RAWinIssue = VecInit((0 to Issue_Num-1).map(i => {val raw = Wire(Vec(Issue_Num,Bool())) 
                                                         for(j <- 0 to i-1){
@@ -276,11 +275,6 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
                                                             raw}))
     InstBoard.io.clear   := VecInit((0 to NRReg-1).map(i => VecInit((0 to FuType.num-1).map(j => io.wb.rfWen(j) && i.U === io.wb.rfDest(j) && io.wb.InstNo(j) === InstBoard.io.RInstNo(i))).reduce(_|_)))
     InstBoard.io.flush   := io.flush
-
-    val wbClearMask = VecInit((0 to FuType.num-1).map(i=>Mux(io.wb.rfWen(i) && InstBoard.io.RInstNo(io.wb.rfDest(i)) === io.wb.InstNo(i), sb.mask(io.wb.rfDest(i)), 0.U(NRReg.W)))).reduce(_|_)
-    val isuFireSetMask = VecInit((0 to Issue_Num-1).map(i=>Mux(io.out(i).fire()&&rfWen(i), sb.mask(rfDest(i)), 0.U))).reduce(_|_)
-    when (io.flush) { sb.update(0.U, Fill(NRReg, 1.U(1.W)))}
-    .otherwise { sb.update(isuFireSetMask, wbClearMask) }
 
     for(i <- 0 to Issue_Num-1){
     Debug("[SIMD_ISU] issue %x valid %x rfSrc1 %x rfSrc2 %x rfdata1 %x rfdata2 %x rfsrc1ready %x rfsrc2ready %x\n", i.U,io.in(i).valid,rfSrc1(i),rfSrc2(i), io.out(i).bits.data.src1,io.out(i).bits.data.src2,src1Ready(i),src2Ready(i))
