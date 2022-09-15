@@ -279,6 +279,12 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   for(i <- 0 to FuType.num-1){
     io.out(i).bits.decode <> io.in(i).bits
   }
+
+  when((lsu.io.loadAddrMisaligned || lsu.io.storeAddrMisaligned) && io.in(lsuidx).valid){
+    io.out(csridx).bits.decode.InstNo := io.out(lsuidx).bits.decode.InstNo
+    io.out(csridx).bits.decode.InstFlag := io.out(lsuidx).bits.decode.InstFlag
+  }
+
   for(k <- 0 to FuType.num-1){
     io.out(k).bits.decode.ctrl.rfWen := io.in(k).bits.ctrl.rfWen && !IcantWrite(k)
     io.out(k).bits.decode.cf.redirect <> empty_RedirectIO
@@ -327,6 +333,8 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
     BoringUtils.addSink(cycleCnt, "simCycleCnt")
     BoringUtils.addSink(instrCnt, "simInstrCnt")
     BoringUtils.addSource(nutcoretrap, "nutcoretrap")
+    val csrops = io.in(csridx).valid === true.B
+    BoringUtils.addSource(csrops, "csrops")
 
     val difftest = Module(new DifftestTrapEvent)
     difftest.io.clock    := clock

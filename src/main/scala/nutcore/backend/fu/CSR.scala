@@ -740,7 +740,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     "MultiCommit2"-> (0xb19, "perfCntCondMultiCommit2"),
     "MultiCommit3"-> (0xb1a, "perfCntCondMultiCommit3"),
     "MultiCommit4"-> (0xb1b, "perfCntCondMultiCommit4"),
-    "Custom4"     -> (0xb1c, "Custom4"               ),
+    "CsrOps"      -> (0xb1c, "csrops"                ),
     "Custom5"     -> (0xb1d, "Custom5"               ),
     "Custom6"     -> (0xb1e, "Custom6"               ),
     "Custom7"     -> (0xb1f, "Custom7"               ),

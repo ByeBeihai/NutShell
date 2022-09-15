@@ -136,7 +136,7 @@ class new_lsu extends NutCoreModule with HasLSUConst {
   io.dmem.req.valid := valid && (state === s_idle) && !io.loadAddrMisaligned && !io.storeAddrMisaligned && !io.flush
   io.dmem.resp.ready := true.B
   io.out.bits := Mux(partialLoad, rdataPartialLoad, rdata(XLEN-1,0))
-  io.out.valid := Mux( false.B && state =/= s_idle || io.loadAddrMisaligned || io.storeAddrMisaligned, true.B, io.dmem.resp.fire() && (state === s_wait_resp)|| state ===s_wait_fire)
+  io.out.valid := Mux( io.loadAddrMisaligned || io.storeAddrMisaligned, false.B, io.dmem.resp.fire() && (state === s_wait_resp)|| state ===s_wait_fire)
   io.in.ready := (state === s_idle)
   io.isMMIO := DontCare
   Debug("[LSU-EXECUNIT] state %x dresp %x dpf %x lm %x sm %x resfire %x \n", state, io.dmem.resp.fire(), false.B, io.loadAddrMisaligned, io.storeAddrMisaligned,io.dmem.resp.fire())
