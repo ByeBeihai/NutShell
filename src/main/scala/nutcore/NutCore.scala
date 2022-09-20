@@ -145,7 +145,7 @@ class NutCore(implicit val p: NutCoreConfig) extends NutCoreModule {
   } else {
     */
     val backend = Module(new new_Backend_inorder)
-    newPipelineVector2Connect(new DecodeIO, frontend.io.out(0), frontend.io.out(1), backend.io.in(0), backend.io.in(1),backend.io.isufire(0),backend.io.isufire(1) ,frontend.io.flushVec(1), 4)
+    //newPipelineVector2Connect(new DecodeIO, frontend.io.out(0), frontend.io.out(1), backend.io.in(0), backend.io.in(1),backend.io.isufire(0),backend.io.isufire(1) ,frontend.io.flushVec(1), 4)
     PipelineVector2Connect(new DecodeIO, frontend.io.out(0), frontend.io.out(1), backend.io.in(0), backend.io.in(1),frontend.io.flushVec(1), 8)
     //backend.io.in :=DontCare
     //frontend.io.out(1).ready := false.B

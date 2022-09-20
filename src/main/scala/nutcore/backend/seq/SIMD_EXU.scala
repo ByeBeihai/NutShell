@@ -249,7 +249,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
                               }
                               raw.reduce(_||_)
                             }
-  val csr = Module(new CSR)
+  val csr = Module(new SIMD_CSR)
   val csrOut = csr.access(valid = io.in(csridx).valid, src1 = src1(csridx), src2 = src2(csridx), func = fuOpType(csridx))
   csr.io.cfIn := Mux(io.in(csridx).valid, io.in(csridx).bits.cf,io.in(lsuidx).bits.cf)
   csr.io.cfIn.exceptionVec(loadAddrMisaligned) := lsu.io.loadAddrMisaligned && !BeforeCSRhasRedirect
@@ -263,6 +263,9 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   csr.io.out.ready := true.B
   csr.io.imemMMU <> io.memMMU.imem
   csr.io.dmemMMU <> io.memMMU.dmem
+
+  //PerU need no parameter,use boringutils
+  val PerfU = Module(new PerfU)
 
   //connect wires
   val empty_RedirectIO = Wire(new RedirectIO)
@@ -348,7 +351,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   //Debug
   {
       for(i <- 0 to FuType.num-1){
-        Debug("[SIMD_EXU] issue %x valid %x outvalid %x pc %x futype %x instrno %x outdata %x \n", i.U,io.in(i).valid, io.out(i).valid,io.in(i).bits.cf.pc, io.in(i).bits.ctrl.fuType, io.in(i).bits.InstNo, io.out(i).bits.commits(i))
+        Debug("[SIMD_EXU] issue %x valid %x outvalid %x pc %x futype %x instrno %x outdata %x \n", i.U,io.in(i).valid, io.out(i).valid,io.in(i).bits.cf.pc, io.in(i).bits.ctrl.fuType, io.in(i).bits.InstNo, io.out(i).bits.commits)
       }
       for(i<- 0 to FuType.num-1){
       Debug("[SIMD_EXU] [Issue: %x ]BeforeCSRhasRedirect %x TakeBranch %x BranchTo %x \n", i.U,BeforeCSRhasRedirect, io.out(i).bits.decode.cf.redirect.valid, io.out(i).bits.decode.cf.redirect.target)

@@ -86,7 +86,7 @@ class new_lsu extends NutCoreModule with HasLSUConst {
   val s_idle :: s_wait_resp :: s_wait_fire ::Nil = Enum(3)
   val state = RegInit(s_idle)
 
-  Debug( "[LSU] addr %x, size %x, wdata_raw %x, isStore %x reqfire %x\n", addr, func(1,0), io.wdata, isStore,io.dmem.req.fire())
+  Debug( "[LSU] addr %x, size %x, wdata_raw %x, isStore %x reqfire %x \n", addr, func(1,0), io.wdata, isStore,io.dmem.req.fire())
 
   val size = func(1,0)
   val reqAddr  = Mux((XLEN>=VAddrBits).B,addr(VAddrBits-1,0),SignExt(addr,VAddrBits))
@@ -139,7 +139,7 @@ class new_lsu extends NutCoreModule with HasLSUConst {
   io.out.valid := Mux( io.loadAddrMisaligned || io.storeAddrMisaligned, false.B, io.dmem.resp.fire() && (state === s_wait_resp)|| state ===s_wait_fire)
   io.in.ready := (state === s_idle)
   io.isMMIO := DontCare
-  Debug("[LSU-EXECUNIT] state %x dresp %x dpf %x lm %x sm %x resfire %x \n", state, io.dmem.resp.fire(), false.B, io.loadAddrMisaligned, io.storeAddrMisaligned,io.dmem.resp.fire())
+  Debug("[LSU-EXECUNIT] state %x dresp %x dpf %x lm %x sm %x resfire %x outvalid %x \n", state, io.dmem.resp.fire(), false.B, io.loadAddrMisaligned, io.storeAddrMisaligned,io.dmem.resp.fire(),io.out.valid)
 
   switch (state) {
     is (s_idle) { when(io.flush){

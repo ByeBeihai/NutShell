@@ -104,11 +104,7 @@ trait HasCSRConst {
   val Pmpcfg2       = 0x3A2
   val Pmpcfg3       = 0x3A3
   val PmpaddrBase   = 0x3B0 
-
-  // Machine Counter/Timers 
-  // Currently, NutCore uses perfcnt csr set instead of standard Machine Counter/Timers 
-  // 0xB80 - 0x89F are also used as perfcnt csr
-
+  
   // Machine Counter Setup (not implemented)
   // Debug/Trace Registers (shared with Debug Mode) (not implemented)
   // Debug Mode Registers (not implemented)
@@ -481,7 +477,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
 
   Debug(wen, "csr write: pc %x addr %x rdata %x wdata %x func %x\n", io.cfIn.pc, addr, rdata, wdata, func)
   Debug(wen, "[MST] time %d pc %x mstatus %x mideleg %x medeleg %x mode %x\n", GTimer(), io.cfIn.pc, mstatus, mideleg , medeleg, priviledgeMode)
-
+  Debug("[CSR] mip %x mipreg %x mipwire %x \n", mip.asUInt,mipReg.asUInt,mipWire.asUInt)
   // MMU Permission Check
 
   // def MMUPermissionCheck(ptev: Bool, pteu: Bool): Bool = ptev && !(priviledgeMode === ModeU && !pteu) && !(priviledgeMode === ModeS && pteu && mstatusStruct.sum.asBool)
@@ -568,7 +564,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   BoringUtils.addSink(mtip, "mtip")
   BoringUtils.addSink(meip, "meip")
   BoringUtils.addSink(msip, "msip")
-  mipWire.t.m := mtip
+  //mipWire.t.m := mtip
   mipWire.e.m := meip
   mipWire.s.m := msip
   
@@ -899,10 +895,10 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     val difftestArchEvent = Module(new DifftestArchEvent)
     difftestArchEvent.io.clock := clock
     difftestArchEvent.io.coreid := 0.U // TODO
-    difftestArchEvent.io.intrNO := RegNext(Mux(raiseIntr && io.instrValid && valid, intrNO, 0.U))
-    difftestArchEvent.io.cause := RegNext(Mux(raiseException && io.instrValid && valid, exceptionNO, 0.U))
-    difftestArchEvent.io.exceptionPC := RegNext(SignExt(io.cfIn.pc, XLEN))
-    difftestArchEvent.io.exceptionInst := RegNext(io.cfIn.instr)
+    difftestArchEvent.io.intrNO := RegNext(RegNext(Mux(raiseIntr && io.instrValid && valid, intrNO, 0.U)))
+    difftestArchEvent.io.cause := RegNext(RegNext(Mux(raiseException && io.instrValid && valid, exceptionNO, 0.U)))
+    difftestArchEvent.io.exceptionPC := RegNext(RegNext(SignExt(io.cfIn.pc, XLEN)))
+    difftestArchEvent.io.exceptionInst := RegNext(RegNext(io.cfIn.instr))
 
   } else {
     if (!p.FPGAPlatform) {
