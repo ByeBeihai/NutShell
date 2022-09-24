@@ -53,6 +53,7 @@ class SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   val WhoTakeLsu = WhoTakeThisOperator(FuType.csr)
   val lsuOut = lsu.access(valid = fuValids(FuType.lsu), src1 = src1(WhoTakeLsu), src2 = io.in(WhoTakeLsu).bits.data.imm, func = fuOpType(WhoTakeLsu))
   lsu.io.wdata := src2(WhoTakeLsu)
+  lsu.io.DecodeIn := io.in(WhoTakeLsu).bits
   for(i <- 0 to Issue_Num-1){
     io.out(i).bits.isMMIO := i.U === WhoTakeLsu && (lsu.io.isMMIO || (AddressSpace.isMMIO(io.in(WhoTakeLsu).bits.cf.pc) && io.out(i).valid))
   }
@@ -213,6 +214,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   val lsuidx = FuType.lsu
   val lsu = Module(new new_lsu)
   val lsuOut = lsu.access(valid = io.in(lsuidx).valid, src1 = src1(lsuidx), src2 = io.in(lsuidx).bits.data.imm, func = fuOpType(lsuidx))
+  lsu.io.DecodeIn := io.in(lsuidx).bits
   lsu.io.wdata := src2(lsuidx)
   for(i <- 0 to FuType.num-1){
     io.out(i).bits.isMMIO := i.U === lsuidx && (lsu.io.isMMIO || (AddressSpace.isMMIO(io.in(lsuidx).bits.cf.pc) && io.out(i).valid))
@@ -282,6 +284,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   for(i <- 0 to FuType.num-1){
     io.out(i).bits.decode <> io.in(i).bits
   }
+  io.out(lsuidx).bits.decode <> lsu.io.DecodeOut
 
   when((lsu.io.loadAddrMisaligned || lsu.io.storeAddrMisaligned) && io.in(lsuidx).valid){
     io.out(csridx).bits.decode.InstNo := io.out(lsuidx).bits.decode.InstNo
@@ -292,6 +295,8 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
     io.out(k).bits.decode.ctrl.rfWen := io.in(k).bits.ctrl.rfWen && !IcantWrite(k)
     io.out(k).bits.decode.cf.redirect <> empty_RedirectIO
   }
+  io.out(lsuidx).bits.decode.ctrl.rfWen := lsu.io.DecodeOut.ctrl.rfWen
+
   io.out(csridx).bits.decode.cf.redirect <> csr.io.redirect
   io.out(aluidx).bits.decode.cf.redirect <> alu.io.redirect
   io.out(alu1idx).bits.decode.cf.redirect <> alu1.io.redirect
@@ -316,14 +321,15 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
     io.in(i).ready := !io.in(i).valid || io.out(i).fire()
   }
   //io.in(alu1idx).ready := false.B
+  io.in(lsuidx).ready := lsu.io.in.ready
 
   for(i <- 0 to FuType.num-1){
     io.forward(i).valid := io.in(i).valid & io.out(i).valid
-    io.forward(i).wb.rfWen := io.in(i).bits.ctrl.rfWen && !IcantWrite(i)
-    io.forward(i).wb.rfDest := io.in(i).bits.ctrl.rfDest
+    io.forward(i).wb.rfWen := io.out(i).bits.decode.ctrl.rfWen && !IcantWrite(i)
+    io.forward(i).wb.rfDest := io.out(i).bits.decode.ctrl.rfDest
     io.forward(i).wb.rfData := MuxLookup(fuType(i),aluOut,Array(FuType.alu->aluOut,FuType.alu1->alu1Out,FuType.lsu->lsuOut,FuType.csr->csrOut,FuType.mdu->mduOut))
-    io.forward(i).fuType := io.in(i).bits.ctrl.fuType
-    io.forward(i).InstNo := io.in(i).bits.InstNo
+    io.forward(i).fuType := io.out(i).bits.decode.ctrl.fuType
+    io.forward(i).InstNo := io.out(i).bits.decode.InstNo
   }
 
   if (!p.FPGAPlatform) {
@@ -351,7 +357,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   //Debug
   {
       for(i <- 0 to FuType.num-1){
-        Debug("[SIMD_EXU] issue %x valid %x outvalid %x pc %x futype %x instrno %x outdata %x \n", i.U,io.in(i).valid, io.out(i).valid,io.in(i).bits.cf.pc, io.in(i).bits.ctrl.fuType, io.in(i).bits.InstNo, io.out(i).bits.commits)
+        Debug("[SIMD_EXU] issue %x valid %x outvalid %x pc %x futype %x instrno %x outdata %x \n", i.U,io.in(i).valid, io.out(i).valid,io.in(i).bits.cf.pc, io.in(i).bits.ctrl.fuType, io.out(i).bits.decode.InstNo, io.out(i).bits.commits)
       }
       for(i<- 0 to FuType.num-1){
       Debug("[SIMD_EXU] [Issue: %x ]BeforeCSRhasRedirect %x TakeBranch %x BranchTo %x \n", i.U,BeforeCSRhasRedirect, io.out(i).bits.decode.cf.redirect.valid, io.out(i).bits.decode.cf.redirect.target)
