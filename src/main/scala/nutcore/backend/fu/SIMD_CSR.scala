@@ -333,7 +333,7 @@ class SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with SIMD_Ha
   BoringUtils.addSink(mtip, "mtip")
   BoringUtils.addSink(meip, "meip")
   BoringUtils.addSink(msip, "msip")
-  //mipWire.t.m := mtip
+  mipWire.t.m := mtip
   mipWire.e.m := meip
   mipWire.s.m := msip
   
