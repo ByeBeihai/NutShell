@@ -439,7 +439,7 @@ class SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with SIMD_Ha
     difftest.io.priviledgeMode := RegNext(priviledgeMode)
     difftest.io.mstatus := RegNext(mstatus)
     //difftest.io.sstatus := RegNext(mstatus & sstatusRmask)
-    difftest.io.mepc := RegNext(mepc)
+    difftest.io.mepc := (RegNext(mepc) >> 1)<<1
     ///difftest.io.sepc := RegNext(sepc)
     difftest.io.mtval:= RegNext(mtval)
     //difftest.io.stval:= RegNext(stval)
@@ -462,8 +462,8 @@ class SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with SIMD_Ha
     difftestArchEvent.io.cause := RegNext(RegNext(Mux(raiseException && io.instrValid && valid, exceptionNO, 0.U)))
     difftestArchEvent.io.exceptionPC := RegNext(RegNext(SignExt(io.cfIn.pc, XLEN)))
     difftestArchEvent.io.exceptionInst := RegNext(RegNext(io.cfIn.instr))
-
+  Debug("[CSR!!!]  mepc %x \n",difftest.io.mepc)
   } 
-  Debug("[CSR!!!] mtval %x tval %x pf %x misaligned %x tvalwen %x \n",mtval,Mux(hasInstrPageFault, Mux(io.cfIn.crossPageIPFFix, SignExt((io.cfIn.pc + 2.U)(VAddrBits-1,0), XLEN), SignExt(io.cfIn.pc(VAddrBits-1,0), XLEN)), SignExt(dmemPagefaultAddr, XLEN)),hasInstrPageFault || hasLoadPageFault || hasStorePageFault,hasLoadAddrMisaligned || hasStoreAddrMisaligned,tvalWen)
+  Debug("[CSR!!!] mtval %x tval %x pf %x misaligned %x tvalwen %x\n",mtval,Mux(hasInstrPageFault, Mux(io.cfIn.crossPageIPFFix, SignExt((io.cfIn.pc + 2.U)(VAddrBits-1,0), XLEN), SignExt(io.cfIn.pc(VAddrBits-1,0), XLEN)), SignExt(dmemPagefaultAddr, XLEN)),hasInstrPageFault || hasLoadPageFault || hasStorePageFault,hasLoadAddrMisaligned || hasStoreAddrMisaligned,tvalWen)
 
 }
