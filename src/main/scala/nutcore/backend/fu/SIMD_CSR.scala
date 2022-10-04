@@ -439,7 +439,7 @@ class SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with SIMD_Ha
     difftest.io.priviledgeMode := RegNext(priviledgeMode)
     difftest.io.mstatus := RegNext(mstatus)
     //difftest.io.sstatus := RegNext(mstatus & sstatusRmask)
-    difftest.io.mepc := RegNext(mepc)
+    difftest.io.mepc := (RegNext(mepc) >> 1)<<1
     ///difftest.io.sepc := RegNext(sepc)
     difftest.io.mtval:= RegNext(mtval)
     //difftest.io.stval:= RegNext(stval)

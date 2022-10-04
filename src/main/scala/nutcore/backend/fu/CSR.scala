@@ -737,8 +737,8 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     "MultiCommit3"-> (0xb1a, "perfCntCondMultiCommit3"),
     "MultiCommit4"-> (0xb1b, "perfCntCondMultiCommit4"),
     "CsrOps"      -> (0xb1c, "csrops"                ),
-    "Custom5"     -> (0xb1d, "Custom5"               ),
-    "Custom6"     -> (0xb1e, "Custom6"               ),
+    "MultiCommit5"-> (0xb1d, "perfCntCondMultiCommit5"),
+    "MultiCommit6"-> (0xb1e, "perfCntCondMultiCommit6"),
     "Custom7"     -> (0xb1f, "Custom7"               ),
     "Custom8"     -> (0xb20, "Custom8"               )
   )
@@ -876,7 +876,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     difftest.io.priviledgeMode := RegNext(priviledgeMode)
     difftest.io.mstatus := RegNext(mstatus)
     difftest.io.sstatus := RegNext(mstatus & sstatusRmask)
-    difftest.io.mepc := RegNext(mepc)
+    difftest.io.mepc := (RegNext(mepc) >> 1)<<1
     difftest.io.sepc := RegNext(sepc)
     difftest.io.mtval:= RegNext(mtval)
     difftest.io.stval:= RegNext(stval)

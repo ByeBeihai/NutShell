@@ -44,8 +44,8 @@ class PerfU(implicit val p: NutCoreConfig) extends NutCoreModule {
     "MultiCommit3"-> (0xb1a, "perfCntCondMultiCommit3"),
     "MultiCommit4"-> (0xb1b, "perfCntCondMultiCommit4"),
     "CsrOps"      -> (0xb1c, "csrops"                ),
-    "Custom5"     -> (0xb1d, "Custom5"               ),
-    "Custom6"     -> (0xb1e, "Custom6"               ),
+    "MultiCommit5"-> (0xb1d, "perfCntCondMultiCommit5"),
+    "MultiCommit6"-> (0xb1e, "perfCntCondMultiCommit6"),
     "Custom7"     -> (0xb1f, "Custom7"               ),
     "Custom8"     -> (0xb20, "Custom8"               )
   )
@@ -74,6 +74,10 @@ class PerfU(implicit val p: NutCoreConfig) extends NutCoreModule {
                                       perfCnts(0xb02 & 0x7f) := perfCnts(0xb02 & 0x7f) + 3.U 
                                   }.elsewhen(perfCntCond(0xb1b & 0x7f)){
                                       perfCnts(0xb02 & 0x7f) := perfCnts(0xb02 & 0x7f) + 4.U 
+                                  }.elsewhen(perfCntCond(0xb1d & 0x7f)){
+                                      perfCnts(0xb02 & 0x7f) := perfCnts(0xb02 & 0x7f) + 5.U 
+                                  }.elsewhen(perfCntCond(0xb1e & 0x7f)){
+                                      perfCnts(0xb02 & 0x7f) := perfCnts(0xb02 & 0x7f) + 6.U 
                                   }} // MultiCommit
   if (hasPerfCnt) {
     when(true.B) { perfCnts(0xb63 & 0x7f) := perfCnts(0xb63 & 0x7f) + pendingLS } 

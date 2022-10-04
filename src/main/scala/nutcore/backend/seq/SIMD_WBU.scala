@@ -166,6 +166,8 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   BoringUtils.addSource(commit_num===2.U, "perfCntCondMultiCommit2")
   BoringUtils.addSource(commit_num===3.U, "perfCntCondMultiCommit3")
   BoringUtils.addSource(commit_num===4.U, "perfCntCondMultiCommit4")
+  BoringUtils.addSource(commit_num===5.U, "perfCntCondMultiCommit5")
+  BoringUtils.addSource(commit_num===6.U, "perfCntCondMultiCommit6")
   }
 
   for(i <- 0 to FuType.num-1){
