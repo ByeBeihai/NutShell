@@ -230,15 +230,6 @@ class pipeline_lsu extends NutCoreModule with HasLSUConst {
   lsu_resp.io.DecodeIn.valid := lsu_resp_valid
 }
 
-class multicycle_SIMD_LSU_IO extends FunctionUnitIO {
-  val wdata = Input(UInt(XLEN.W))
-  val dmem = new SimpleBusUC(addrBits = VAddrBits)
-  val isMMIO = Output(Bool())
-  val loadAddrMisaligned = Output(Bool()) // TODO: refactor it for new backend
-  val storeAddrMisaligned = Output(Bool()) // TODO: refactor it for new backend
-  val flush = Input(Bool())
-}
-
 class multi_cycle_lsu extends NutCoreModule with HasLSUConst {
   val io = IO(new SIMD_LSU_IO)
   val (valid, src1, src2, func) = (io.in.valid, io.in.bits.src1, io.in.bits.src2, io.in.bits.func)
