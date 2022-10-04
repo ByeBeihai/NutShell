@@ -230,7 +230,7 @@ class pipeline_lsu extends NutCoreModule with HasLSUConst {
   lsu_resp.io.DecodeIn.valid := lsu_resp_valid
 }
 
-class multi_cycle_lsu extends NutCoreModule with HasLSUConst {
+class multicycle_lsu extends NutCoreModule with HasLSUConst {
   val io = IO(new SIMD_LSU_IO)
   val (valid, src1, src2, func) = (io.in.valid, io.in.bits.src1, io.in.bits.src2, io.in.bits.func)
   def access(valid: Bool, src1: UInt, src2: UInt, func: UInt): UInt = {

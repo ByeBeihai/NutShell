@@ -212,7 +212,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
 
   //LSU
   val lsuidx = FuType.lsu
-  val lsu = Module(new multi_cycle_lsu)
+  val lsu = Module(new multicycle_lsu)
   lsu.io.DecodeIn := io.in(lsuidx).bits
   val lsuOut = lsu.access(valid = io.in(lsuidx).valid, src1 = src1(lsuidx), src2 = io.in(lsuidx).bits.data.imm, func = fuOpType(lsuidx))
   lsu.io.wdata := src2(lsuidx)
