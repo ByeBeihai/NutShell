@@ -223,6 +223,5 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     difftest.io.clock  := clock
     difftest.io.coreid := 0.U 
     difftest.io.gpr    := VecInit((0 to NRReg-1).map(i => rf.read(i.U)))
-  Debug("[SIMD_WBU] t0 %x \n",rf.read(5.U))
   }
 }
