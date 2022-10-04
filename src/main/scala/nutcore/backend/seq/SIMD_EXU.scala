@@ -49,7 +49,7 @@ class SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   alu1.io.out.ready := true.B
 
   //LSU
-  val lsu = Module(new multi_cycle_lsu)
+  val lsu = Module(new pipeline_lsu)
   val WhoTakeLsu = WhoTakeThisOperator(FuType.csr)
   val lsuOut = lsu.access(valid = fuValids(FuType.lsu), src1 = src1(WhoTakeLsu), src2 = io.in(WhoTakeLsu).bits.data.imm, func = fuOpType(WhoTakeLsu))
   lsu.io.wdata := src2(WhoTakeLsu)
@@ -213,7 +213,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   //LSU
   val lsuidx = FuType.lsu
   val lsu = Module(new multi_cycle_lsu)
-  //lsu.io.DecodeIn := io.in(lsuidx).bits
+  lsu.io.DecodeIn := io.in(lsuidx).bits
   val lsuOut = lsu.access(valid = io.in(lsuidx).valid, src1 = src1(lsuidx), src2 = io.in(lsuidx).bits.data.imm, func = fuOpType(lsuidx))
   lsu.io.wdata := src2(lsuidx)
   for(i <- 0 to FuType.num-1){

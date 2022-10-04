@@ -230,6 +230,15 @@ class pipeline_lsu extends NutCoreModule with HasLSUConst {
   lsu_resp.io.DecodeIn.valid := lsu_resp_valid
 }
 
+class multicycle_SIMD_LSU_IO extends FunctionUnitIO {
+  val wdata = Input(UInt(XLEN.W))
+  val dmem = new SimpleBusUC(addrBits = VAddrBits)
+  val isMMIO = Output(Bool())
+  val loadAddrMisaligned = Output(Bool()) // TODO: refactor it for new backend
+  val storeAddrMisaligned = Output(Bool()) // TODO: refactor it for new backend
+  val flush = Input(Bool())
+}
+
 class multi_cycle_lsu extends NutCoreModule with HasLSUConst {
   val io = IO(new SIMD_LSU_IO)
   val (valid, src1, src2, func) = (io.in.valid, io.in.bits.src1, io.in.bits.src2, io.in.bits.func)
@@ -300,7 +309,7 @@ class multi_cycle_lsu extends NutCoreModule with HasLSUConst {
   io.dmem.resp.ready := true.B
   io.out.bits := Mux(partialLoad, rdataPartialLoad, rdata(XLEN-1,0))
   io.out.valid := Mux( io.loadAddrMisaligned || io.storeAddrMisaligned, false.B, io.dmem.resp.fire() && (state === s_wait_resp)|| state ===s_wait_fire)
-  io.in.ready := (state === s_idle)
+  io.in.ready := !valid || io.out.fire()
   io.isMMIO := DontCare
   Debug("[LSU-EXECUNIT] state %x dresp %x dpf %x lm %x sm %x resfire %x outvalid %x \n", state, io.dmem.resp.fire(), false.B, io.loadAddrMisaligned, io.storeAddrMisaligned,io.dmem.resp.fire(),io.out.valid)
 
@@ -336,4 +345,6 @@ class multi_cycle_lsu extends NutCoreModule with HasLSUConst {
 
   BoringUtils.addSource(addr, "LSUADDR")
   BoringUtils.addSource(io.out.fire(), "lsu_firststage_fire")
+
+  io.DecodeOut := io.DecodeIn
 }
