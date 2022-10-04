@@ -29,6 +29,7 @@ trait HasInstrType {
   def InstrJ  = "b0111".U
   def InstrA  = "b1110".U
   def InstrSA = "b1111".U // Atom Inst: SC
+  def InstrP  ="b10100".U
 
   def isrfWen(instrType : UInt): Bool = instrType(2)
 }
@@ -54,7 +55,7 @@ object SrcType {
 }
 
 object FuType extends HasNutCoreConst {
-  def num = 6
+  def num = 8
   def alu = "b000".U
   def lsu = "b001".U
   def mdu = "b010".U
@@ -63,6 +64,8 @@ object FuType extends HasNutCoreConst {
   def alu1= "b101".U
   def bru = if(IndependentBru) "b101".U
             else               alu
+  def simdu = "b110".U
+  def simdu1 = "b111".U
   def apply() = UInt(log2Up(num).W)
 }
 
@@ -78,7 +81,8 @@ object Instructions extends HasInstrType with HasNutCoreParameter {
     (if (HasCExtension) RVCInstr.table else Nil) ++
     Priviledged.table ++
     RVAInstr.table ++
-    RVZicsrInstr.table ++ RVZifenceiInstr.table
+    RVZicsrInstr.table ++ RVZifenceiInstr.table ++
+    RVPInstr.table
 }
 
 object CInstructions extends HasInstrType with HasNutCoreParameter{

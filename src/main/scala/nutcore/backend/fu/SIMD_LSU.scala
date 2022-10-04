@@ -134,7 +134,6 @@ class LSU_RESP extends NutCoreModule with HasLSUConst{
   Debug( "[LSURESP] valid %x pc %x instno %x\n outfire %x \n",io.DecodeIn.valid, io.DecodeOut.cf.pc,io.DecodeOut.InstNo,io.out.fire())
 }
 
-
 class pipeline_lsu extends NutCoreModule with HasLSUConst {
   val io = IO(new SIMD_LSU_IO)
   val (valid, src1, src2, func) = (io.in.valid, io.in.bits.src1, io.in.bits.src2, io.in.bits.func)
