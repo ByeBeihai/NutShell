@@ -1,3 +1,13 @@
+package nutcore
+
+import chisel3._
+import chisel3.util._
+import chisel3.util.experimental.BoringUtils
+
+import utils._
+import difftest._
+import top.Settings
+
 object SIMDUOpType {
   def add16  = "b1110111".U
 }
@@ -7,7 +17,7 @@ class SIMDU_IO extends FunctionUnitIO {
   val DecodeOut = new DecodeIO
   val DecodeIn = Flipped(new DecodeIO)
 }
-class ALU(hasBru: Boolean = false,NO1: Boolean = true) extends NutCoreModule {
+class SIMDU(hasBru: Boolean = false,NO1: Boolean = true) extends NutCoreModule {
   val io = IO(new SIMDU_IO)
   val (valid, src1, src2, func) = (io.in.valid, io.in.bits.src1, io.in.bits.src2, io.in.bits.func)
   def access(valid: Bool, src1: UInt, src2: UInt, func: UInt): UInt = {
@@ -26,8 +36,10 @@ class ALU(hasBru: Boolean = false,NO1: Boolean = true) extends NutCoreModule {
   add16_result.d := src1.asTypeOf(new MyBundle).d + src2.asTypeOf(new MyBundle).d
 
   val res = LookupTreeDefault(func, 0.U, List(
-    SIMDUOpType.add16 -> add16_result
+    SIMDUOpType.add16 -> add16_result.asUInt
   ))
-  io.out.bits := add16_result
+  io.out.bits := res
   io.DecodeOut := io.DecodeIn
+  io.in.ready := true.B
+  io.out.valid := true.B
 }

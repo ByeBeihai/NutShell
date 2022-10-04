@@ -7,6 +7,6 @@ object RVPInstr extends HasInstrType {
   def ADD16   = BitPat("b0100000_?????_?????_000_?????_1110111")
   
   val table = Array(
-    ADD16       -> List(InstrP, FuType.simdu, LSUOpType.amomaxu)
+    ADD16       -> List(InstrP, FuType.simdu, SIMDUOpType.add16)
   )
 }

@@ -60,9 +60,6 @@ object ALUOpType {
   def bltu = "b0010110".U
   def bgeu = "b0010111".U
 
-  //p-ext
-  def add16 = "b1101111".U
-
   // for RAS
   def call = "b1011100".U
   def ret  = "b1011110".U
@@ -115,14 +112,8 @@ class ALU(hasBru: Boolean = false,NO1: Boolean = true) extends NutCoreModule {
     ALUOpType.and  -> (src1  &  src2),
     ALUOpType.sra  -> ((shsrc1.asSInt >> shamt).asUInt)
   ))
-  //p-ext临时逻辑
-  val add16_result = Wire(new MyBundle)
-  add16_result.a := src1.asTypeOf(new MyBundle).a + src2.asTypeOf(new MyBundle).a
-  add16_result.b := src1.asTypeOf(new MyBundle).b + src2.asTypeOf(new MyBundle).b
-  add16_result.c := src1.asTypeOf(new MyBundle).c + src2.asTypeOf(new MyBundle).c
-  add16_result.d := src1.asTypeOf(new MyBundle).d + src2.asTypeOf(new MyBundle).d
 
-  val aluRes = Mux(func === ALUOpType.add16, add16_result.asUInt,Mux(ALUOpType.isWordOp(func), SignExt(res(31,0), 64), res))
+  val aluRes = Mux(ALUOpType.isWordOp(func), SignExt(res(31,0), 64), res)
 
   val branchOpTable = List(
     ALUOpType.getBranchType(ALUOpType.beq)  -> !xorRes.orR,

@@ -734,10 +734,16 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   val exu_valid = Reg(Vec(FuType.num,Bool()))
   val exu_valid_next = Wire(Vec(FuType.num,Bool()))
   (0 to FuType.num-1).map(i => exu_valid_next(i) := exu_valid(i))
-  (0 to FuType.num-1).map(i => {when(exu.io.out(i).fire() && i.U =/= FuType.lsu){exu_valid_next(i) := false.B}})
+  (0 to FuType.num-1).map(i => {when(exu.io.out(i).fire() && i.U =/= FuType.lsu && i.U =/= FuType.simdu && i.U =/= FuType.simdu1){exu_valid_next(i) := false.B}})
+  
   val lsu_firststage_fire = WireInit(false.B)
   BoringUtils.addSink(lsu_firststage_fire, "lsu_firststage_fire")
   when(lsu_firststage_fire){exu_valid_next(FuType.lsu) := false.B}
+  
+  val simdu_firststage_fire = exu.io.out(FuType.simdu).fire()
+  when(simdu_firststage_fire){exu_valid_next(FuType.simdu) := false.B}
+  val simdu1_firststage_fire = exu.io.out(FuType.simdu1).fire()
+  when(simdu1_firststage_fire){exu_valid_next(FuType.simdu1) := false.B}
 
   def MultiOperatorMatch(futype1:UInt,futype2:UInt,isBru:Bool):Bool = (futype1 === FuType.alu) && (futype2 ===FuType.alu || futype2 === FuType.alu1) && !isBru
   for(i <- 0 to FuType.num-1){
