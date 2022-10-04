@@ -46,6 +46,7 @@ object RV32I_ALUInstr extends HasInstrType with HasNutCoreParameter {
 
   def AUIPC   = BitPat("b????????????????????_?????_0010111")
   def LUI     = BitPat("b????????????????????_?????_0110111")
+  def ADD16   = BitPat("b0100000_?????_?????_000_?????_1110111")
 
   val table = Array(
     ADDI           -> List(InstrI, FuType.alu, ALUOpType.add),
@@ -70,7 +71,9 @@ object RV32I_ALUInstr extends HasInstrType with HasNutCoreParameter {
     SRA            -> List(InstrR, FuType.alu, ALUOpType.sra),
 
     AUIPC          -> List(InstrU, FuType.alu, ALUOpType.add),
-    LUI            -> List(InstrU, FuType.alu, ALUOpType.add)
+    LUI            -> List(InstrU, FuType.alu, ALUOpType.add),
+
+    ADD16          -> List(InstrR, FuType.alu, ALUOpType.add16)
   )
 }
 
