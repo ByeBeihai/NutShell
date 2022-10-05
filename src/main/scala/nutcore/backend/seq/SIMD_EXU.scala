@@ -217,6 +217,9 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   simdu.io.DecodeIn := io.in(simduidx).bits
   simdu.io.out.ready := true.B
   simdu.io.flush := io.flush
+  val simdu_firststage_fire = Wire(Bool())
+  simdu_firststage_fire := simdu.io.FirstStageFire
+  BoringUtils.addSource(simdu_firststage_fire, "simdu_fs_fire")
 
   //SIMDU1
   val simdu1idx = FuType.simdu1
@@ -225,6 +228,9 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   simdu1.io.DecodeIn := io.in(simdu1idx).bits
   simdu1.io.out.ready := true.B
   simdu1.io.flush := io.flush
+  val simdu1_firststage_fire = Wire(Bool())
+  simdu1_firststage_fire := simdu1.io.FirstStageFire
+  BoringUtils.addSource(simdu1_firststage_fire, "simdu1_fs_fire")
 
   //LSU
   val lsuidx = FuType.lsu
@@ -327,8 +333,8 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
                                                            FuType.csr -> csr.io.instrValid,
                                                            FuType.mou -> false.B,
                                                            FuType.alu1-> io.in(alu1idx).valid,
-                                                           FuType.simdu -> io.in(simduidx).valid,
-                                                           FuType.simdu1 -> io.in(simdu1idx).valid))
+                                                           FuType.simdu -> simdu.io.out.valid,
+                                                           FuType.simdu1 -> simdu1.io.out.valid))
   }
   for(k <- 0 to FuType.num-1){
     io.out(k).bits.commits:= DontCare

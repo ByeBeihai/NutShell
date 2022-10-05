@@ -131,7 +131,7 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   val FronthasRedirect = VecInit((0 to FuType.num-1).map(i => i.U > redirct_index))
 
   for(i <- 0 to FuType.num-1){
-    io.wb.rfWen(i) := io.in(i).bits.decode.ctrl.rfWen && io.in(i).valid && !FronthasRedirect(i)
+    io.wb.rfWen(i) := io.in(i).bits.decode.ctrl.rfWen && io.in(i).valid 
     io.wb.rfDest(i) := io.in(i).bits.decode.ctrl.rfDest
     io.wb.WriteData(i) := io.in(i).bits.commits
     io.wb.valid(i) :=io.in(i).valid

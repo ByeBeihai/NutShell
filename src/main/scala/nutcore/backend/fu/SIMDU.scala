@@ -9,13 +9,15 @@ import difftest._
 import top.Settings
 
 object SIMDUOpType {
-  def add16  = "b1110111".U
+  def add16  = "b0100000".U
 }
 
 class SIMDU_IO extends FunctionUnitIO {
   val flush = Input(Bool())
   val DecodeOut = new DecodeIO
   val DecodeIn = Flipped(new DecodeIO)
+  val OV = Output(Bool())
+  val FirstStageFire = Output(Bool())
 }
 class SIMDU(hasBru: Boolean = false,NO1: Boolean = true) extends NutCoreModule {
   val io = IO(new SIMDU_IO)
@@ -28,18 +30,30 @@ class SIMDU(hasBru: Boolean = false,NO1: Boolean = true) extends NutCoreModule {
     io.out.bits
   }
 
-  //add16临时逻辑
-  val add16_result = Wire(new MyBundle)
-  add16_result.a := src1.asTypeOf(new MyBundle).a + src2.asTypeOf(new MyBundle).a
-  add16_result.b := src1.asTypeOf(new MyBundle).b + src2.asTypeOf(new MyBundle).b
-  add16_result.c := src1.asTypeOf(new MyBundle).c + src2.asTypeOf(new MyBundle).c
-  add16_result.d := src1.asTypeOf(new MyBundle).d + src2.asTypeOf(new MyBundle).d
+  val PALU = Module(new PALU)
 
-  val res = LookupTreeDefault(func, 0.U, List(
-    SIMDUOpType.add16 -> add16_result.asUInt
-  ))
-  io.out.bits := res
-  io.DecodeOut := io.DecodeIn
-  io.in.ready := true.B
-  io.out.valid := true.B
+  io.in.ready := !valid || PALU.io.in.fire()
+
+  io.OV := PALU.io.out.bits.OV
+  io.out.bits := PALU.io.out.bits.result
+  io.DecodeOut := PALU.io.out.bits.DecodeOut
+  io.out.valid := PALU.io.out.valid
+  PALU.io.out.ready := io.out.ready
+  io.FirstStageFire := valid && PALU.io.in.ready
+
+  val PALU_bits_next = Wire(new DecodeIO)
+  val PALU_bits      = RegInit(0.U.asTypeOf(new DecodeIO))
+  PALU_bits_next := PALU_bits
+  val PALU_valid = RegInit(0.U.asTypeOf(Bool()))
+  val PALU_valid_next = Wire(Bool())
+  PALU_valid_next:= PALU_valid
+  when(PALU.io.out.fire()){PALU_valid_next := false.B}
+  when(valid && PALU.io.in.ready){PALU_valid_next := true.B
+                                  PALU_bits_next  := io.DecodeIn}
+  when(io.flush){PALU_valid_next := false.B}
+  PALU_valid := PALU_valid_next
+  PALU_bits  := PALU_bits_next
+  PALU.io.in.valid := PALU_valid
+  PALU.io.in.bits  := PALU_bits
+
 }

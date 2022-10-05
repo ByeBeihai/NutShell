@@ -739,10 +739,12 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   val lsu_firststage_fire = WireInit(false.B)
   BoringUtils.addSink(lsu_firststage_fire, "lsu_firststage_fire")
   when(lsu_firststage_fire){exu_valid_next(FuType.lsu) := false.B}
-  
-  val simdu_firststage_fire = exu.io.out(FuType.simdu).fire()
+
+  val simdu_firststage_fire = WireInit(false.B)
+  val simdu1_firststage_fire = WireInit(false.B)
+  BoringUtils.addSink(simdu_firststage_fire, "simdu_fs_fire")
+  BoringUtils.addSink(simdu1_firststage_fire, "simdu1_fs_fire")
   when(simdu_firststage_fire){exu_valid_next(FuType.simdu) := false.B}
-  val simdu1_firststage_fire = exu.io.out(FuType.simdu1).fire()
   when(simdu1_firststage_fire){exu_valid_next(FuType.simdu1) := false.B}
 
   def MultiOperatorMatch(futype1:UInt,futype2:UInt,isBru:Bool):Bool = ((futype1 === FuType.alu) && (futype2 ===FuType.alu || futype2 === FuType.alu1) && !isBru
