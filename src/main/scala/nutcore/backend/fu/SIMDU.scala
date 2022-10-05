@@ -10,6 +10,15 @@ import top.Settings
 
 object SIMDUOpType {
   def add16  = "b0100000".U
+  def radd16 = "b0000000".U
+  def kadd16 = "b0001000".U
+  def uradd16= "b0010000".U
+  def ukadd16= "b0011000".U
+  def sub16  = "b0100001".U
+  def rsub16 = "b0000001".U
+  def ksub16 = "b0001001".U
+  def ursub16= "b0010001".U
+  def uksub16= "b0011001".U
 }
 
 class SIMDU_IO extends FunctionUnitIO {

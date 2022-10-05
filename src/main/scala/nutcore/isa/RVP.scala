@@ -5,8 +5,26 @@ import chisel3.util._
 
 object RVPInstr extends HasInstrType {
   def ADD16   = BitPat("b0100000_?????_?????_000_?????_1110111")
+  def RADD16  = BitPat("b0000000_?????_?????_000_?????_1110111")
+  def KADD16  = BitPat("b0001000_?????_?????_000_?????_1110111")
+  def URADD16 = BitPat("b0010000_?????_?????_000_?????_1110111")
+  def UKADD16 = BitPat("b0011000_?????_?????_000_?????_1110111")
+  def SUB16   = BitPat("b0100001_?????_?????_000_?????_1110111")
+  def RSUB16  = BitPat("b0000001_?????_?????_000_?????_1110111")
+  def KSUB16  = BitPat("b0001001_?????_?????_000_?????_1110111")
+  def URSUB16 = BitPat("b0010001_?????_?????_000_?????_1110111")
+  def UKSUB16 = BitPat("b0011001_?????_?????_000_?????_1110111")
   
   val table = Array(
-    ADD16       -> List(InstrP, FuType.simdu, SIMDUOpType.add16)
+    ADD16       -> List(InstrP, FuType.simdu, SIMDUOpType.add16),
+    RADD16      -> List(InstrP, FuType.simdu, SIMDUOpType.radd16),
+    KADD16      -> List(InstrP, FuType.simdu, SIMDUOpType.kadd16),
+    URADD16     -> List(InstrP, FuType.simdu, SIMDUOpType.uradd16),
+    UKADD16     -> List(InstrP, FuType.simdu, SIMDUOpType.ukadd16),
+    SUB16       -> List(InstrP, FuType.simdu, SIMDUOpType.sub16),
+    RSUB16      -> List(InstrP, FuType.simdu, SIMDUOpType.rsub16),
+    KSUB16      -> List(InstrP, FuType.simdu, SIMDUOpType.ksub16),
+    URSUB16     -> List(InstrP, FuType.simdu, SIMDUOpType.ursub16),
+    UKSUB16     -> List(InstrP, FuType.simdu, SIMDUOpType.uksub16)
   )
 }

@@ -100,12 +100,12 @@ class PALU extends NutCoreModule {
 
     val isSub_64 = false.B//VALUOpType.sub64 === io.in.func
     val isSub_32 = false.B//VALUOpType.sub32 === io.in.func
-    val isSub_16 = func(2,0).asUInt === 1.U && func(6,5).asUInt === 0.U//VALUOpType.sub16 === io.in.func
+    val isSub_16 = func(2,0).asUInt === 1.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U)//VALUOpType.sub16 === io.in.func
     val isSub_8 = false.B//VALUOpType.sub8 === io.in.func
     val isSub = isSub_64 | isSub_32 | isSub_16 | isSub_8
 
     val SrcSigned   = func(6,4) === 0.U
-    val Saturating  = func(0).asBool
+    val Saturating  = func(3).asBool && !(func(6,3) === 4.U)
     val Translation = !Saturating && !(func(6,3) === 4.U)
     
     def MixPrecisionLen = XLEN + XLEN / 8 + XLEN / 8
@@ -126,8 +126,10 @@ class PALU extends NutCoreModule {
             val extension = Wire(UInt(1.W))
             when(SrcSigned){
                 extension := tmp(width - 1)
+                when(isSub && tmp === Cat(1.U , Fill(width-1,0.U))){extension := 0.U}
             }.otherwise{
                 extension := 0.U
+                when(isSub && tmp =/= 0.U){extension := 1.U}
             }
             val tmp_list1 = List.concat(List(extension), List(tmp(width - 1,0)))
             val tmp_list2 = List.concat(List(0.U), tmp_list1)
@@ -138,10 +140,13 @@ class PALU extends NutCoreModule {
     def add_src_map_drophighestbit(width: Int, src:UInt, isSub: Bool) = {
         var l = List(0.U)
         for (i <- 0 until XLEN / width) {
-            val tmp = (src(i * width + width - 2, i * width) ^ Fill(width, isSub)) + isSub
-            val tmp_list = List.concat(List(0.U), List(tmp(width - 2,0)))
+            val tmp = (src(i * width + width - 1, i * width) ^ Fill(width, isSub)) + isSub
+            val highestbit = Wire(UInt(1.W))
+            highestbit := 0.U
+            when(isSub && tmp === Cat(1.U , Fill(width-1,0.U))){highestbit := 1.U}
+            val tmp_list = List.concat(List(highestbit), List(tmp(width - 2,0)))
             val tmp_list1 = List.concat(List(0.U),tmp_list)
-            val tmp_list2 = List.concat(List(0.U),tmp_list)
+            val tmp_list2 = List.concat(List(0.U),tmp_list1)
             l = List.concat(tmp_list2 ,l)
         }
         l.dropRight(1).reduce(Cat(_, _)) 
@@ -152,17 +157,17 @@ class PALU extends NutCoreModule {
             add1 := add_src_map(8, src1, 0.B,SrcSigned)
             add2 := add_src_map(8, src2, isSub_8,SrcSigned)
             add1_drophighestbit := add_src_map_drophighestbit(8, src1, 0.B)
-            add2_drophighestbit := add_src_map_drophighestbit(8, src2, 0.B)
+            add2_drophighestbit := add_src_map_drophighestbit(8, src2, isSub_8)
         } .elsewhen (isAdd_16 | isSub_16) {
             add1 := add_src_map(16, src1, 0.B,SrcSigned)
             add2 := add_src_map(16, src2, isSub_16,SrcSigned)
             add1_drophighestbit := add_src_map_drophighestbit(16, src1, 0.B)
-            add2_drophighestbit := add_src_map_drophighestbit(16, src2, 0.B)
+            add2_drophighestbit := add_src_map_drophighestbit(16, src2, isSub_16)
         } .elsewhen (isAdd_32 | isSub_32) {
             add1 := add_src_map(32, src1, 0.B,SrcSigned)
             add2 := add_src_map(32, src2, isSub_32,SrcSigned)
             add1_drophighestbit := add_src_map_drophighestbit(32, src1, 0.B)
-            add2_drophighestbit := add_src_map_drophighestbit(32, src2, 0.B)
+            add2_drophighestbit := add_src_map_drophighestbit(32, src2, isSub_32)
         } .otherwise {
             add1 := DontCare
             add2 := DontCare
@@ -174,22 +179,22 @@ class PALU extends NutCoreModule {
             add1 := add_src_map(8, src1, 0.B,SrcSigned)
             add2 := add_src_map(8, src2, isSub_8,SrcSigned)
             add1_drophighestbit := add_src_map_drophighestbit(8, src1, 0.B)
-            add2_drophighestbit := add_src_map_drophighestbit(8, src2, 0.B)
+            add2_drophighestbit := add_src_map_drophighestbit(8, src2, isSub_8)
         } .elsewhen (isAdd_16 | isSub_16) {
             add1 := add_src_map(16, src1, 0.B,SrcSigned)
             add2 := add_src_map(16, src2, isSub_16,SrcSigned)
             add1_drophighestbit := add_src_map_drophighestbit(16, src1, 0.B)
-            add2_drophighestbit := add_src_map_drophighestbit(16, src2, 0.B)
+            add2_drophighestbit := add_src_map_drophighestbit(16, src2, isSub_16)
         } .elsewhen (isAdd_32 | isSub_32) {
             add1 := add_src_map(32, src1, 0.B,SrcSigned)
             add2 := add_src_map(32, src2, isSub_32,SrcSigned)
             add1_drophighestbit := add_src_map_drophighestbit(32, src1, 0.B)
-            add2_drophighestbit := add_src_map_drophighestbit(32, src2, 0.B)
+            add2_drophighestbit := add_src_map_drophighestbit(32, src2, isSub_32)
         } .elsewhen (isAdd_64 | isSub_64) {
             add1 := add_src_map(64, src1, 0.B,SrcSigned)
             add2 := add_src_map(64,  src2, isSub_64,SrcSigned)
             add1_drophighestbit := add_src_map_drophighestbit(64, src1, 0.B)
-            add2_drophighestbit := add_src_map_drophighestbit(64, src2, 0.B)
+            add2_drophighestbit := add_src_map_drophighestbit(64, src2, isSub_64)
         } .otherwise {
             add1 := DontCare
             add2 := DontCare
@@ -219,18 +224,33 @@ class PALU extends NutCoreModule {
         }
         l.reduce(Cat(_, _))
     }
-    def Saturated_Check(adderRes_ori:UInt,adderRes_ori_drophighestbit:UInt,width: Int,SrcSigned:Bool) = {
+    def Saturated_Check(adderRes_ori:UInt,adderRes_ori_drophighestbit:UInt,width: Int,SrcSigned:Bool)= {
         var l = List(0.U)
+        val OV = WireInit(false.B)
         for(i <- 0 until XLEN/width){
             val tmp = Wire(UInt(1.W))
+            val newbits = Wire(UInt(width.W))
+            newbits := adderRes_ori(gather_offset(width, i),gather_offset_end(width, i))
             when(SrcSigned){
                 tmp := adderRes_ori(gather_offset(width, i)+2) ^ adderRes_ori_drophighestbit(gather_offset(width, i))
+                when(tmp.asBool){
+                    when(adderRes_ori(gather_offset(width, i)+2)){
+                        newbits := Cat(1.U,Fill(width-1,0.U))
+                    }.otherwise{
+                        newbits := Cat(0.U,Fill(width-1,1.U))
+                    }
+                    OV := true.B
+                }
             }.otherwise{
                 tmp := adderRes_ori(gather_offset(width, i)+1)
+                when(tmp.asBool){
+                    newbits := Fill(width,1.U)
+                    OV := true.B
+                }
             }
-            l = List.concat(List(tmp) ,l)
+            l = List.concat(List(newbits) ,l)
         }
-        l.reduce(Cat(_, _)) =/= 0.U
+        Cat(OV.asUInt,l.dropRight(1).reduce(Cat(_, _)))
     }
     def AdderRes_Translation(adderRes_ori:UInt,width:Int) = {
         var l = List(0.U)
@@ -257,14 +277,16 @@ class PALU extends NutCoreModule {
     val adderRes_final = WireInit(adderRes)
     when(isAdd_16 | isSub_16){
         when(Saturating){
-            io.out.bits.OV := Saturated_Check(adderRes_ori,adderRes_ori_drophighestbit,16,SrcSigned)
+            val Saturated_Check_Res = Saturated_Check(adderRes_ori,adderRes_ori_drophighestbit,16,SrcSigned)
+            adderRes_final := Saturated_Check_Res(XLEN-1,0)
+            io.out.bits.OV := Saturated_Check_Res(XLEN).asBool
         }.elsewhen(Translation){
             adderRes_final := AdderRes_Translation(adderRes_ori,16)
         }
     }
 
     io.out.bits.result := adderRes_final
-    Debug("[PALU] src1 %x src2 %x func %x is_Add16 %x SrcSigned %x Saturating %x Translation %x \n",src1,src2,func,isAdd_16,SrcSigned,Saturating,Translation)
+    Debug("[PALU] src1 %x src2 %x func %x is_Add16 %x isSub_16 %x SrcSigned %x Saturating %x Translation %x \n",src1,src2,func,isAdd_16,isSub_16,SrcSigned,Saturating,Translation)
     Debug("[PALU] add1 %x add2 %x add1drop %x add2drop %x adderRes_ori %x adderRes_oridrop %x \n",add1,add2,add1_drophighestbit,add2_drophighestbit,adderRes_ori,adderRes_ori_drophighestbit)
     Debug("[PALU] addres %x adderRes_final %x OV %x \n",adderRes,adderRes_final,io.out.bits.OV)
 }
