@@ -34,6 +34,26 @@ object RVPInstr extends HasInstrType {
   def KCRSA16 = BitPat("b0001011_?????_?????_000_?????_1110111")
   def URCRSA16= BitPat("b0010011_?????_?????_000_?????_1110111")
   def UKCRSA16= BitPat("b0011011_?????_?????_000_?????_1110111")
+  def ADD32   = BitPat("b0100000_?????_?????_010_?????_1110111")
+  def RADD32  = BitPat("b0000000_?????_?????_010_?????_1110111")
+  def KADD32  = BitPat("b0001000_?????_?????_010_?????_1110111")
+  def URADD32 = BitPat("b0010000_?????_?????_010_?????_1110111")
+  def UKADD32 = BitPat("b0011000_?????_?????_010_?????_1110111")
+  def SUB32   = BitPat("b0100001_?????_?????_010_?????_1110111")
+  def RSUB32  = BitPat("b0000001_?????_?????_010_?????_1110111")
+  def KSUB32  = BitPat("b0001001_?????_?????_010_?????_1110111")
+  def URSUB32 = BitPat("b0010001_?????_?????_010_?????_1110111")
+  def UKSUB32 = BitPat("b0011001_?????_?????_010_?????_1110111")
+  def CRAS32  = BitPat("b0100010_?????_?????_010_?????_1110111")
+  def RCRAS32 = BitPat("b0000010_?????_?????_010_?????_1110111")
+  def KCRAS32 = BitPat("b0001010_?????_?????_010_?????_1110111")
+  def URCRAS32= BitPat("b0010010_?????_?????_010_?????_1110111")
+  def UKCRAS32= BitPat("b0011010_?????_?????_010_?????_1110111")
+  def CRSA32  = BitPat("b0100011_?????_?????_010_?????_1110111")
+  def RCRSA32 = BitPat("b0000011_?????_?????_010_?????_1110111")
+  def KCRSA32 = BitPat("b0001011_?????_?????_010_?????_1110111")
+  def URCRSA32= BitPat("b0010011_?????_?????_010_?????_1110111")
+  def UKCRSA32= BitPat("b0011011_?????_?????_010_?????_1110111")
   
   val table = Array(
     ADD16       -> List(InstrP, FuType.simdu, SIMDUOpType.add16),
@@ -65,6 +85,26 @@ object RVPInstr extends HasInstrType {
     RCRSA16     -> List(InstrP, FuType.simdu, SIMDUOpType.rcrsa16),
     KCRSA16     -> List(InstrP, FuType.simdu, SIMDUOpType.kcrsa16),
     URCRSA16    -> List(InstrP, FuType.simdu, SIMDUOpType.urcrsa16),
-    UKCRSA16    -> List(InstrP, FuType.simdu, SIMDUOpType.ukcrsa16)
+    UKCRSA16    -> List(InstrP, FuType.simdu, SIMDUOpType.ukcrsa16),
+    ADD32       -> List(InstrP, FuType.simdu, SIMDUOpType.add32),
+    RADD32      -> List(InstrP, FuType.simdu, SIMDUOpType.radd32),
+    KADD32      -> List(InstrP, FuType.simdu, SIMDUOpType.kadd32),
+    URADD32     -> List(InstrP, FuType.simdu, SIMDUOpType.uradd32),
+    UKADD32     -> List(InstrP, FuType.simdu, SIMDUOpType.ukadd32),
+    SUB32       -> List(InstrP, FuType.simdu, SIMDUOpType.sub32),
+    RSUB32      -> List(InstrP, FuType.simdu, SIMDUOpType.rsub32),
+    KSUB32      -> List(InstrP, FuType.simdu, SIMDUOpType.ksub32),
+    URSUB32     -> List(InstrP, FuType.simdu, SIMDUOpType.ursub32),
+    UKSUB32     -> List(InstrP, FuType.simdu, SIMDUOpType.uksub32),
+    CRAS32      -> List(InstrP, FuType.simdu, SIMDUOpType.cras32),
+    RCRAS32     -> List(InstrP, FuType.simdu, SIMDUOpType.rcras32),
+    KCRAS32     -> List(InstrP, FuType.simdu, SIMDUOpType.kcras32),
+    URCRAS32    -> List(InstrP, FuType.simdu, SIMDUOpType.urcras32),
+    UKCRAS32    -> List(InstrP, FuType.simdu, SIMDUOpType.ukcras32),
+    CRSA32      -> List(InstrP, FuType.simdu, SIMDUOpType.crsa32),
+    RCRSA32     -> List(InstrP, FuType.simdu, SIMDUOpType.rcrsa32),
+    KCRSA32     -> List(InstrP, FuType.simdu, SIMDUOpType.kcrsa32),
+    URCRSA32    -> List(InstrP, FuType.simdu, SIMDUOpType.urcrsa32),
+    UKCRSA32    -> List(InstrP, FuType.simdu, SIMDUOpType.ukcrsa32)
   )
 }

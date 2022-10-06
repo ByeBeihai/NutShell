@@ -46,6 +46,8 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
   io.out.bits.ctrl.fuType := fuType
   io.out.bits.ctrl.fuOpType := fuOpType
 
+  io.out.bits.ctrl.funct3 := instr(14,12)
+
   val SrcTypeTable = List(
     InstrI -> (SrcType.reg, SrcType.imm),
     InstrR -> (SrcType.reg, SrcType.reg),

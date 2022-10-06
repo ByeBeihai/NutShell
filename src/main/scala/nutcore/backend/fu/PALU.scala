@@ -86,24 +86,27 @@ class PALU extends NutCoreModule {
     val src1  = io.in.bits.data.src1
     val src2  = io.in.bits.data.src2
     val func  = io.in.bits.ctrl.fuOpType
+    val funct3= io.in.bits.ctrl.funct3
 
     io.in.ready := !valid || io.out.fire()
     io.out.valid:= valid
     io.out.bits.DecodeOut := io.in.bits
     
     val isAdd_64 = false.B//VALUOpType.add64 === func
-    val isAdd_32 = false.B//VALUOpType.add32 === func
-    val isAdd_16 = func(2,0).asUInt === 0.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U)
-    val isAdd_8  = func(2,0).asUInt === 4.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U)//false.B//VALUOpType.add8 === func
+    val isAdd_32 = func(2,0).asUInt === 0.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U) && funct3 === 2.U//false.B//VALUOpType.add32 === func
+    val isAdd_16 = func(2,0).asUInt === 0.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U) && funct3 === 0.U
+    val isAdd_8  = func(2,0).asUInt === 4.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U) && funct3 === 0.U//false.B//VALUOpType.add8 === func
     val isAdd = isAdd_64 | isAdd_32 | isAdd_16 | isAdd_8
 
     val isSub_64 = false.B//VALUOpType.sub64 === io.in.func
-    val isSub_32 = false.B//VALUOpType.sub32 === io.in.func
-    val isSub_16 = func(2,0).asUInt === 1.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U)//VALUOpType.sub16 === io.in.func
-    val isSub_8  = func(2,0).asUInt === 5.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U)//VALUOpType.sub8 === io.in.func
+    val isSub_32 = func(2,0).asUInt === 1.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U) && funct3 === 2.U//false.B//VALUOpType.sub32 === io.in.func
+    val isSub_16 = func(2,0).asUInt === 1.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U) && funct3 === 0.U//VALUOpType.sub16 === io.in.func
+    val isSub_8  = func(2,0).asUInt === 5.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U) && funct3 === 0.U//VALUOpType.sub8 === io.in.func
 
-    val isCras_16 = func(2,0).asUInt === 2.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U)
-    val isCrsa_16 = func(2,0).asUInt === 3.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U)
+    val isCras_16 = func(2,0).asUInt === 2.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U)&& funct3 === 0.U
+    val isCrsa_16 = func(2,0).asUInt === 3.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U)&& funct3 === 0.U
+    val isCras_32 = func(2,0).asUInt === 2.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U)&& funct3 === 2.U
+    val isCrsa_32 = func(2,0).asUInt === 3.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U)&& funct3 === 2.U
 
     val isSub = WireInit(0.U(8.W))
     when(isSub_64 | isSub_32 | isSub_16 | isSub_8){
@@ -112,6 +115,10 @@ class PALU extends NutCoreModule {
         isSub:= "b00000101".U
     }.elsewhen(isCrsa_16){
         isSub:= "b00001010".U
+    }.elsewhen(isCras_32){
+        isSub:= "b00000001".U
+    }.elsewhen(isCrsa_32){
+        isSub:= "b00000010".U
     }
 
     val SrcSigned   = func(6,4) === 0.U
@@ -233,6 +240,11 @@ class PALU extends NutCoreModule {
             add2 := add_src_map(16, src2, isSub,SrcSigned,true.B)
             add1_drophighestbit := add_src_map_drophighestbit(16, src1, 0.B,false.B)
             add2_drophighestbit := add_src_map_drophighestbit(16, src2, isSub,true.B)
+        } .elsewhen(isCras_32 | isCrsa_32){
+            add1 := add_src_map(32, src1, 0.B,SrcSigned,false.B)
+            add2 := add_src_map(32, src2, isSub,SrcSigned,true.B)
+            add1_drophighestbit := add_src_map_drophighestbit(32, src1, 0.B,false.B)
+            add2_drophighestbit := add_src_map_drophighestbit(32, src2, isSub,true.B)
         } .otherwise {
             add1 := DontCare
             add2 := DontCare
@@ -308,7 +320,7 @@ class PALU extends NutCoreModule {
         adderRes := adder_gather(adderRes_ori, 8)
     } .elsewhen (isAdd_16 | isSub_16 | isCras_16 | isCrsa_16) {
         adderRes := adder_gather(adderRes_ori, 16)
-    } .elsewhen (isAdd_32 | isSub_32) {
+    } .elsewhen (isAdd_32 | isSub_32 | isCras_32 | isCrsa_32) {
         adderRes := adder_gather(adderRes_ori, 32)
     } .elsewhen(isAdd_64 | isSub_64) {
         adderRes := adder_gather(adderRes_ori, 64)
@@ -334,10 +346,19 @@ class PALU extends NutCoreModule {
         }.elsewhen(Translation){
             adderRes_final := AdderRes_Translation(adderRes_ori,8)
         }
+    }.elsewhen(isAdd_32 | isSub_32 | isCras_32 | isCrsa_32){
+        when(Saturating){
+            val Saturated_Check_Res = Saturated_Check(adderRes_ori,adderRes_ori_drophighestbit,32,SrcSigned,isSub)
+            adderRes_final := Saturated_Check_Res(XLEN-1,0)
+            io.out.bits.DecodeOut.pext.OV := Saturated_Check_Res(XLEN).asBool
+        }.elsewhen(Translation){
+            adderRes_final := AdderRes_Translation(adderRes_ori,32)
+        }
     }
 
     io.out.bits.result := adderRes_final
     Debug("[PALU] src1 %x src2 %x func %x is_Add8 %x is_Sub8 %x is_Add16 %x isSub_16 %x isCras_16 %x isCrsa_16 %x SrcSigned %x Saturating %x Translation %x \n",src1,src2,func,isAdd_8,isSub_8,isAdd_16,isSub_16,isCras_16,isCrsa_16,SrcSigned,Saturating,Translation)
+    Debug("[PALU] isAdd_32 %x isSub_32 %x isCras_32 %x isCrsa_32 %x \n",isAdd_32,isSub_32,isCras_32,isCrsa_32)
     Debug("[PALU] add1 %x add2 %x add1drop %x add2drop %x adderRes_ori %x adderRes_oridrop %x \n",add1,add2,add1_drophighestbit,add2_drophighestbit,adderRes_ori,adderRes_ori_drophighestbit)
     Debug("[PALU] addres %x adderRes_final %x OV %x \n",adderRes,adderRes_final,io.out.bits.DecodeOut.pext.OV)
 }

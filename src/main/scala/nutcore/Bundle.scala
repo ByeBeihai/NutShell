@@ -24,6 +24,7 @@ class CtrlSignalIO extends NutCoreBundle {
   val src2Type = Output(SrcType())
   val fuType = Output(FuType())
   val fuOpType = Output(FuOpType())
+  val funct3 = Output(UInt(3.W))
   val rfSrc1 = Output(UInt(5.W))
   val rfSrc2 = Output(UInt(5.W))
   val rfWen = Output(Bool())

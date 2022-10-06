@@ -183,7 +183,6 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
     val dmem = new SimpleBusUC(addrBits = VAddrBits)
     val forward = Vec(FuType.num,new ForwardIO)
     val memMMU = Flipped(new MemMMUIO)
-    val isempty= Vec(FuType.num,Output(Bool()))
   })
 
   def notafter(ptr1:UInt,ptr2:UInt,flag1:UInt,flag2:UInt):Bool= (ptr1 <= ptr2) && (flag1 === flag2) || (ptr1 > ptr2) && (flag1 =/= flag2)
@@ -362,12 +361,6 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
     io.forward(i).fuType := io.out(i).bits.decode.ctrl.fuType
     io.forward(i).InstNo := io.out(i).bits.decode.InstNo
   }
-
-  for(i <- 0 to FuType.num-1){
-    io.isempty(i) := io.in(i).ready
-  }
-  io.isempty(simduidx) := simdu.io.isempty
-  io.isempty(simdu1idx):= simdu1.io.isempty
 
   if (!p.FPGAPlatform) {
     val cycleCnt = WireInit(0.U(64.W))

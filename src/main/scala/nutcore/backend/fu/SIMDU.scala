@@ -39,6 +39,26 @@ object SIMDUOpType {
   def kcrsa16= "b0001011".U
   def urcrsa16="b0010011".U
   def ukcrsa16="b0011011".U
+  def add32  = "b0100000".U
+  def radd32 = "b0000000".U
+  def kadd32 = "b0001000".U
+  def uradd32= "b0010000".U
+  def ukadd32= "b0011000".U
+  def sub32  = "b0100001".U
+  def rsub32 = "b0000001".U
+  def ksub32 = "b0001001".U
+  def ursub32= "b0010001".U
+  def uksub32= "b0011001".U
+  def cras32 = "b0100010".U
+  def rcras32= "b0000010".U
+  def kcras32= "b0001010".U
+  def urcras32="b0010010".U
+  def ukcras32="b0011010".U
+  def crsa32 = "b0100011".U
+  def rcrsa32= "b0000011".U
+  def kcrsa32= "b0001011".U
+  def urcrsa32="b0010011".U
+  def ukcrsa32="b0011011".U
 }
 
 class SIMDU_IO extends FunctionUnitIO {
@@ -46,7 +66,6 @@ class SIMDU_IO extends FunctionUnitIO {
   val DecodeOut = new DecodeIO
   val DecodeIn = Flipped(new DecodeIO)
   val FirstStageFire = Output(Bool())
-  val isempty = Output(Bool())
 }
 class SIMDU(hasBru: Boolean = false,NO1: Boolean = true) extends NutCoreModule {
   val io = IO(new SIMDU_IO)
@@ -84,6 +103,4 @@ class SIMDU(hasBru: Boolean = false,NO1: Boolean = true) extends NutCoreModule {
   PALU_bits  := PALU_bits_next
   PALU.io.in.valid := PALU_valid
   PALU.io.in.bits  := PALU_bits
-
-  io.isempty := !valid && !PALU_valid
 }
