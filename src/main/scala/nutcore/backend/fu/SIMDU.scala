@@ -29,6 +29,16 @@ object SIMDUOpType {
   def ksub8  = "b0001101".U
   def ursub8 = "b0010101".U
   def uksub8 = "b0011101".U
+  def cras16 = "b0100010".U
+  def rcras16= "b0000010".U
+  def kcras16= "b0001010".U
+  def urcras16="b0010010".U
+  def ukcras16="b0011010".U
+  def crsa16 = "b0100011".U
+  def rcrsa16= "b0000011".U
+  def kcrsa16= "b0001011".U
+  def urcrsa16="b0010011".U
+  def ukcrsa16="b0011011".U
 }
 
 class SIMDU_IO extends FunctionUnitIO {

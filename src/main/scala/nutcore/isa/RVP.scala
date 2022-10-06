@@ -24,6 +24,16 @@ object RVPInstr extends HasInstrType {
   def KSUB8   = BitPat("b0001101_?????_?????_000_?????_1110111")
   def URSUB8  = BitPat("b0010101_?????_?????_000_?????_1110111")
   def UKSUB8  = BitPat("b0011101_?????_?????_000_?????_1110111")
+  def CRAS16  = BitPat("b0100010_?????_?????_000_?????_1110111")
+  def RCRAS16 = BitPat("b0000010_?????_?????_000_?????_1110111")
+  def KCRAS16 = BitPat("b0001010_?????_?????_000_?????_1110111")
+  def URCRAS16= BitPat("b0010010_?????_?????_000_?????_1110111")
+  def UKCRAS16= BitPat("b0011010_?????_?????_000_?????_1110111")
+  def CRSA16  = BitPat("b0100011_?????_?????_000_?????_1110111")
+  def RCRSA16 = BitPat("b0000011_?????_?????_000_?????_1110111")
+  def KCRSA16 = BitPat("b0001011_?????_?????_000_?????_1110111")
+  def URCRSA16= BitPat("b0010011_?????_?????_000_?????_1110111")
+  def UKCRSA16= BitPat("b0011011_?????_?????_000_?????_1110111")
   
   val table = Array(
     ADD16       -> List(InstrP, FuType.simdu, SIMDUOpType.add16),
@@ -45,6 +55,16 @@ object RVPInstr extends HasInstrType {
     RSUB8       -> List(InstrP, FuType.simdu, SIMDUOpType.rsub8 ),
     KSUB8       -> List(InstrP, FuType.simdu, SIMDUOpType.ksub8 ),
     URSUB8      -> List(InstrP, FuType.simdu, SIMDUOpType.ursub8 ),
-    UKSUB8      -> List(InstrP, FuType.simdu, SIMDUOpType.uksub8 )
+    UKSUB8      -> List(InstrP, FuType.simdu, SIMDUOpType.uksub8 ),
+    CRAS16      -> List(InstrP, FuType.simdu, SIMDUOpType.cras16),
+    RCRAS16     -> List(InstrP, FuType.simdu, SIMDUOpType.rcras16),
+    KCRAS16     -> List(InstrP, FuType.simdu, SIMDUOpType.kcras16),
+    URCRAS16    -> List(InstrP, FuType.simdu, SIMDUOpType.urcras16),
+    UKCRAS16    -> List(InstrP, FuType.simdu, SIMDUOpType.ukcras16),
+    CRSA16      -> List(InstrP, FuType.simdu, SIMDUOpType.crsa16),
+    RCRSA16     -> List(InstrP, FuType.simdu, SIMDUOpType.rcrsa16),
+    KCRSA16     -> List(InstrP, FuType.simdu, SIMDUOpType.kcrsa16),
+    URCRSA16    -> List(InstrP, FuType.simdu, SIMDUOpType.urcrsa16),
+    UKCRSA16    -> List(InstrP, FuType.simdu, SIMDUOpType.ukcrsa16)
   )
 }
