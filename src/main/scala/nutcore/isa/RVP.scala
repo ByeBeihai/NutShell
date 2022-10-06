@@ -14,6 +14,16 @@ object RVPInstr extends HasInstrType {
   def KSUB16  = BitPat("b0001001_?????_?????_000_?????_1110111")
   def URSUB16 = BitPat("b0010001_?????_?????_000_?????_1110111")
   def UKSUB16 = BitPat("b0011001_?????_?????_000_?????_1110111")
+  def ADD8    = BitPat("b0100100_?????_?????_000_?????_1110111")
+  def RADD8   = BitPat("b0000100_?????_?????_000_?????_1110111")
+  def KADD8   = BitPat("b0001100_?????_?????_000_?????_1110111")
+  def URADD8  = BitPat("b0010100_?????_?????_000_?????_1110111")
+  def UKADD8  = BitPat("b0011100_?????_?????_000_?????_1110111")
+  def SUB8    = BitPat("b0100101_?????_?????_000_?????_1110111")
+  def RSUB8   = BitPat("b0000101_?????_?????_000_?????_1110111")
+  def KSUB8   = BitPat("b0001101_?????_?????_000_?????_1110111")
+  def URSUB8  = BitPat("b0010101_?????_?????_000_?????_1110111")
+  def UKSUB8  = BitPat("b0011101_?????_?????_000_?????_1110111")
   
   val table = Array(
     ADD16       -> List(InstrP, FuType.simdu, SIMDUOpType.add16),
@@ -25,6 +35,16 @@ object RVPInstr extends HasInstrType {
     RSUB16      -> List(InstrP, FuType.simdu, SIMDUOpType.rsub16),
     KSUB16      -> List(InstrP, FuType.simdu, SIMDUOpType.ksub16),
     URSUB16     -> List(InstrP, FuType.simdu, SIMDUOpType.ursub16),
-    UKSUB16     -> List(InstrP, FuType.simdu, SIMDUOpType.uksub16)
+    UKSUB16     -> List(InstrP, FuType.simdu, SIMDUOpType.uksub16),
+    ADD8        -> List(InstrP, FuType.simdu, SIMDUOpType.add8 ),
+    RADD8       -> List(InstrP, FuType.simdu, SIMDUOpType.radd8 ),
+    KADD8       -> List(InstrP, FuType.simdu, SIMDUOpType.kadd8 ),
+    URADD8      -> List(InstrP, FuType.simdu, SIMDUOpType.uradd8 ),
+    UKADD8      -> List(InstrP, FuType.simdu, SIMDUOpType.ukadd8 ),
+    SUB8        -> List(InstrP, FuType.simdu, SIMDUOpType.sub8 ),
+    RSUB8       -> List(InstrP, FuType.simdu, SIMDUOpType.rsub8 ),
+    KSUB8       -> List(InstrP, FuType.simdu, SIMDUOpType.ksub8 ),
+    URSUB8      -> List(InstrP, FuType.simdu, SIMDUOpType.ursub8 ),
+    UKSUB8      -> List(InstrP, FuType.simdu, SIMDUOpType.uksub8 )
   )
 }

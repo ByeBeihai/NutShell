@@ -54,7 +54,9 @@ class MisPredictionRecIO extends NutCoreBundle {
   val checkpoint = Output(UInt(brTagWidth.W))
   val prfidx = Output(UInt(prfAddrWidth.W))
 }
-
+class PEXT extends NutCoreBundle {
+  val OV = Output(Bool())
+}
 class CtrlFlowIO extends NutCoreBundle {
   val instr = Output(UInt(64.W))
   val pc = Output(UInt(VAddrBits.W))
@@ -73,6 +75,7 @@ class DecodeIO extends NutCoreBundle with HasNutCoreParameter{
   val cf = new CtrlFlowIO
   val ctrl = new CtrlSignalIO
   val data = new DataSrcIO
+  val pext = new PEXT
   val InstNo = Output(UInt(log2Up(Queue_num).W))
   val InstFlag = Output(UInt(1.W))
 }

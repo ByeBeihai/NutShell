@@ -147,6 +147,15 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   for(i <- 0 to FuType.num-1){
     io.in(i).ready := true.B
   }
+
+  //P-EXT
+  val bool_wire = WireInit(false.B)
+  for(i <- 0 to FuType.num-1){
+    when(io.in(i).valid && io.in(i).bits.decode.pext.OV){
+      bool_wire := true.B
+    }
+  }
+  BoringUtils.addSource(bool_wire,"OVWEN")
   
   val runahead_redirect = Module(new DifftestRunaheadRedirectEvent)
   runahead_redirect.io.clock := clock

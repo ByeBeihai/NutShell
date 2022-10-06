@@ -19,14 +19,24 @@ object SIMDUOpType {
   def ksub16 = "b0001001".U
   def ursub16= "b0010001".U
   def uksub16= "b0011001".U
+  def add8   = "b0100100".U
+  def radd8  = "b0000100".U
+  def kadd8  = "b0001100".U
+  def uradd8 = "b0010100".U
+  def ukadd8 = "b0011100".U
+  def sub8   = "b0100101".U
+  def rsub8  = "b0000101".U
+  def ksub8  = "b0001101".U
+  def ursub8 = "b0010101".U
+  def uksub8 = "b0011101".U
 }
 
 class SIMDU_IO extends FunctionUnitIO {
   val flush = Input(Bool())
   val DecodeOut = new DecodeIO
   val DecodeIn = Flipped(new DecodeIO)
-  val OV = Output(Bool())
   val FirstStageFire = Output(Bool())
+  val isempty = Output(Bool())
 }
 class SIMDU(hasBru: Boolean = false,NO1: Boolean = true) extends NutCoreModule {
   val io = IO(new SIMDU_IO)
@@ -43,7 +53,7 @@ class SIMDU(hasBru: Boolean = false,NO1: Boolean = true) extends NutCoreModule {
 
   io.in.ready := !valid || PALU.io.in.fire()
 
-  io.OV := PALU.io.out.bits.OV
+  io.DecodeOut.pext.OV := PALU.io.out.bits.DecodeOut.pext.OV
   io.out.bits := PALU.io.out.bits.result
   io.DecodeOut := PALU.io.out.bits.DecodeOut
   io.out.valid := PALU.io.out.valid
@@ -65,4 +75,5 @@ class SIMDU(hasBru: Boolean = false,NO1: Boolean = true) extends NutCoreModule {
   PALU.io.in.valid := PALU_valid
   PALU.io.in.bits  := PALU_bits
 
+  io.isempty := !valid && !PALU_valid
 }

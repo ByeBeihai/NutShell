@@ -39,6 +39,9 @@ trait SIMD_HasCSRConst {
   val Pmpcfg3       = 0x3A3
   val PmpaddrBase   = 0x3B0 
 
+  // P-ext
+  val VXSAT            = 0x009
+
   // Machine Counter/Timers 
   // Currently, NutCore uses perfcnt csr set instead of standard Machine Counter/Timers 
   // 0xB80 - 0x89F are also used as perfcnt csr
@@ -196,6 +199,8 @@ class SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with SIMD_Ha
   val pmpaddr2 = RegInit(UInt(XLEN.W), 0.U) 
   val pmpaddr3 = RegInit(UInt(XLEN.W), 0.U) 
 
+  val vxsat = RegInit(UInt(XLEN.W), 0.U) 
+
   // Superviser-Level CSRs
 
   // User-Level CSRs
@@ -236,7 +241,10 @@ class SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with SIMD_Ha
     MaskedRegMap(PmpaddrBase + 0, pmpaddr0),
     MaskedRegMap(PmpaddrBase + 1, pmpaddr1),
     MaskedRegMap(PmpaddrBase + 2, pmpaddr2),
-    MaskedRegMap(PmpaddrBase + 3, pmpaddr3)
+    MaskedRegMap(PmpaddrBase + 3, pmpaddr3),
+
+    //p-ext
+    MaskedRegMap(VXSAT,vxsat,1.U,MaskedRegMap.NoSideEffect,1.U)
 
   )
 
@@ -270,6 +278,11 @@ class SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with SIMD_Ha
   )
   val rdataDummy = Wire(UInt(XLEN.W))
   MaskedRegMap.generate(fixMapping, addr, rdataDummy, wen && !isIllegalAccess, wdata)
+
+  // P-ext
+  val OVWEN = WireInit(false.B)
+  BoringUtils.addSink(OVWEN,"OVWEN")
+  when(OVWEN){vxsat := 1.U}
 
   // CSR inst decode
   val ret = Wire(Bool())
@@ -454,6 +467,7 @@ class SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with SIMD_Ha
     //difftest.io.sscratch := RegNext(sscratch)
     difftest.io.mideleg := RegNext(mideleg)
     difftest.io.medeleg := RegNext(medeleg)
+    //difftest.io.vxsat   := vxsat
 
     val difftestArchEvent = Module(new DifftestArchEvent)
     difftestArchEvent.io.clock := clock
