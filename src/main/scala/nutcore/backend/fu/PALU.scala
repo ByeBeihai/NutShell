@@ -87,6 +87,8 @@ class PALU extends NutCoreModule {
     val src2  = io.in.bits.data.src2
     val func  = io.in.bits.ctrl.fuOpType
     val funct3= io.in.bits.ctrl.funct3
+    val func24= io.in.bits.ctrl.func24
+    val func23= io.in.bits.ctrl.func23
 
     io.in.ready := !valid || io.out.fire()
     io.out.valid:= valid
@@ -107,6 +109,7 @@ class PALU extends NutCoreModule {
     val isCrsa_16 = func(2,0).asUInt === 3.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U)&& funct3 === 0.U
     val isCras_32 = func(2,0).asUInt === 2.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U)&& funct3 === 2.U
     val isCrsa_32 = func(2,0).asUInt === 3.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U)&& funct3 === 2.U
+    val isCr = isCras_16 | isCrsa_16 | isCras_32 | isCrsa_32
 
     val isSub = WireInit(0.U(8.W))
     when(isSub_64 | isSub_32 | isSub_16 | isSub_8){
@@ -120,6 +123,8 @@ class PALU extends NutCoreModule {
     }.elsewhen(isCrsa_32){
         isSub:= "b00000010".U
     }
+
+    val isAdder = isSub=/=0.U | isAdd | isCr
 
     val SrcSigned   = func(6,4) === 0.U
     val Saturating  = func(3).asBool && !(func(6,3) === 4.U)
@@ -328,13 +333,13 @@ class PALU extends NutCoreModule {
         adderRes := DontCare
     }
 
-    io.out.bits.DecodeOut.pext.OV := false.B
+    val adderOV = WireInit(false.B)
     val adderRes_final = WireInit(adderRes)
     when(isAdd_16 | isSub_16 | isCras_16 | isCrsa_16){
         when(Saturating){
             val Saturated_Check_Res = Saturated_Check(adderRes_ori,adderRes_ori_drophighestbit,16,SrcSigned,isSub)
             adderRes_final := Saturated_Check_Res(XLEN-1,0)
-            io.out.bits.DecodeOut.pext.OV := Saturated_Check_Res(XLEN).asBool
+            adderOV := Saturated_Check_Res(XLEN).asBool
         }.elsewhen(Translation){
             adderRes_final := AdderRes_Translation(adderRes_ori,16)
         }
@@ -342,7 +347,7 @@ class PALU extends NutCoreModule {
         when(Saturating){
             val Saturated_Check_Res = Saturated_Check(adderRes_ori,adderRes_ori_drophighestbit,8,SrcSigned,isSub)
             adderRes_final := Saturated_Check_Res(XLEN-1,0)
-            io.out.bits.DecodeOut.pext.OV := Saturated_Check_Res(XLEN).asBool
+            adderOV := Saturated_Check_Res(XLEN).asBool
         }.elsewhen(Translation){
             adderRes_final := AdderRes_Translation(adderRes_ori,8)
         }
@@ -350,16 +355,111 @@ class PALU extends NutCoreModule {
         when(Saturating){
             val Saturated_Check_Res = Saturated_Check(adderRes_ori,adderRes_ori_drophighestbit,32,SrcSigned,isSub)
             adderRes_final := Saturated_Check_Res(XLEN-1,0)
-            io.out.bits.DecodeOut.pext.OV := Saturated_Check_Res(XLEN).asBool
+            adderOV := Saturated_Check_Res(XLEN).asBool
         }.elsewhen(Translation){
             adderRes_final := AdderRes_Translation(adderRes_ori,32)
         }
     }
-
-    io.out.bits.result := adderRes_final
     Debug("[PALU] src1 %x src2 %x func %x is_Add8 %x is_Sub8 %x is_Add16 %x isSub_16 %x isCras_16 %x isCrsa_16 %x SrcSigned %x Saturating %x Translation %x \n",src1,src2,func,isAdd_8,isSub_8,isAdd_16,isSub_16,isCras_16,isCrsa_16,SrcSigned,Saturating,Translation)
     Debug("[PALU] isAdd_32 %x isSub_32 %x isCras_32 %x isCrsa_32 %x \n",isAdd_32,isSub_32,isCras_32,isCrsa_32)
     Debug("[PALU] add1 %x add2 %x add1drop %x add2drop %x adderRes_ori %x adderRes_oridrop %x \n",add1,add2,add1_drophighestbit,add2_drophighestbit,adderRes_ori,adderRes_ori_drophighestbit)
-    Debug("[PALU] addres %x adderRes_final %x OV %x \n",adderRes,adderRes_final,io.out.bits.DecodeOut.pext.OV)
+    Debug("[PALU] addres %x adderRes_final %x OV %x \n",adderRes,adderRes_final,adderOV)
+
+    //shift ops
+    val isRs_16 = func(6,5) === 1.U && func(4,3) =/= 0.U && func(2,1) === 0.U
+    val isLs_16 = func(6,5) === 1.U && func(4,3) =/= 0.U && func(2,0) === 2.U
+    val isLR_16 =(func(6,3) === 5.U || func(6,3) === 6.U)&& func(2,0) === 3.U
+    val isShifter = isRs_16 | isLs_16 | isLR_16
+
+    val Round       =(func(6,3) === "b0110".U &&(func(1) === 0.U || func(1,0) === "b11".U)
+                    ||func(6,3) === "b0111".U && (func(2,1) === 0.U && func24.asBool || func(2,1) === 2.U && func23.asBool))
+    val ShiftSigned = (isLR_16 || isLs_16 && (func(6,3) === "b0110".U || func === "b0111010".U && func24.asBool || func === "b0111101".U && func23.asBool))
+    val Arithmetic  = isRs_16 && func(0) === 0.U || isLR_16
+
+    def shifter(width: Int, src1:UInt, src2:UInt, Round:Bool, ShiftSigned:Bool,Righshift:Bool,Arithmetic:Bool) = {
+        var l = List(0.U)
+        val OV= WireInit(0.U((XLEN/width).W))
+        for(i <- 0 until XLEN/width){
+            val src1_clip = src1(i * width + width -1,i * width)
+            val res = Wire(UInt(width.W))
+            res := src1_clip
+            when(src2 =/= 0.U){
+                when(Righshift){
+                    val src1_cat = WireInit(src1_clip)
+                    val src2_cat = WireInit(src2)
+                    val tmp      = Wire(UInt(width.W))
+                    when(Round){src2_cat := src2 -1.U}
+                    when(Arithmetic){
+                        tmp := (src1_cat.asSInt >> src2_cat).asUInt
+                    }.otherwise{
+                        tmp := src1_cat >> src2_cat
+                    }
+                    when(Round){
+                        res := (Cat(tmp(width-1),tmp) + 1.U)(width,1).asUInt
+                    }.otherwise{
+                        res := tmp.asUInt
+                    }
+                }.otherwise{
+                    val tmp = Cat(Fill(width,src1_clip(width-1)),src1_clip)
+                    val tmp1= tmp << src2
+                    res := tmp1(width-1,0)
+                    when(ShiftSigned){
+                        val tmp2= WireInit(tmp1)
+                        when(tmp1(2*width-1).asBool){tmp2 := Fill(2*width,1.U) ^ tmp1}
+                        when(tmp2(2*width-1,width-1) =/= 0.U){
+                            OV.asTypeOf(Vec(XLEN/width,Bool()))(i):= 1.U
+                            when(tmp1(2*width-1).asBool){
+                                res := Cat(1.U,Fill(width-1,0.U))
+                            }.otherwise{
+                                res := Cat(0.U,Fill(width-1,1.U))
+                            }
+                        }
+                    Debug("[PALU] tmp %x tmp1 %x tmp2 %x \n",tmp,tmp1,tmp2)
+                    }
+                }
+            }
+            l = List.concat(List(res) ,l)
+        }
+        Cat((OV=/=0.U).asUInt,l.dropRight(1).reduce(Cat(_, _))).asUInt
+    }
+    def SetSrc2(width: Int,src2:UInt,isLR:Bool) = {
+        val realSrc2 = WireInit(src2(log2Up(width)-1,0))
+        when(isLR){
+            when(src2(log2Up(width)).asBool){
+                val tmp = Fill(log2Up(width),1.U) ^ src2(log2Up(width)-1,0) + 1.U
+                realSrc2 := tmp
+                when(tmp === 0.U){
+                    realSrc2 := Fill(log2Up(width),1.U)
+                }
+            }
+        }
+        Cat(src2(log2Up(width)),realSrc2).asUInt
+    }
+
+    val shifterRes = WireInit(src1)
+    val shifterOV  = WireInit(false.B)
+
+    when(isRs_16 | isLs_16 |isLR_16){
+        val tmp = SetSrc2(16,src2,isLR_16)
+        val realSrc2 = tmp(log2Up(16)-1,0)
+        val isLR_do_rightshift = tmp(log2Up(16))
+        val tmp2 = shifter(16,src1,realSrc2,Round,ShiftSigned,isRs_16||isLR_16 && isLR_do_rightshift.asBool,Arithmetic)
+        shifterRes := tmp2(XLEN-1,0).asUInt
+        shifterOV  := tmp2(XLEN).asBool
+    }   
+
+    when(isAdder){
+        io.out.bits.result := adderRes_final
+        io.out.bits.DecodeOut.pext.OV := adderOV
+    }.elsewhen(isShifter){
+        io.out.bits.result := shifterRes
+        io.out.bits.DecodeOut.pext.OV := shifterOV
+    }.otherwise{
+        io.out.bits.result := adderRes_final
+        io.out.bits.DecodeOut.pext.OV := adderOV
+    }
+    Debug("[PALU] isRs_16 %x isLs_16 %x isLR_16 %x \n",isRs_16,isLs_16,isLR_16)
+    Debug("[PALU] Round %x ShiftSigned %x Arithmetic %x\n",Round,ShiftSigned,Arithmetic)
+    Debug("[PALU] shifterRes %x shifterOV %x \n",shifterRes,shifterOV)
 }
 

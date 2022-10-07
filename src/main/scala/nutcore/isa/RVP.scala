@@ -54,6 +54,12 @@ object RVPInstr extends HasInstrType {
   def KCRSA32 = BitPat("b0001011_?????_?????_010_?????_1110111")
   def URCRSA32= BitPat("b0010011_?????_?????_010_?????_1110111")
   def UKCRSA32= BitPat("b0011011_?????_?????_010_?????_1110111")
+  def SRA16   = BitPat("b0101000_?????_?????_000_?????_1110111")
+  def SRA16U  = BitPat("b0110000_?????_?????_000_?????_1110111")
+  def SRL16   = BitPat("b0101001_?????_?????_000_?????_1110111")
+  def SRL16U  = BitPat("b0110001_?????_?????_000_?????_1110111")
+  def SLL16   = BitPat("b0101010_?????_?????_000_?????_1110111")
+  def KSLL16  = BitPat("b0110010_?????_?????_000_?????_1110111")
   
   val table = Array(
     ADD16       -> List(InstrP, FuType.simdu, SIMDUOpType.add16),
@@ -105,6 +111,25 @@ object RVPInstr extends HasInstrType {
     RCRSA32     -> List(InstrP, FuType.simdu, SIMDUOpType.rcrsa32),
     KCRSA32     -> List(InstrP, FuType.simdu, SIMDUOpType.kcrsa32),
     URCRSA32    -> List(InstrP, FuType.simdu, SIMDUOpType.urcrsa32),
-    UKCRSA32    -> List(InstrP, FuType.simdu, SIMDUOpType.ukcrsa32)
+    UKCRSA32    -> List(InstrP, FuType.simdu, SIMDUOpType.ukcrsa32),
+    SRA16       -> List(InstrP, FuType.simdu, SIMDUOpType.sra16   ),
+    SRA16U      -> List(InstrP, FuType.simdu, SIMDUOpType.sra16u  ),
+    SRL16       -> List(InstrP, FuType.simdu, SIMDUOpType.srl16   ),
+    SRL16U      -> List(InstrP, FuType.simdu, SIMDUOpType.srl16u  ),
+    SLL16       -> List(InstrP, FuType.simdu, SIMDUOpType.sll16   ),
+    KSLL16      -> List(InstrP, FuType.simdu, SIMDUOpType.ksll16  )
+  )
+}
+
+object RVPIInstr extends HasInstrType {
+  def SRAI16  = BitPat("b0111000_0_????_?????_000_?????_1110111")
+  def SRAI16U = BitPat("b0111000_1_????_?????_000_?????_1110111")
+  def SRLI16  = BitPat("b0111001_0_????_?????_000_?????_1110111")
+  def SRLI16U = BitPat("b0111001_1_????_?????_000_?????_1110111")
+  val table = Array(
+    SRAI16      -> List(InstrPI, FuType.simdu, SIMDUOpType.srai16),
+    SRAI16U     -> List(InstrPI, FuType.simdu, SIMDUOpType.srai16u),
+    SRLI16      -> List(InstrPI, FuType.simdu, SIMDUOpType.srli16),
+    SRLI16U     -> List(InstrPI, FuType.simdu, SIMDUOpType.srli16u)
   )
 }

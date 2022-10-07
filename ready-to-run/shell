@@ -1,0 +1,2 @@
+riscv64-linux-gnu-objdump -m riscv:rv64 -b binary -D microbench.bin>a.txt
+

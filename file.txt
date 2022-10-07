@@ -1,0 +1,125 @@
+[NEMU] Can not find flash image: (null)
+[NEMU] Use built-in image instead
+[1;34m[src/device/io/mmio.c:38,add_mmio_map] Add mmio map 'flash' at [0x0000000010000000, 0x00000000100fffff][0m
+Emu compiled at Sep  8 2022, 08:35:31
+The image is ./ready-to-run/microbench.bin
+Using simulated 8192MB RAM
+Using simulated 32768B flash
+[warning]no valid flash bin path, use preset flash instead
+dump wave to /home/stu/NutShell/build/2022-09-08@08:43:42.vcd...
+--diff is not given, try to use $(NEMU_HOME)/build/riscv64-nemu-interpreter-so by default
+NemuProxy using /home/stu/NEMU/build/riscv64-nemu-interpreter-so
+The first instruction of core 0 has commited. Difftest enabled. 
+======= Running MicroBench [input *test*] =======
+[qsort] Quick sort: * Passed.
+[queen] Queen placement: * Passed.
+[bf] Brainf**k interpreter: * Passed.
+[fib] Fibonacci number: * Passed.
+[sieve] Eratosthenes sieve: * Passed.
+[15pz] A* 15-puzzle search: * Passed.
+[dinic] Dinic's maxflow algorithm: * Passed.
+[lzip] Lzip compression: * Passed.
+[ssort] Suffix sort: * Passed.
+[md5] MD5 digest: * Passed.
+==================================================
+MicroBench PASS
+Total time: 0 ms
+Core 0: [32mHIT GOOD TRAP at pc = 0x80004638
+[0m[35mtotal guest instructions = 783,388
+[0m[35minstrCnt = 783,388, cycleCnt = 4,636,057, IPC = 0.168977
+[0m[34mSeed=0 Guest cycle spent: 4,636,059 (this will be different from cycleCnt if emu loads a snapshot)
+[0m[34mHost time spent: 8,587ms
+[0m[NEMU] Can not find flash image: (null)
+[NEMU] Use built-in image instead
+[1;34m[src/device/io/mmio.c:38,add_mmio_map] Add mmio map 'flash' at [0x0000000010000000, 0x00000000100fffff][0m
+Emu compiled at Sep  8 2022, 08:35:31
+The image is ./ready-to-run/microbench.bin
+Using simulated 8192MB RAM
+Using simulated 32768B flash
+[warning]no valid flash bin path, use preset flash instead
+dump wave to /home/stu/NutShell/build/2022-09-08@08:44:21.vcd...
+--diff is not given, try to use $(NEMU_HOME)/build/riscv64-nemu-interpreter-so by default
+NemuProxy using /home/stu/NEMU/build/riscv64-nemu-interpreter-so
+The first instruction of core 0 has commited. Difftest enabled. 
+======= Running MicroBench [input *test*] =======
+[qsort] Quick sort: * Passed.
+[queen] Queen placement: * Passed.
+[bf] Brainf**k interpreter: * Passed.
+[fib] Fibonacci number: * Passed.
+[sieve] Eratosthenes sieve: * Passed.
+[15pz] A* 15-puzzle search: * Passed.
+[dinic] Dinic's maxflow algorithm: * Passed.
+[lzip] Lzip compression: * Passed.
+[ssort] Suffix sort: * Passed.
+[md5] MD5 digest: * Passed.
+==================================================
+MicroBench PASS
+Total time: 0 ms
+Core 0: [32mHIT GOOD TRAP at pc = 0x80004638
+[0m[35mtotal guest instructions = 783,388
+[0m[35minstrCnt = 783,388, cycleCnt = 4,636,057, IPC = 0.168977
+[0m[34mSeed=0 Guest cycle spent: 4,636,059 (this will be different from cycleCnt if emu loads a snapshot)
+[0m[34mHost time spent: 8,202ms
+[0m[NEMU] Can not find flash image: (null)
+[NEMU] Use built-in image instead
+[1;34m[src/device/io/mmio.c:38,add_mmio_map] Add mmio map 'flash' at [0x0000000010000000, 0x00000000100fffff][0m
+Emu compiled at Sep  8 2022, 08:35:31
+The image is ./ready-to-run/microbench.bin
+Using simulated 8192MB RAM
+Using simulated 32768B flash
+[warning]no valid flash bin path, use preset flash instead
+dump wave to /home/stu/NutShell/build/2022-09-08@08:47:26.vcd...
+--diff is not given, try to use $(NEMU_HOME)/build/riscv64-nemu-interpreter-so by default
+NemuProxy using /home/stu/NEMU/build/riscv64-nemu-interpreter-so
+The first instruction of core 0 has commited. Difftest enabled. 
+======= Running MicroBench [input *test*] =======
+[qsort] Quick sort: * Passed.
+[queen] Queen placement: * Passed.
+[bf] Brainf**k interpreter: * Passed.
+[fib] Fibonacci number: * Passed.
+[sieve] Eratosthenes sieve: * Passed.
+[15pz] A* 15-puzzle search: * Passed.
+[dinic] Dinic's maxflow algorithm: * Passed.
+[lzip] Lzip compression: * Passed.
+[ssort] Suffix sort: * Passed.
+[md5] MD5 digest: * Passed.
+==================================================
+MicroBench PASS
+Total time: 0 ms
+Core 0: [32mHIT GOOD TRAP at pc = 0x80004638
+[0m[35mtotal guest instructions = 783,388
+[0m[35minstrCnt = 783,388, cycleCnt = 4,636,057, IPC = 0.168977
+[0m[34mSeed=0 Guest cycle spent: 4,636,059 (this will be different from cycleCnt if emu loads a snapshot)
+[0m[34mHost time spent: 7,985ms
+[0m[NEMU] Can not find flash image: (null)
+[NEMU] Use built-in image instead
+[1;34m[src/device/io/mmio.c:38,add_mmio_map] Add mmio map 'flash' at [0x0000000010000000, 0x00000000100fffff][0m
+Emu compiled at Sep  8 2022, 08:35:31
+The image is ./ready-to-run/microbench.bin
+Using simulated 8192MB RAM
+Using simulated 32768B flash
+[warning]no valid flash bin path, use preset flash instead
+dump wave to /home/stu/NutShell/build/2022-09-08@08:48:52.vcd...
+--diff is not given, try to use $(NEMU_HOME)/build/riscv64-nemu-interpreter-so by default
+NemuProxy using /home/stu/NEMU/build/riscv64-nemu-interpreter-so
+The first instruction of core 0 has commited. Difftest enabled. 
+======= Running MicroBench [input *test*] =======
+[qsort] Quick sort: * Passed.
+[queen] Queen placement: * Passed.
+[bf] Brainf**k interpreter: * Passed.
+[fib] Fibonacci number: * Passed.
+[sieve] Eratosthenes sieve: * Passed.
+[15pz] A* 15-puzzle search: * Passed.
+[dinic] Dinic's maxflow algorithm: * Passed.
+[lzip] Lzip compression: * Passed.
+[ssort] Suffix sort: * Passed.
+[md5] MD5 digest: * Passed.
+==================================================
+MicroBench PASS
+Total time: 0 ms
+Core 0: [32mHIT GOOD TRAP at pc = 0x80004638
+[0m[35mtotal guest instructions = 783,388
+[0m[35minstrCnt = 783,388, cycleCnt = 4,636,057, IPC = 0.168977
+[0m[34mSeed=0 Guest cycle spent: 4,636,059 (this will be different from cycleCnt if emu loads a snapshot)
+[0m[34mHost time spent: 8,141ms
+[0m

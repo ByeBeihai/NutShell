@@ -59,6 +59,16 @@ object SIMDUOpType {
   def kcrsa32= "b0001011".U
   def urcrsa32="b0010011".U
   def ukcrsa32="b0011011".U
+  def sra16   ="b0101000".U
+  def sra16u  ="b0110000".U
+  def srai16  ="b0111000".U
+  def srai16u ="b0111000".U
+  def srl16   ="b0101001".U
+  def srl16u  ="b0110001".U
+  def srli16  ="b0111001".U
+  def srli16u ="b0111001".U
+  def sll16   ="b0101010".U
+  def ksll16  ="b0110010".U
 }
 
 class SIMDU_IO extends FunctionUnitIO {
