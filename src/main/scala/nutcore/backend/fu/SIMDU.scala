@@ -69,6 +69,39 @@ object SIMDUOpType {
   def srli16u ="b0111001".U
   def sll16   ="b0101010".U
   def ksll16  ="b0110010".U
+  def kslr16  ="b0101011".U
+  def kslr16u ="b0110011".U
+  def slli16  ="b0111010".U
+  def kslli16 ="b0111010".U
+  def sra8    ="b0101100".U
+  def sra8u   ="b0110100".U
+  def srai8   ="b0111100".U
+  def srai8u  ="b0111100".U
+  def srl8    ="b0101101".U
+  def srl8u   ="b0110101".U
+  def srli8   ="b0111101".U
+  def srli8u  ="b0111101".U
+  def sll8    ="b0101110".U
+  def ksll8   ="b0110110".U
+  def kslr8   ="b0101111".U
+  def kslr8u  ="b0110111".U
+  def slli8   ="b0111110".U
+  def kslli8  ="b0111110".U
+  def sra32   ="b0101000".U
+  def sra32u  ="b0110000".U
+  def srai32  ="b0111000".U
+  def srai32u ="b1000000".U
+  def srl32   ="b0101001".U
+  def srl32u  ="b0110001".U
+  def srli32  ="b0111001".U
+  def srli32u ="b1000001".U
+  def sll32   ="b0101010".U
+  def ksll32  ="b0110010".U
+  def kslr32  ="b0101011".U
+  def kslr32u ="b0110011".U
+  def slli32  ="b0111010".U
+  def kslli32 ="b1000010".U
+  
 }
 
 class SIMDU_IO extends FunctionUnitIO {

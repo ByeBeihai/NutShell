@@ -366,19 +366,27 @@ class PALU extends NutCoreModule {
     Debug("[PALU] addres %x adderRes_final %x OV %x \n",adderRes,adderRes_final,adderOV)
 
     //shift ops
-    val isRs_16 = func(6,5) === 1.U && func(4,3) =/= 0.U && func(2,1) === 0.U
-    val isLs_16 = func(6,5) === 1.U && func(4,3) =/= 0.U && func(2,0) === 2.U
-    val isLR_16 =(func(6,3) === 5.U || func(6,3) === 6.U)&& func(2,0) === 3.U
-    val isShifter = isRs_16 | isLs_16 | isLR_16
+    val isRs_16 = func(6,5) === 1.U && func(4,3) =/= 0.U && func(2,1) === 0.U && funct3 === 0.U
+    val isLs_16 = func(6,5) === 1.U && func(4,3) =/= 0.U && func(2,0) === 2.U && funct3 === 0.U 
+    val isLR_16 =(func(6,3) === 5.U || func(6,3) === 6.U)&& func(2,0) === 3.U && funct3 === 0.U
+    val isRs_8  = func(6,5) === 1.U && func(4,3) =/= 0.U && func(2,1) === 2.U && funct3 === 0.U
+    val isLs_8  = func(6,5) === 1.U && func(4,3) =/= 0.U && func(2,0) === 6.U && funct3 === 0.U
+    val isLR_8  =(func(6,3) === 5.U || func(6,3) === 6.U)&& func(2,0) === 7.U && funct3 === 0.U
+    val isRs_32 =((func(5).asBool && func(4,3) =/= 0.U) || func(6,3) === 8.U) && func(2,1) === 0.U && funct3 === 2.U
+    val isLs_32 =((func(5).asBool && func(4,3) =/= 0.U) || func(6,3) === 8.U) && func(2,0) === 2.U && funct3 === 2.U
+    val isLR_32 =(func(6,3) === 5.U || func(6,3) === 6.U) && func(2,0) === 3.U && funct3 === 2.U
+    val isShifter = isRs_16 | isLs_16 | isLR_16 | isRs_8 | isLs_8 | isLR_8 | isRs_32 | isLs_32 | isLR_32 
 
-    val Round       =(func(6,3) === "b0110".U &&(func(1) === 0.U || func(1,0) === "b11".U)
-                    ||func(6,3) === "b0111".U && (func(2,1) === 0.U && func24.asBool || func(2,1) === 2.U && func23.asBool))
-    val ShiftSigned = (isLR_16 || isLs_16 && (func(6,3) === "b0110".U || func === "b0111010".U && func24.asBool || func === "b0111101".U && func23.asBool))
-    val Arithmetic  = isRs_16 && func(0) === 0.U || isLR_16
+    val Round       =((func(6,3) === "b0110".U &&(func(1) === 0.U || func(1,0) === "b11".U)
+                    ||func(6,3) === "b0111".U && (func(2,1) === 0.U && func24.asBool || func(2,1) === 2.U && func23.asBool)) && funct3 === 0.U
+                    ||(isRs_32 && (func(6,3) === 6.U || func(6,3) === 8.U) || isLR_32 && func(4).asBool))
+    val ShiftSigned = (isLR_16 || isLR_8 || isLR_32 || isLs_32 && (func(6,3) === 6.U || func(6,3) === 8.U) || (isLs_16 || isLs_8) && (func(6,3) === "b0110".U || func === "b0111010".U && func24.asBool || func === "b0111110".U && func23.asBool))
+    val Arithmetic  = (isRs_16 || isRs_8 || isRs_32) && func(0) === 0.U  || isLR_16 || isLR_8 || isAdd_32
 
     def shifter(width: Int, src1:UInt, src2:UInt, Round:Bool, ShiftSigned:Bool,Righshift:Bool,Arithmetic:Bool) = {
         var l = List(0.U)
-        val OV= WireInit(0.U((XLEN/width).W))
+        val OV= Wire(Vec(XLEN/width,Bool()))
+        (0 until XLEN/width).map(i => OV(i) := false.B)
         for(i <- 0 until XLEN/width){
             val src1_clip = src1(i * width + width -1,i * width)
             val res = Wire(UInt(width.W))
@@ -407,20 +415,21 @@ class PALU extends NutCoreModule {
                         val tmp2= WireInit(tmp1)
                         when(tmp1(2*width-1).asBool){tmp2 := Fill(2*width,1.U) ^ tmp1}
                         when(tmp2(2*width-1,width-1) =/= 0.U){
-                            OV.asTypeOf(Vec(XLEN/width,Bool()))(i):= 1.U
+                            OV(i):= 1.U
                             when(tmp1(2*width-1).asBool){
                                 res := Cat(1.U,Fill(width-1,0.U))
                             }.otherwise{
                                 res := Cat(0.U,Fill(width-1,1.U))
                             }
                         }
-                    Debug("[PALU] tmp %x tmp1 %x tmp2 %x \n",tmp,tmp1,tmp2)
+                    Debug("[PALU] tmp %x tmp1 %x tmp2 %x tmp2(2*width-1,width-1) %x OV %x\n",tmp,tmp1,tmp2,tmp2(2*width-1,width-1),OV(i))
                     }
+                    Debug("[PALU] tmp %x tmp1 %x \n",tmp,tmp1)
                 }
             }
             l = List.concat(List(res) ,l)
         }
-        Cat((OV=/=0.U).asUInt,l.dropRight(1).reduce(Cat(_, _))).asUInt
+        Cat(OV.reduce(_||_).asUInt,l.dropRight(1).reduce(Cat(_, _))).asUInt
     }
     def SetSrc2(width: Int,src2:UInt,isLR:Bool) = {
         val realSrc2 = WireInit(src2(log2Up(width)-1,0))
@@ -446,7 +455,21 @@ class PALU extends NutCoreModule {
         val tmp2 = shifter(16,src1,realSrc2,Round,ShiftSigned,isRs_16||isLR_16 && isLR_do_rightshift.asBool,Arithmetic)
         shifterRes := tmp2(XLEN-1,0).asUInt
         shifterOV  := tmp2(XLEN).asBool
-    }   
+    }.elsewhen(isRs_8 | isLs_8 |isLR_8){
+        val tmp = SetSrc2(8,src2,isLR_8)
+        val realSrc2 = tmp(log2Up(8)-1,0)
+        val isLR_do_rightshift = tmp(log2Up(8))
+        val tmp2 = shifter(8,src1,realSrc2,Round,ShiftSigned,isRs_8||isLR_8 && isLR_do_rightshift.asBool,Arithmetic)
+        shifterRes := tmp2(XLEN-1,0).asUInt
+        shifterOV  := tmp2(XLEN).asBool
+    }.elsewhen(isRs_32 | isLs_32 |isLR_32){
+        val tmp = SetSrc2(32,src2,isLR_32)
+        val realSrc2 = tmp(log2Up(32)-1,0)
+        val isLR_do_rightshift = tmp(log2Up(32))
+        val tmp2 = shifter(32,src1,realSrc2,Round,ShiftSigned,isRs_32||isLR_32 && isLR_do_rightshift.asBool,Arithmetic)
+        shifterRes := tmp2(XLEN-1,0).asUInt
+        shifterOV  := tmp2(XLEN).asBool
+    } 
 
     when(isAdder){
         io.out.bits.result := adderRes_final
@@ -458,7 +481,7 @@ class PALU extends NutCoreModule {
         io.out.bits.result := adderRes_final
         io.out.bits.DecodeOut.pext.OV := adderOV
     }
-    Debug("[PALU] isRs_16 %x isLs_16 %x isLR_16 %x \n",isRs_16,isLs_16,isLR_16)
+    Debug("[PALU] isRs_16 %x isLs_16 %x isLR_16 %x isRs_8 %x isLs_16 %x isLR_8 %x isRs_32 %x isLs_32 %x isLR_32 %x\n",isRs_16,isLs_16,isLR_16,isRs_8,isLs_8,isLR_8,isRs_32,isLs_32,isLR_32)
     Debug("[PALU] Round %x ShiftSigned %x Arithmetic %x\n",Round,ShiftSigned,Arithmetic)
     Debug("[PALU] shifterRes %x shifterOV %x \n",shifterRes,shifterOV)
 }
