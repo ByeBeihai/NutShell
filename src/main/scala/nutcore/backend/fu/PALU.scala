@@ -112,10 +112,11 @@ class PALU extends NutCoreModule {
     val isCr = isCras_16 | isCrsa_16 | isCras_32 | isCrsa_32
 
     val isComp_16 = func(2,0).asUInt === 6.U && (func(6,5) === 0.U || func(6,3) === 4.U) && funct3 === 0.U 
-    val isCompare = isComp_16
+    val isComp_8 = func(2,0).asUInt === 7.U && (func(6,5) === 0.U || func(6,3) === 4.U) && funct3 === 0.U 
+    val isCompare = isComp_16 | isComp_8
 
     val isSub = WireInit(0.U(8.W))
-    when(isSub_64 | isSub_32 | isSub_16 | isSub_8 | isComp_16){
+    when(isSub_64 | isSub_32 | isSub_16 | isSub_8 | isComp_16 | isComp_8){
         isSub:= "b11111111".U
     }.elsewhen(isCras_16){
         isSub:= "b00000101".U
@@ -223,7 +224,12 @@ class PALU extends NutCoreModule {
             add2 := add_src_map(16, src2, isSub,SrcSigned,false.B)
             add1_drophighestbit := add_src_map_drophighestbit(16, src1, 0.B,false.B)
             add2_drophighestbit := add_src_map_drophighestbit(16, src2, isSub,false.B)
-        }.otherwise {
+        } .elsewhen(isComp_8){
+            add1 := add_src_map(8, src1, 0.B,SrcSigned,false.B)
+            add2 := add_src_map(8, src2, isSub,SrcSigned,false.B)
+            add1_drophighestbit := add_src_map_drophighestbit(16, src1, 0.B,false.B)
+            add2_drophighestbit := add_src_map_drophighestbit(16, src2, isSub,false.B)
+        } .otherwise {
             add1 := DontCare
             add2 := DontCare
             add1_drophighestbit := DontCare
@@ -263,6 +269,11 @@ class PALU extends NutCoreModule {
         } .elsewhen(isComp_16){
             add1 := add_src_map(16, src1, 0.B,SrcSigned,false.B)
             add2 := add_src_map(16, src2, isSub,SrcSigned,false.B)
+            add1_drophighestbit := add_src_map_drophighestbit(16, src1, 0.B,false.B)
+            add2_drophighestbit := add_src_map_drophighestbit(16, src2, isSub,false.B)
+        } .elsewhen(isComp_8){
+            add1 := add_src_map(8, src1, 0.B,SrcSigned,false.B)
+            add2 := add_src_map(8, src2, isSub,SrcSigned,false.B)
             add1_drophighestbit := add_src_map_drophighestbit(16, src1, 0.B,false.B)
             add2_drophighestbit := add_src_map_drophighestbit(16, src2, isSub,false.B)
         } .otherwise {
@@ -391,6 +402,8 @@ class PALU extends NutCoreModule {
     val compareRes = WireInit(0.U(XLEN.W))
     when(isComp_16){
         compareRes := Compare(adderRes_ori,16,SrcSigned,LessEqual,LessThan)
+    }.elsewhen(isComp_8){
+        compareRes := Compare(adderRes_ori,8,SrcSigned,LessEqual,LessThan)
     }
 
 

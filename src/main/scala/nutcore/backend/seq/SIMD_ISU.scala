@@ -28,7 +28,7 @@ class SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRegFil
     val rfWen  = VecInit((0 to Issue_Num-1).map(i => io.in(i).bits.ctrl.rfWen ))
 
     def isDepend(rfSrc: UInt, rfDest: UInt, wen: Bool): Bool = (rfSrc =/= 0.U) && (rfSrc === rfDest) && wen
-    def isCsrOp(i:Int):Bool = io.in(i).bits.ctrl.fuType === FuType.csr
+    def isCsrMouOp(i:Int):Bool = io.in(i).bits.ctrl.fuType === FuType.csr
     def HasEnoughOperator(futype:UInt):Bool = futype === FuType.alu
     def isLatestData(rfSrc: UInt,InstNo:UInt):Bool = InstBoard.io.RInstNo(rfSrc) === InstNo
 
@@ -58,7 +58,7 @@ class SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRegFil
                                                             }
                                                             raw.reduce(_||_)}))
 
-    val FrontHasCsrOp = VecInit((0 to Issue_Num-1).map(i => {val raw = Wire(Vec(Issue_Num,Bool())) 
+    val FrontHasCsrMouOp = VecInit((0 to Issue_Num-1).map(i => {val raw = Wire(Vec(Issue_Num,Bool())) 
                                                             for(j <- 0 to i-1){
                                                                 raw(j) := io.in(j).valid && io.in(j).bits.ctrl.fuType === FuType.csr
                                                             }
@@ -79,7 +79,7 @@ class SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRegFil
         if(i == 0){
             io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i)
         }else{
-            io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i) && !RAWinIssue(i) && !FightforOperator(i) && !FrontHasCsrOp(i) && !(isCsrOp(i) && !FrontisClear(i))
+            io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i) && !RAWinIssue(i) && !FightforOperator(i) && !FrontHasCsrMouOp(i) && !(isCsrMouOp(i) && !FrontisClear(i))
         }
     }
 
@@ -169,7 +169,7 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
     val rfWen  = VecInit((0 to Issue_Num-1).map(i => io.in(i).bits.ctrl.rfWen ))
 
     def isDepend(rfSrc: UInt, rfDest: UInt, wen: Bool): Bool = (rfSrc =/= 0.U) && (rfSrc === rfDest) && wen
-    def isCsrOp(i:Int):Bool = io.in(i).bits.ctrl.fuType === FuType.csr
+    def isCsrMouOp(i:Int):Bool = io.in(i).bits.ctrl.fuType === FuType.csr || io.in(i).bits.ctrl.fuType === FuType.mou
     def HasEnoughOperator(futype:UInt):Bool = futype === FuType.alu
     def isLatestData(rfSrc: UInt,InstNo:UInt):Bool = InstBoard.io.RInstNo(rfSrc) === InstNo
 
@@ -191,9 +191,9 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
                                                         }
                                                         raw.reduce(_||_)}))
 
-    val FrontHasCsrOp = VecInit((0 to Issue_Num-1).map(i => {val raw = Wire(Vec(Issue_Num,Bool())) 
+    val FrontHasCsrMouOp = VecInit((0 to Issue_Num-1).map(i => {val raw = Wire(Vec(Issue_Num,Bool())) 
                                                             for(j <- 0 to i-1){
-                                                                raw(j) := io.in(j).valid && io.in(j).bits.ctrl.fuType === FuType.csr
+                                                                raw(j) := io.in(j).valid && (io.in(j).bits.ctrl.fuType === FuType.csr || io.in(j).bits.ctrl.fuType === FuType.mou)
                                                             }
                                                             for(j <- i to Issue_Num-1){
                                                                 raw(j) := false.B 
@@ -212,8 +212,8 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
         if(i == 0){
             io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i) &&(io.in(i).bits.ctrl.fuType =/= FuType.csr || io.in(i).bits.ctrl.fuType===FuType.csr && q.io.TailPtr === q.io.HeadPtr)
         }else{
-            io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i) && !RAWinIssue(i) && !FrontHasCsrOp(i) && !(isCsrOp(i) && !FrontisClear(i))
-            Debug("[SIMD_ISU] RAWinIssue %x FrontHasCsrOp %x isCsrOp %x FrontisClear %x \n",RAWinIssue(i),FrontHasCsrOp(i),isCsrOp(i),FrontisClear(i))
+            io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i) && !RAWinIssue(i) && !FrontHasCsrMouOp(i) && !(isCsrMouOp(i) && !FrontisClear(i))
+            Debug("[SIMD_ISU] RAWinIssue %x FrontHasCsrMouOp %x isCsrMouOp %x FrontisClear %x \n",RAWinIssue(i),FrontHasCsrMouOp(i),isCsrMouOp(i),FrontisClear(i))
         }
     }
 

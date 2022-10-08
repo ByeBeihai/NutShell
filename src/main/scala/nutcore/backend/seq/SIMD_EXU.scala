@@ -255,6 +255,11 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
 
   //MOU to be done
   val mouidx = FuType.mou
+  val mou = Module(new MOU)
+  // mou does not write register
+  mou.access(valid = io.in(mouidx).valid, src1 = src1(mouidx), src2 = src2(mouidx), func = fuOpType(mouidx))
+  mou.io.cfIn := io.in(mouidx).bits.cf
+  mou.io.out.ready := io.out(mouidx).ready
 
   //CSRU
   val csridx = FuType.csr
@@ -331,7 +336,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
                                                            FuType.lsu -> lsu.io.out.valid,
                                                            FuType.mdu -> mdu.io.out.valid,
                                                            FuType.csr -> csr.io.instrValid,
-                                                           FuType.mou -> false.B,
+                                                           FuType.mou -> io.in(mouidx).valid,
                                                            FuType.alu1-> io.in(alu1idx).valid,
                                                            FuType.simdu -> simdu.io.out.valid,
                                                            FuType.simdu1 -> simdu1.io.out.valid))

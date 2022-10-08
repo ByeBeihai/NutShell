@@ -786,7 +786,7 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
                                                   false.B
                                                 }else{match_operaotr(k)(j)}}).reduce(_||_)
       when(FrontisClear(i) && !operator_matched && !issue_matched && isu.io.out(i).valid && exu.io.in(j).ready && (isu.io.out(i).bits.ctrl.fuType === j.U || MultiOperatorMatch(isu.io.out(i).bits.ctrl.fuType,j.U,isu.io.out(i).bits.ctrl.isBru))){   
-        when(!(isu.io.in(i).bits.ctrl.fuType === FuType.csr && !ExuisEmpty)){
+        when(!((isu.io.in(i).bits.ctrl.fuType === FuType.csr ||isu.io.in(i).bits.ctrl.fuType === FuType.mou) && !ExuisEmpty)){
           isu.io.out(i).ready := true.B
           exu_bits_next(j) := isu.io.out(i).bits
           exu_valid_next(j) := true.B

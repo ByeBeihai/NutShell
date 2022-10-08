@@ -106,6 +106,11 @@ object SIMDUOpType {
   def scmple16="b0001110".U
   def ucmplt16="b0010110".U
   def ucmple16="b0011110".U
+  def cmpeq8  ="b0100111".U
+  def scmplt8 ="b0000111".U
+  def scmple8 ="b0001111".U
+  def ucmplt8 ="b0010111".U
+  def ucmple8 ="b0011111".U
 }
 
 class SIMDU_IO extends FunctionUnitIO {
