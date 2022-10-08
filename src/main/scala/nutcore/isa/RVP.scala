@@ -78,6 +78,11 @@ object RVPInstr extends HasInstrType {
   def KSLL32  = BitPat("b0110010_?????_?????_010_?????_1110111")
   def KSLR32  = BitPat("b0101011_?????_?????_010_?????_1110111")
   def KSLR32U = BitPat("b0110011_?????_?????_010_?????_1110111")
+  def CMPEQ16 = BitPat("b0100110_?????_?????_000_?????_1110111")
+  def SCMPLT16= BitPat("b0000110_?????_?????_000_?????_1110111")
+  def SCMPLE16= BitPat("b0001110_?????_?????_000_?????_1110111")
+  def UCMPLT16= BitPat("b0010110_?????_?????_000_?????_1110111")
+  def UCMPLE16= BitPat("b0011110_?????_?????_000_?????_1110111")   
   
   val table = Array(
     ADD16       -> List(InstrP, FuType.simdu, SIMDUOpType.add16),
@@ -153,7 +158,12 @@ object RVPInstr extends HasInstrType {
     SLL32       -> List(InstrP, FuType.simdu, SIMDUOpType.sll32   ),
     KSLL32      -> List(InstrP, FuType.simdu, SIMDUOpType.ksll32  ),
     KSLR32      -> List(InstrP, FuType.simdu, SIMDUOpType.kslr32  ),
-    KSLR32U     -> List(InstrP, FuType.simdu, SIMDUOpType.kslr32u )
+    KSLR32U     -> List(InstrP, FuType.simdu, SIMDUOpType.kslr32u ),
+    CMPEQ16     -> List(InstrP, FuType.simdu, SIMDUOpType.cmpeq16 ),
+    SCMPLT16    -> List(InstrP, FuType.simdu, SIMDUOpType.scmplt16 ),
+    SCMPLE16    -> List(InstrP, FuType.simdu, SIMDUOpType.scmple16 ),
+    UCMPLT16    -> List(InstrP, FuType.simdu, SIMDUOpType.ucmplt16 ),
+    UCMPLE16    -> List(InstrP, FuType.simdu, SIMDUOpType.ucmple16 )   
   )
 }
 

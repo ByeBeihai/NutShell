@@ -101,7 +101,11 @@ object SIMDUOpType {
   def kslr32u ="b0110011".U
   def slli32  ="b0111010".U
   def kslli32 ="b1000010".U
-  
+  def cmpeq16 ="b0100110".U
+  def scmplt16="b0000110".U
+  def scmple16="b0001110".U
+  def ucmplt16="b0010110".U
+  def ucmple16="b0011110".U
 }
 
 class SIMDU_IO extends FunctionUnitIO {
@@ -123,7 +127,7 @@ class SIMDU(hasBru: Boolean = false,NO1: Boolean = true) extends NutCoreModule {
 
   val PALU = Module(new PALU)
 
-  io.in.ready := !valid || PALU.io.in.fire()
+  io.in.ready := !valid || (valid && PALU.io.in.ready)
 
   io.DecodeOut.pext.OV := PALU.io.out.bits.DecodeOut.pext.OV
   io.out.bits := PALU.io.out.bits.result

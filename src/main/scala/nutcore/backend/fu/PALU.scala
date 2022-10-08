@@ -111,8 +111,11 @@ class PALU extends NutCoreModule {
     val isCrsa_32 = func(2,0).asUInt === 3.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U)&& funct3 === 2.U
     val isCr = isCras_16 | isCrsa_16 | isCras_32 | isCrsa_32
 
+    val isComp_16 = func(2,0).asUInt === 6.U && (func(6,5) === 0.U || func(6,3) === 4.U) && funct3 === 0.U 
+    val isCompare = isComp_16
+
     val isSub = WireInit(0.U(8.W))
-    when(isSub_64 | isSub_32 | isSub_16 | isSub_8){
+    when(isSub_64 | isSub_32 | isSub_16 | isSub_8 | isComp_16){
         isSub:= "b11111111".U
     }.elsewhen(isCras_16){
         isSub:= "b00000101".U
@@ -124,11 +127,13 @@ class PALU extends NutCoreModule {
         isSub:= "b00000010".U
     }
 
-    val isAdder = isSub=/=0.U | isAdd | isCr
+    val isAdder = (isSub=/=0.U | isAdd | isCr) && !isCompare
 
     val SrcSigned   = func(6,4) === 0.U
-    val Saturating  = func(3).asBool && !(func(6,3) === 4.U)
+    val Saturating  = func(3).asBool 
     val Translation = !Saturating && !(func(6,3) === 4.U)
+    val LessEqual   = Saturating
+    val LessThan    = Translation
     
     def MixPrecisionLen = XLEN + XLEN / 8 + XLEN / 8
     
@@ -213,7 +218,12 @@ class PALU extends NutCoreModule {
             add2 := add_src_map(16, src2, isSub,SrcSigned,true.B)
             add1_drophighestbit := add_src_map_drophighestbit(16, src1, 0.B,false.B)
             add2_drophighestbit := add_src_map_drophighestbit(16, src2, isSub,true.B)
-        } .otherwise {
+        } .elsewhen(isComp_16){
+            add1 := add_src_map(16, src1, 0.B,SrcSigned,false.B)
+            add2 := add_src_map(16, src2, isSub,SrcSigned,false.B)
+            add1_drophighestbit := add_src_map_drophighestbit(16, src1, 0.B,false.B)
+            add2_drophighestbit := add_src_map_drophighestbit(16, src2, isSub,false.B)
+        }.otherwise {
             add1 := DontCare
             add2 := DontCare
             add1_drophighestbit := DontCare
@@ -250,6 +260,11 @@ class PALU extends NutCoreModule {
             add2 := add_src_map(32, src2, isSub,SrcSigned,true.B)
             add1_drophighestbit := add_src_map_drophighestbit(32, src1, 0.B,false.B)
             add2_drophighestbit := add_src_map_drophighestbit(32, src2, isSub,true.B)
+        } .elsewhen(isComp_16){
+            add1 := add_src_map(16, src1, 0.B,SrcSigned,false.B)
+            add2 := add_src_map(16, src2, isSub,SrcSigned,false.B)
+            add1_drophighestbit := add_src_map_drophighestbit(16, src1, 0.B,false.B)
+            add2_drophighestbit := add_src_map_drophighestbit(16, src2, isSub,false.B)
         } .otherwise {
             add1 := DontCare
             add2 := DontCare
@@ -320,6 +335,17 @@ class PALU extends NutCoreModule {
         }
         l.dropRight(1).reduce(Cat(_, _))
     }
+    def Compare(adderRes_ori:UInt,width: Int,SrcSigned:Bool,LessEqual:Bool,LessThan:Bool) = {
+        var l = List(0.U)
+        for(i <- 0 until XLEN/width){
+            val compare_res = WireInit(false.B)
+            val islessthan = adderRes_ori(gather_offset(width, i)+1).asBool
+            val isequal    = adderRes_ori(gather_offset(width, i), gather_offset_end(width, i)) === 0.U
+            compare_res := Mux(LessThan,islessthan,Mux(LessEqual,islessthan || isequal,isequal))
+            l = List.concat(List(Fill(width,compare_res.asUInt)) ,l)
+        }
+        l.dropRight(1).reduce(Cat(_, _))
+    }
 
     when (isAdd_8 | isSub_8) {
         adderRes := adder_gather(adderRes_ori, 8)
@@ -360,10 +386,20 @@ class PALU extends NutCoreModule {
             adderRes_final := AdderRes_Translation(adderRes_ori,32)
         }
     }
+
+    val compareOV = WireInit(false.B)
+    val compareRes = WireInit(0.U(XLEN.W))
+    when(isComp_16){
+        compareRes := Compare(adderRes_ori,16,SrcSigned,LessEqual,LessThan)
+    }
+
+
     Debug("[PALU] src1 %x src2 %x func %x is_Add8 %x is_Sub8 %x is_Add16 %x isSub_16 %x isCras_16 %x isCrsa_16 %x SrcSigned %x Saturating %x Translation %x \n",src1,src2,func,isAdd_8,isSub_8,isAdd_16,isSub_16,isCras_16,isCrsa_16,SrcSigned,Saturating,Translation)
     Debug("[PALU] isAdd_32 %x isSub_32 %x isCras_32 %x isCrsa_32 %x \n",isAdd_32,isSub_32,isCras_32,isCrsa_32)
     Debug("[PALU] add1 %x add2 %x add1drop %x add2drop %x adderRes_ori %x adderRes_oridrop %x \n",add1,add2,add1_drophighestbit,add2_drophighestbit,adderRes_ori,adderRes_ori_drophighestbit)
     Debug("[PALU] addres %x adderRes_final %x OV %x \n",adderRes,adderRes_final,adderOV)
+
+    Debug("[PALU] isComp_16 %x LessThan %x LessEqual %x compareRes %x \n",isComp_16,LessThan,LessEqual,compareRes)
 
     //shift ops
     val isRs_16 = func(6,5) === 1.U && func(4,3) =/= 0.U && func(2,1) === 0.U && funct3 === 0.U
@@ -477,6 +513,9 @@ class PALU extends NutCoreModule {
     }.elsewhen(isShifter){
         io.out.bits.result := shifterRes
         io.out.bits.DecodeOut.pext.OV := shifterOV
+    }.elsewhen(isCompare){
+        io.out.bits.result := compareRes
+        io.out.bits.DecodeOut.pext.OV := compareOV
     }.otherwise{
         io.out.bits.result := adderRes_final
         io.out.bits.DecodeOut.pext.OV := adderOV

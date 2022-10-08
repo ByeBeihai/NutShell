@@ -273,7 +273,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
                               }
                               raw.reduce(_||_)
                             }
-  val csr = Module(new SIMD_CSR)
+  val csr = Module(new CSR)
   val csrOut = csr.access(valid = io.in(csridx).valid, src1 = src1(csridx), src2 = src2(csridx), func = fuOpType(csridx))
   csr.io.cfIn := Mux(io.in(csridx).valid, io.in(csridx).bits.cf,io.in(lsuidx).bits.cf)
   csr.io.cfIn.exceptionVec(loadAddrMisaligned) := lsu.io.loadAddrMisaligned && !BeforeCSRhasRedirect
@@ -352,6 +352,8 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   }
   //io.in(alu1idx).ready := false.B
   io.in(lsuidx).ready := lsu.io.in.ready
+  io.in(simduidx).ready  := simdu.io.in.ready
+  io.in(simdu1idx).ready := simdu1.io.in.ready
 
   for(i <- 0 to FuType.num-1){
     io.forward(i).valid := io.in(i).valid & io.out(i).valid
