@@ -31,6 +31,7 @@ trait HasInstrType {
   def InstrSA = "b1111".U // Atom Inst: SC
   def InstrP  = "b10100".U
   def InstrPI = "b10101".U
+  def InstrPM = "b10110".U
 
   def isrfWen(instrType : UInt): Bool = instrType(2)
 }
@@ -84,7 +85,8 @@ object Instructions extends HasInstrType with HasNutCoreParameter {
     RVAInstr.table ++
     RVZicsrInstr.table ++ RVZifenceiInstr.table ++
     RVPInstr.table ++
-    RVPIInstr.table
+    RVPIInstr.table ++
+    RVPMInstr.table
 }
 
 object CInstructions extends HasInstrType with HasNutCoreParameter{

@@ -893,8 +893,10 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   for(i <- 0 to Issue_Num-1){
     isu.io.wb.ReadData1(i):=wbu.io.wb.ReadData1(i)
     isu.io.wb.ReadData2(i):=wbu.io.wb.ReadData2(i)
+    isu.io.wb.ReadData3(i):=wbu.io.wb.ReadData3(i)
     wbu.io.wb.rfSrc1(i):=isu.io.wb.rfSrc1(i)
     wbu.io.wb.rfSrc2(i):=isu.io.wb.rfSrc2(i)
+    wbu.io.wb.rfSrc3(i):=isu.io.wb.rfSrc3(i)
   }
   val redirct_index = PriorityMux(VecInit((0 to FuType.num-1).map(i => wbu_bits_next(i).decode.cf.redirect.valid && wbu_valid_next(i))).zipWithIndex.map{case(a,b)=>(a,b.U)})
   io.redirect <> wbu_bits_next(redirct_index).decode.cf.redirect

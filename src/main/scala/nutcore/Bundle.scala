@@ -29,6 +29,7 @@ class CtrlSignalIO extends NutCoreBundle {
   val func23 = Output(UInt(1.W))
   val rfSrc1 = Output(UInt(5.W))
   val rfSrc2 = Output(UInt(5.W))
+  val rfSrc3 = Output(UInt(5.W))
   val rfWen = Output(Bool())
   val rfDest = Output(UInt(5.W))
   val isNutCoreTrap = Output(Bool())
@@ -42,6 +43,7 @@ class CtrlSignalIO extends NutCoreBundle {
 class DataSrcIO extends NutCoreBundle {
   val src1 = Output(UInt(XLEN.W))
   val src2 = Output(UInt(XLEN.W))
+  val src3 = Output(UInt(XLEN.W))
   val imm  = Output(UInt(XLEN.W))
 }
 
@@ -72,6 +74,7 @@ class CtrlFlowIO extends NutCoreBundle {
   val crossPageIPFFix = Output(Bool())
   val runahead_checkpoint_id = Output(UInt(64.W))
   val isBranch = Output(Bool())
+  val instrType = Output(UInt(5.W))
 }
 
 class DecodeIO extends NutCoreBundle with HasNutCoreParameter{
@@ -106,8 +109,10 @@ class new_SIMD_WriteBackIO() extends NutCoreBundle with HasNutCoreParameter{
   val WriteData = Vec(FuType.num,Output(UInt(XLEN.W)))
   val rfSrc1 = Vec(Issue_Num,Input(UInt(5.W)))
   val rfSrc2 = Vec(Issue_Num,Input(UInt(5.W)))
+  val rfSrc3 = Vec(Issue_Num,Input(UInt(5.W)))
   val ReadData1 = Vec(Issue_Num,Output(UInt(XLEN.W)))
   val ReadData2 = Vec(Issue_Num,Output(UInt(XLEN.W)))
+  val ReadData3 = Vec(Issue_Num,Output(UInt(XLEN.W)))
   val valid = Vec(FuType.num,Output(Bool()))
   val InstNo = Vec(FuType.num,Output(UInt(log2Up(Queue_num).W)))
 }

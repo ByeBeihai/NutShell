@@ -95,10 +95,12 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
   val rfSrc1 = Mux(isRVC, rvc_src1, rs)
   val rfSrc2 = Mux(isRVC, rvc_src2, rt)
   val rfDest = Mux(isRVC, rvc_dest, rd)
+  val rfSrc3 = Mux(true.B,0.U,rd)
   // TODO: refactor decode logic
   // make non-register addressing to zero, since isu.sb.isBusy(0) === false.B
   io.out.bits.ctrl.rfSrc1 := Mux(src1Type === SrcType.pc, 0.U, rfSrc1)
   io.out.bits.ctrl.rfSrc2 := Mux(src2Type === SrcType.reg, rfSrc2, 0.U)
+  io.out.bits.ctrl.rfSrc3 := rfSrc3
   io.out.bits.ctrl.rfWen  := isrfWen(instrType)
   io.out.bits.ctrl.rfDest := Mux(isrfWen(instrType), rfDest, 0.U)
 
@@ -189,6 +191,8 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
   } else {
     io.out.bits.cf.exceptionVec(instrAccessFault) := false.B
   }
+
+  io.out.bits.cf.instrType := instrType
 
   io.out.bits.ctrl.isNutCoreTrap := (instr === NutCoreTrap.TRAP) && io.in.valid
   io.isWFI := (instr === Priviledged.WFI) && io.in.valid

@@ -143,6 +143,7 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   for(i <- 0 to Issue_Num-1){
     io.wb.ReadData1(i):=rf.read(io.wb.rfSrc1(i))
     io.wb.ReadData2(i):=rf.read(io.wb.rfSrc2(i))
+    io.wb.ReadData3(i):=rf.read(io.wb.rfSrc3(i))
   }
   for(i <- 0 to FuType.num-1){
     io.in(i).ready := true.B

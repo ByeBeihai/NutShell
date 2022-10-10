@@ -218,3 +218,11 @@ object RVPIInstr extends HasInstrType {
     KSLLI32     -> List(InstrPI, FuType.simdu, SIMDUOpType.kslli32)
   )
 }
+
+object RVPMInstr extends HasInstrType {
+  def SMUL16  = BitPat("b1010000_?????_?????_000_?????_1110111")
+
+  val table = Array(
+    SMUL16      -> List(InstrPM, FuType.simdu, SIMDUOpType.smul16)
+  )
+}

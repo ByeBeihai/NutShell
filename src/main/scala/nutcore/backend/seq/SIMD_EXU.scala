@@ -215,7 +215,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   val simdu = Module(new SIMDU)
   val simduOut = simdu.access(valid = io.in(simduidx).valid, src1 = src1(simduidx), src2 = src2(simduidx), func = fuOpType(simduidx))
   simdu.io.DecodeIn := io.in(simduidx).bits
-  simdu.io.out.ready := true.B
+  simdu.io.out.ready := io.out(simduidx).ready
   simdu.io.flush := io.flush
   val simdu_firststage_fire = Wire(Bool())
   simdu_firststage_fire := simdu.io.FirstStageFire
@@ -226,7 +226,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   val simdu1 = Module(new SIMDU)
   val simdu1Out = simdu1.access(valid = io.in(simdu1idx).valid, src1 = src1(simdu1idx), src2 = src2(simdu1idx), func = fuOpType(simdu1idx))
   simdu1.io.DecodeIn := io.in(simdu1idx).bits
-  simdu1.io.out.ready := true.B
+  simdu1.io.out.ready := io.out(simdu1idx).ready
   simdu1.io.flush := io.flush
   val simdu1_firststage_fire = Wire(Bool())
   simdu1_firststage_fire := simdu1.io.FirstStageFire

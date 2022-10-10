@@ -165,6 +165,7 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
 
     val rfSrc1 = VecInit((0 to Issue_Num-1).map(i => io.in(i).bits.ctrl.rfSrc1))
     val rfSrc2 = VecInit((0 to Issue_Num-1).map(i => io.in(i).bits.ctrl.rfSrc2))
+    val rfSrc3 = VecInit((0 to Issue_Num-1).map(i => io.in(i).bits.ctrl.rfSrc3))
     val rfDest = VecInit((0 to Issue_Num-1).map(i => io.in(i).bits.ctrl.rfDest))
     val rfWen  = VecInit((0 to Issue_Num-1).map(i => io.in(i).bits.ctrl.rfWen ))
 
@@ -176,11 +177,14 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
     val forwardRfWen = VecInit((0 to FuType.num-1).map(i => io.forward(i).wb.rfWen && io.forward(i).valid))
     val src1DependEX = VecInit((0 to Issue_Num-1).map(i=>VecInit((0 to FuType.num-1).map(j => isLatestData(rfSrc1(i),io.forward(j).InstNo) && isDepend(rfSrc1(i), io.forward(j).wb.rfDest, forwardRfWen(j))))))
     val src2DependEX = VecInit((0 to Issue_Num-1).map(i=>VecInit((0 to FuType.num-1).map(j => isLatestData(rfSrc2(i),io.forward(j).InstNo) && isDepend(rfSrc2(i), io.forward(j).wb.rfDest, forwardRfWen(j))))))
+    val src3DependEX = VecInit((0 to Issue_Num-1).map(i=>VecInit((0 to FuType.num-1).map(j => isLatestData(rfSrc3(i),io.forward(j).InstNo) && isDepend(rfSrc3(i), io.forward(j).wb.rfDest, forwardRfWen(j))))))
     val src1DependWB = VecInit((0 to Issue_Num-1).map(i=>VecInit((0 to FuType.num-1).map(j => isLatestData(rfSrc1(i),io.wb.InstNo(j)) && isDepend(rfSrc1(i), io.wb.rfDest(j), io.wb.rfWen(j))))))
     val src2DependWB = VecInit((0 to Issue_Num-1).map(i=>VecInit((0 to FuType.num-1).map(j => isLatestData(rfSrc2(i),io.wb.InstNo(j)) && isDepend(rfSrc2(i), io.wb.rfDest(j), io.wb.rfWen(j))))))
+    val src3DependWB = VecInit((0 to Issue_Num-1).map(i=>VecInit((0 to FuType.num-1).map(j => isLatestData(rfSrc3(i),io.wb.InstNo(j)) && isDepend(rfSrc3(i), io.wb.rfDest(j), io.wb.rfWen(j))))))
 
     val src1Ready = VecInit((0 to Issue_Num-1).map(i => !InstBoard.io.valid(rfSrc1(i))||src1DependEX(i).reduce(_||_)||src1DependWB(i).reduce(_||_)))
     val src2Ready = VecInit((0 to Issue_Num-1).map(i => !InstBoard.io.valid(rfSrc2(i))||src2DependEX(i).reduce(_||_)||src2DependWB(i).reduce(_||_)))
+    val src3Ready = VecInit((0 to Issue_Num-1).map(i => !InstBoard.io.valid(rfSrc3(i))||src3DependEX(i).reduce(_||_)||src3DependWB(i).reduce(_||_)))
 
     val RAWinIssue = VecInit((0 to Issue_Num-1).map(i => {val raw = Wire(Vec(Issue_Num,Bool())) 
                                                         for(j <- 0 to i-1){
@@ -210,9 +214,9 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
 
     for(i <- 0 to Issue_Num-1){
         if(i == 0){
-            io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i) &&(io.in(i).bits.ctrl.fuType =/= FuType.csr || io.in(i).bits.ctrl.fuType===FuType.csr && q.io.TailPtr === q.io.HeadPtr)
+            io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i) && src3Ready(i) &&(io.in(i).bits.ctrl.fuType =/= FuType.csr || io.in(i).bits.ctrl.fuType===FuType.csr && q.io.TailPtr === q.io.HeadPtr)
         }else{
-            io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i) && !RAWinIssue(i) && !FrontHasCsrMouOp(i) && !(isCsrMouOp(i) && !FrontisClear(i))
+            io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i) && src3Ready(i) && !RAWinIssue(i) && !FrontHasCsrMouOp(i) && !(isCsrMouOp(i) && !FrontisClear(i))
             Debug("[SIMD_ISU] RAWinIssue %x FrontHasCsrMouOp %x isCsrMouOp %x FrontisClear %x \n",RAWinIssue(i),FrontHasCsrMouOp(i),isCsrMouOp(i),FrontisClear(i))
         }
     }
@@ -244,9 +248,17 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
         io.out(i).bits.ctrl.isSrc1Forward := src1DependEX(i).reduce(_||_)
         io.out(i).bits.ctrl.isSrc2Forward := src2DependEX(i).reduce(_||_)
     }
+    for(i <- 0 to Issue_Num-1){
+        io.out(i).bits.data.src3 := Mux1H(List(
+        src3DependEX(i).reduce(_||_) -> io.forward(PriorityMux(src3DependEX(i).zipWithIndex.map{case(a,b)=>(a,b.U)})).wb.rfData, //io.forward.wb.rfData,
+        (src3DependWB(i).reduce(_||_) && !src3DependEX(i).reduce(_||_)) -> io.wb.WriteData(PriorityMux(src2DependWB(i).zipWithIndex.map{case(a,b)=>(a,b.U)})), //io.wb.rfData,
+        (!src3DependEX(i).reduce(_||_) && !src3DependWB(i).reduce(_||_)) -> io.wb.ReadData3(i))
+        )
+    }
 
     io.wb.rfSrc1 := VecInit((0 to Issue_Num-1).map(i => rfSrc1(i)))
     io.wb.rfSrc2 := VecInit((0 to Issue_Num-1).map(i => rfSrc2(i)))
+    io.wb.rfSrc3 := VecInit((0 to Issue_Num-1).map(i => rfSrc3(i)))
 
     q.io.setnum := io.out.map(i => i.fire().asUInt).reduce(_+&_)
     q.io.flush  := io.flush
