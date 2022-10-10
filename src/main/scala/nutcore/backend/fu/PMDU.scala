@@ -637,12 +637,27 @@ class PMDU extends NutCoreModule {
         when(isMul_16(func)){
             val width = 16
             val realSrc2 = SrcSetter(16,src2,Xsrc(func))
-            MulAdd17_0.io.in.bits.srcs(0) := extender(SrcSigned(func),src1(0*width+width-1,0*width),17)
-            MulAdd65_0.io.in.bits.srcs(0) := extender(SrcSigned(func),src1(1*width+width-1,1*width),65)
-            MulAdd17_0.io.in.bits.srcs(1) := extender(SrcSigned(func),realSrc2(0*width+width-1,0*width),17)
-            MulAdd65_0.io.in.bits.srcs(1) := extender(SrcSigned(func),realSrc2(1*width+width-1,1*width),65)
-            MulAdd17_0.io.in.bits.srcs(2) := extender(SrcSigned(func),src3(0*width+width-1,0*width),17)
-            MulAdd65_0.io.in.bits.srcs(2) := extender(SrcSigned(func),src3(1*width+width-1,1*width),65)
+            when(Saturating(func)){
+                MulAdd17_0.io.in.bits.srcs(0) := extender(SrcSigned(func),src1(0*width+width-1,0*width),17)
+                MulAdd17_1.io.in.bits.srcs(0) := extender(SrcSigned(func),src1(1*width+width-1,1*width),17)
+                MulAdd33_0.io.in.bits.srcs(0) := extender(SrcSigned(func),src1(2*width+width-1,2*width),33)
+                MulAdd65_0.io.in.bits.srcs(0) := extender(SrcSigned(func),src1(3*width+width-1,3*width),65)
+                MulAdd17_0.io.in.bits.srcs(1) := extender(SrcSigned(func),realSrc2(0*width+width-1,0*width),17)
+                MulAdd17_1.io.in.bits.srcs(1) := extender(SrcSigned(func),realSrc2(1*width+width-1,1*width),17)
+                MulAdd33_0.io.in.bits.srcs(1) := extender(SrcSigned(func),realSrc2(2*width+width-1,2*width),33)
+                MulAdd65_0.io.in.bits.srcs(1) := extender(SrcSigned(func),realSrc2(3*width+width-1,3*width),65)
+                MulAdd17_0.io.in.bits.srcs(2) := extender(SrcSigned(func),src3(0*width+width-1,0*width),17)
+                MulAdd17_1.io.in.bits.srcs(2) := extender(SrcSigned(func),src3(1*width+width-1,1*width),17)
+                MulAdd33_0.io.in.bits.srcs(2) := extender(SrcSigned(func),src3(2*width+width-1,2*width),33)
+                MulAdd65_0.io.in.bits.srcs(2) := extender(SrcSigned(func),src3(3*width+width-1,3*width),65)
+            }.otherwise{
+                MulAdd17_0.io.in.bits.srcs(0) := extender(SrcSigned(func),src1(0*width+width-1,0*width),17)
+                MulAdd65_0.io.in.bits.srcs(0) := extender(SrcSigned(func),src1(1*width+width-1,1*width),65)
+                MulAdd17_0.io.in.bits.srcs(1) := extender(SrcSigned(func),realSrc2(0*width+width-1,0*width),17)
+                MulAdd65_0.io.in.bits.srcs(1) := extender(SrcSigned(func),realSrc2(1*width+width-1,1*width),65)
+                MulAdd17_0.io.in.bits.srcs(2) := extender(SrcSigned(func),src3(0*width+width-1,0*width),17)
+                MulAdd65_0.io.in.bits.srcs(2) := extender(SrcSigned(func),src3(1*width+width-1,1*width),65)
+            }
         }
     }
 
@@ -674,27 +689,50 @@ class PMDU extends NutCoreModule {
     if(XLEN == 64){
         val func_out = io.out.bits.DecodeOut.ctrl.fuOpType
         when(isMul_16(func_out)){
-            io.out.bits.result := {
-                var l = List(0.U)
-                val width = 16
-                val src1_out = io.out.bits.DecodeOut.data.src1
-                val src2_out = SrcSetter(16,io.out.bits.DecodeOut.data.src2,Xsrc(func_out))
-                for(i <- 0 to 1){
-                    val tmp = WireInit(0.U(32.W))
-                    when(Saturating(func_out) && src2_out(i*width+width-1,i*width) === Cat(1.U,Fill(15,0.U)) && src1_out(i*width+width-1,i*width) === Cat(1.U,Fill(15,0.U))){
-                        io.out.bits.DecodeOut.pext.OV := true.B
-                        tmp := Cat(Fill(17,0.U),Fill(15,1.U))
-                    }.otherwise{
+            val src1_out = io.out.bits.DecodeOut.data.src1
+            val src2_out = SrcSetter(16,io.out.bits.DecodeOut.data.src2,Xsrc(func_out))
+            when(Saturating(func_out)){
+                io.out.bits.result := {
+                    var l = List(0.U)
+                    val width = 16
+                    for(i <- 0 to 3){
+                        val tmp = WireInit(0.U(32.W))
+                        when(src2_out(i*width+width-1,i*width) === Cat(1.U,Fill(15,0.U)) && src1_out(i*width+width-1,i*width) === Cat(1.U,Fill(15,0.U))){
+                            io.out.bits.DecodeOut.pext.OV := true.B
+                            tmp := Cat(Fill(17,0.U),Fill(15,1.U))
+                        }.otherwise{
+                            if(i == 0){
+                                tmp := (MulAdd17_0.io.out.bits.result(31,0).asSInt >> 15).asUInt
+                            }else if(i == 1){
+                                tmp := (MulAdd17_1.io.out.bits.result(31,0).asSInt >> 15).asUInt
+                            }else if(i ==2){
+                                tmp := (MulAdd33_0.io.out.bits.result(31,0).asSInt >> 15).asUInt
+                            }else{
+                                tmp := (MulAdd65_0.io.out.bits.result(31,0).asSInt >> 15).asUInt
+                            }
+                        }
+                        Debug("[PMDU] tmp %x \n",tmp)
+                        l = List.concat(List(tmp(15,0)),l)
+                    }
+                    l.dropRight(1).reduce(Cat(_,_))
+                }
+            }.otherwise{
+                io.out.bits.result := {
+                    var l = List(0.U)
+                    val width = 16
+                    for(i <- 0 to 1){
+                        val tmp = WireInit(0.U(32.W))
                         if(i == 0){
                             tmp := MulAdd17_0.io.out.bits.result(31,0)
                         }else{
                             tmp := MulAdd65_0.io.out.bits.result(31,0)
                         }
+                        l = List.concat(List(tmp),l)
                     }
-                    l = List.concat(List(tmp),l)
+                    l.dropRight(1).reduce(Cat(_,_))
                 }
-                l.dropRight(1).reduce(Cat(_,_))
             }
         }
     }
+    Debug("[PMDU] out_valid %x outPC %x func_out %x \n",io.out.valid,io.out.bits.DecodeOut.cf.pc,io.out.bits.DecodeOut.ctrl.fuOpType)
 }

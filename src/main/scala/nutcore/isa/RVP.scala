@@ -221,8 +221,18 @@ object RVPIInstr extends HasInstrType {
 
 object RVPMInstr extends HasInstrType {
   def SMUL16  = BitPat("b1010000_?????_?????_000_?????_1110111")
+  def UMUL16  = BitPat("b1011000_?????_?????_000_?????_1110111")
+  def SMULX16 = BitPat("b1010001_?????_?????_000_?????_1110111")
+  def UMULX16 = BitPat("b1011001_?????_?????_000_?????_1110111")
+  def KHM16   = BitPat("b1000011_?????_?????_000_?????_1110111")
+  def KHMX16  = BitPat("b1001011_?????_?????_000_?????_1110111")
 
   val table = Array(
-    SMUL16      -> List(InstrPM, FuType.simdu, SIMDUOpType.smul16)
+    SMUL16      -> List(InstrPM, FuType.simdu, SIMDUOpType.smul16),
+    UMUL16      -> List(InstrPM, FuType.simdu, SIMDUOpType.umul16),
+    SMULX16     -> List(InstrPM, FuType.simdu, SIMDUOpType.smulx16),
+    UMULX16     -> List(InstrPM, FuType.simdu, SIMDUOpType.umulx16),
+    KHM16       -> List(InstrPM, FuType.simdu, SIMDUOpType.khm16),
+    KHMX16      -> List(InstrPM, FuType.simdu, SIMDUOpType.khmx16)
   )
 }
