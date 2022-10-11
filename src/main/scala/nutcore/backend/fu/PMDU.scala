@@ -594,19 +594,28 @@ class PMDU extends NutCoreModule {
     val func  = io.in.bits.ctrl.fuOpType
 
     def isMul_16(func:UInt)   = {func(2) === 0.U}
+    def isMul_8 (func:UInt)   = {func(2) === 1.U}
     def SrcSigned(func:UInt)  = {func(6,3) =/= "b1011".U}
-    def Xsrc(func:UInt)       = {func(2,0) ===  "b001".U || func === "b1001011".U}
+    def Xsrc(func:UInt)       = {func(1,0) ===  "b01".U || func(6,3) === "b1001".U}
     def Saturating(func:UInt) = {func(1,0) ===  "b11".U}
 
     val MulAdd17_0 = Module(new MulAdd17)
     val MulAdd17_1 = Module(new MulAdd17)
     val MulAdd33_0 = Module(new MulAdd33)
     val MulAdd65_0 = Module(new MulAdd65)
+    val MulAdd9_0  = Module(new MulAdd9)
+    val MulAdd9_1  = Module(new MulAdd9)
+    val MulAdd9_2  = Module(new MulAdd9)
+    val MulAdd9_3  = Module(new MulAdd9)
 
     MulAdd17_0.io.in.bits := 0.U.asTypeOf(new MulAddIO(17).in.bits)
     MulAdd17_1.io.in.bits := 0.U.asTypeOf(new MulAddIO(17).in.bits)
     MulAdd33_0.io.in.bits := 0.U.asTypeOf(new MulAddIO(33).in.bits)
     MulAdd65_0.io.in.bits := 0.U.asTypeOf(new MulAddIO(65).in.bits)
+    MulAdd9_0.io.in.bits  := 0.U.asTypeOf(new MulAddIO(9).in.bits)
+    MulAdd9_1.io.in.bits  := 0.U.asTypeOf(new MulAddIO(9).in.bits)
+    MulAdd9_2.io.in.bits  := 0.U.asTypeOf(new MulAddIO(9).in.bits)
+    MulAdd9_3.io.in.bits  := 0.U.asTypeOf(new MulAddIO(9).in.bits)
 
     def extender(SrcSigned:Bool,src:UInt,width:Int)={
         val a = WireInit(0.U(width.W))
@@ -658,6 +667,49 @@ class PMDU extends NutCoreModule {
                 MulAdd17_0.io.in.bits.srcs(2) := extender(SrcSigned(func),src3(0*width+width-1,0*width),17)
                 MulAdd65_0.io.in.bits.srcs(2) := extender(SrcSigned(func),src3(1*width+width-1,1*width),65)
             }
+        }.elsewhen(isMul_8(func)){
+            val width = 8
+            val realSrc2 = SrcSetter(8,src2,Xsrc(func))
+            when(Saturating(func)){
+                MulAdd9_0.io.in.bits.srcs(0)  := extender(SrcSigned(func),src1(0*width+width-1,0*width),9)
+                MulAdd9_1.io.in.bits.srcs(0)  := extender(SrcSigned(func),src1(1*width+width-1,1*width),9)
+                MulAdd9_2.io.in.bits.srcs(0)  := extender(SrcSigned(func),src1(2*width+width-1,2*width),9)
+                MulAdd9_3.io.in.bits.srcs(0)  := extender(SrcSigned(func),src1(3*width+width-1,3*width),9)
+                MulAdd17_0.io.in.bits.srcs(0) := extender(SrcSigned(func),src1(4*width+width-1,4*width),17)
+                MulAdd17_1.io.in.bits.srcs(0) := extender(SrcSigned(func),src1(5*width+width-1,5*width),17)
+                MulAdd33_0.io.in.bits.srcs(0) := extender(SrcSigned(func),src1(6*width+width-1,6*width),33)
+                MulAdd65_0.io.in.bits.srcs(0) := extender(SrcSigned(func),src1(7*width+width-1,7*width),65)
+                MulAdd9_0.io.in.bits.srcs(1)  := extender(SrcSigned(func),realSrc2(0*width+width-1,0*width),9)
+                MulAdd9_1.io.in.bits.srcs(1)  := extender(SrcSigned(func),realSrc2(1*width+width-1,1*width),9)
+                MulAdd9_2.io.in.bits.srcs(1)  := extender(SrcSigned(func),realSrc2(2*width+width-1,2*width),9)
+                MulAdd9_3.io.in.bits.srcs(1)  := extender(SrcSigned(func),realSrc2(3*width+width-1,3*width),9)
+                MulAdd17_0.io.in.bits.srcs(1) := extender(SrcSigned(func),realSrc2(4*width+width-1,4*width),17)
+                MulAdd17_1.io.in.bits.srcs(1) := extender(SrcSigned(func),realSrc2(5*width+width-1,5*width),17)
+                MulAdd33_0.io.in.bits.srcs(1) := extender(SrcSigned(func),realSrc2(6*width+width-1,6*width),33)
+                MulAdd65_0.io.in.bits.srcs(1) := extender(SrcSigned(func),realSrc2(7*width+width-1,7*width),65)
+                MulAdd9_0.io.in.bits.srcs(2)  := extender(SrcSigned(func),src3(0*width+width-1,0*width),9)
+                MulAdd9_1.io.in.bits.srcs(2)  := extender(SrcSigned(func),src3(1*width+width-1,1*width),9)
+                MulAdd9_2.io.in.bits.srcs(2)  := extender(SrcSigned(func),src3(2*width+width-1,2*width),9)
+                MulAdd9_3.io.in.bits.srcs(2)  := extender(SrcSigned(func),src3(3*width+width-1,3*width),9)
+                MulAdd17_0.io.in.bits.srcs(2) := extender(SrcSigned(func),src3(4*width+width-1,4*width),17)
+                MulAdd17_1.io.in.bits.srcs(2) := extender(SrcSigned(func),src3(5*width+width-1,5*width),17)
+                MulAdd33_0.io.in.bits.srcs(2) := extender(SrcSigned(func),src3(6*width+width-1,6*width),33)
+                MulAdd65_0.io.in.bits.srcs(2) := extender(SrcSigned(func),src3(7*width+width-1,7*width),65)
+            }.otherwise{
+                MulAdd9_0.io.in.bits.srcs(0)  := extender(SrcSigned(func),src1(0*width+width-1,0*width),9)
+                MulAdd9_1.io.in.bits.srcs(0)  := extender(SrcSigned(func),src1(1*width+width-1,1*width),9)
+                MulAdd9_2.io.in.bits.srcs(0)  := extender(SrcSigned(func),src1(2*width+width-1,2*width),9)
+                MulAdd65_0.io.in.bits.srcs(0) := extender(SrcSigned(func),src1(3*width+width-1,3*width),65)
+                MulAdd9_0.io.in.bits.srcs(1)  := extender(SrcSigned(func),realSrc2(0*width+width-1,0*width),9)
+                MulAdd9_1.io.in.bits.srcs(1)  := extender(SrcSigned(func),realSrc2(1*width+width-1,1*width),9)
+                MulAdd9_2.io.in.bits.srcs(1)  := extender(SrcSigned(func),realSrc2(2*width+width-1,2*width),9)
+                MulAdd65_0.io.in.bits.srcs(1) := extender(SrcSigned(func),realSrc2(3*width+width-1,3*width),65)
+                MulAdd9_0.io.in.bits.srcs(2)  := extender(SrcSigned(func),src3(0*width+width-1,0*width),9)
+                MulAdd9_1.io.in.bits.srcs(2)  := extender(SrcSigned(func),src3(1*width+width-1,1*width),9)
+                MulAdd9_2.io.in.bits.srcs(2)  := extender(SrcSigned(func),src3(2*width+width-1,2*width),9)
+                MulAdd65_0.io.in.bits.srcs(2) := extender(SrcSigned(func),src3(3*width+width-1,3*width),65)
+                Debug("[PMDU] MulAdd65_0 src1 %x  src2 %x src3 %x\n",MulAdd65_0.io.in.bits.srcs(0),MulAdd65_0.io.in.bits.srcs(1),MulAdd65_0.io.in.bits.srcs(2))
+            }
         }
     }
 
@@ -665,18 +717,34 @@ class PMDU extends NutCoreModule {
     MulAdd17_1.io.in.valid := io.in.valid
     MulAdd33_0.io.in.valid := io.in.valid
     MulAdd65_0.io.in.valid := io.in.valid
+    MulAdd9_0.io.in.valid  := io.in.valid
+    MulAdd9_1.io.in.valid  := io.in.valid
+    MulAdd9_2.io.in.valid  := io.in.valid
+    MulAdd9_3.io.in.valid  := io.in.valid
     MulAdd17_0.io.out.ready:= io.out.ready
     MulAdd17_1.io.out.ready:= io.out.ready
     MulAdd33_0.io.out.ready:= io.out.ready
     MulAdd65_0.io.out.ready:= io.out.ready
+    MulAdd9_0.io.out.ready := io.out.ready
+    MulAdd9_1.io.out.ready := io.out.ready
+    MulAdd9_2.io.out.ready := io.out.ready
+    MulAdd9_3.io.out.ready := io.out.ready
     MulAdd17_0.io.in.bits.DecodeIn := io.in.bits
     MulAdd17_1.io.in.bits.DecodeIn := io.in.bits
     MulAdd33_0.io.in.bits.DecodeIn := io.in.bits
     MulAdd65_0.io.in.bits.DecodeIn := io.in.bits
+    MulAdd9_0.io.in.bits.DecodeIn  := io.in.bits
+    MulAdd9_1.io.in.bits.DecodeIn  := io.in.bits
+    MulAdd9_2.io.in.bits.DecodeIn  := io.in.bits
+    MulAdd9_3.io.in.bits.DecodeIn  := io.in.bits
     MulAdd17_0.io.flush := io.flush
     MulAdd17_1.io.flush := io.flush
     MulAdd33_0.io.flush := io.flush
     MulAdd65_0.io.flush := io.flush
+    MulAdd9_0.io.flush  := io.flush
+    MulAdd9_1.io.flush  := io.flush
+    MulAdd9_2.io.flush  := io.flush
+    MulAdd9_3.io.flush  := io.flush
 
     io.out.valid := MulAdd65_0.io.out.valid
     io.in.ready  := MulAdd65_0.io.in.ready
@@ -732,7 +800,64 @@ class PMDU extends NutCoreModule {
                     l.dropRight(1).reduce(Cat(_,_))
                 }
             }
+        }.elsewhen(isMul_8(func_out)){
+            val src1_out = io.out.bits.DecodeOut.data.src1
+            val src2_out = SrcSetter(8,io.out.bits.DecodeOut.data.src2,Xsrc(func_out))
+            when(Saturating(func_out)){
+                io.out.bits.result := {
+                    var l = List(0.U)
+                    val width = 8
+                    for(i <- 0 to 7){
+                        val tmp = WireInit(0.U(16.W))
+                        when(src2_out(i*width+width-1,i*width) === Cat(1.U,Fill(7,0.U)) && src1_out(i*width+width-1,i*width) === Cat(1.U,Fill(7,0.U))){
+                            io.out.bits.DecodeOut.pext.OV := true.B
+                            tmp := Cat(Fill(9,0.U),Fill(7,1.U))
+                        }.otherwise{
+                            if(i == 0){
+                                tmp := (MulAdd9_0.io.out.bits.result(15,0).asSInt >> 7).asUInt
+                            }else if(i == 1){
+                                tmp := (MulAdd9_1.io.out.bits.result(15,0).asSInt >> 7).asUInt
+                            }else if(i == 2){
+                                tmp := (MulAdd9_2.io.out.bits.result(15,0).asSInt >> 7).asUInt
+                            }else if(i == 3){
+                                tmp := (MulAdd9_3.io.out.bits.result(15,0).asSInt >> 7).asUInt
+                            }else if(i == 4){
+                                tmp := (MulAdd17_0.io.out.bits.result(15,0).asSInt >> 7).asUInt
+                            }else if(i == 5){
+                                tmp := (MulAdd17_1.io.out.bits.result(15,0).asSInt >> 7).asUInt
+                            }else if(i == 6){
+                                tmp := (MulAdd33_0.io.out.bits.result(15,0).asSInt >> 7).asUInt
+                            }else{
+                                tmp := (MulAdd65_0.io.out.bits.result(15,0).asSInt >> 7).asUInt
+                            }
+                        }
+                        Debug("[PMDU] tmp %x \n",tmp)
+                        l = List.concat(List(tmp(7,0)),l)
+                    }
+                    l.dropRight(1).reduce(Cat(_,_))
+                }
+            }.otherwise{
+                io.out.bits.result := {
+                    var l = List(0.U)
+                    val width = 8
+                    for(i <- 0 to 3){
+                        val tmp = WireInit(0.U(16.W))
+                        if(i == 0){
+                            tmp := MulAdd9_0.io.out.bits.result(15,0)
+                        }else if(i == 1){
+                            tmp := MulAdd9_1.io.out.bits.result(15,0)
+                        }else if(i == 2){
+                            tmp := MulAdd9_2.io.out.bits.result(15,0)
+                        }else{
+                            tmp := MulAdd65_0.io.out.bits.result(15,0)
+                        }
+                        Debug("[PMDU] tmp %x \n",tmp)
+                        l = List.concat(List(tmp),l)
+                    }
+                    l.dropRight(1).reduce(Cat(_,_))
+                }
+            }
         }
     }
-    Debug("[PMDU] out_valid %x outPC %x func_out %x \n",io.out.valid,io.out.bits.DecodeOut.cf.pc,io.out.bits.DecodeOut.ctrl.fuOpType)
+    Debug("[PMDU] in_valid %x out_valid %x inPC %x func_in %x outPC %x func_out %x \n",io.in.valid,io.out.valid,io.in.bits.cf.pc,func,io.out.bits.DecodeOut.cf.pc,io.out.bits.DecodeOut.ctrl.fuOpType)
 }

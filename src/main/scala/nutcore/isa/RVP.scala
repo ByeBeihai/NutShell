@@ -226,6 +226,12 @@ object RVPMInstr extends HasInstrType {
   def UMULX16 = BitPat("b1011001_?????_?????_000_?????_1110111")
   def KHM16   = BitPat("b1000011_?????_?????_000_?????_1110111")
   def KHMX16  = BitPat("b1001011_?????_?????_000_?????_1110111")
+  def SMUL8   = BitPat("b1010100_?????_?????_000_?????_1110111")
+  def UMUL8   = BitPat("b1011100_?????_?????_000_?????_1110111")
+  def SMULX8  = BitPat("b1010101_?????_?????_000_?????_1110111")
+  def UMULX8  = BitPat("b1011101_?????_?????_000_?????_1110111")
+  def KHM8    = BitPat("b1000111_?????_?????_000_?????_1110111")
+  def KHMX8   = BitPat("b1001111_?????_?????_000_?????_1110111")
 
   val table = Array(
     SMUL16      -> List(InstrPM, FuType.simdu, SIMDUOpType.smul16),
@@ -233,6 +239,12 @@ object RVPMInstr extends HasInstrType {
     SMULX16     -> List(InstrPM, FuType.simdu, SIMDUOpType.smulx16),
     UMULX16     -> List(InstrPM, FuType.simdu, SIMDUOpType.umulx16),
     KHM16       -> List(InstrPM, FuType.simdu, SIMDUOpType.khm16),
-    KHMX16      -> List(InstrPM, FuType.simdu, SIMDUOpType.khmx16)
+    KHMX16      -> List(InstrPM, FuType.simdu, SIMDUOpType.khmx16),
+    SMUL8       -> List(InstrPM, FuType.simdu, SIMDUOpType.smul8),
+    UMUL8       -> List(InstrPM, FuType.simdu, SIMDUOpType.umul8),
+    SMULX8      -> List(InstrPM, FuType.simdu, SIMDUOpType.smulx8),
+    UMULX8      -> List(InstrPM, FuType.simdu, SIMDUOpType.umulx8),
+    KHM8        -> List(InstrPM, FuType.simdu, SIMDUOpType.khm8),
+    KHMX8       -> List(InstrPM, FuType.simdu, SIMDUOpType.khmx8)
   )
 }
