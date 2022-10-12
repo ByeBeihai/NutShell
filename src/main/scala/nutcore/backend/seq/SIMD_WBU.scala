@@ -152,7 +152,7 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   //P-EXT
   val bool_wire = WireInit(false.B)
   for(i <- 0 to FuType.num-1){
-    when(io.in(i).valid && io.in(i).bits.decode.pext.OV){
+    when(io.in(i).valid && io.in(i).bits.decode.pext.OV && !FronthasRedirect(i)){
       bool_wire := true.B
     }
   }
