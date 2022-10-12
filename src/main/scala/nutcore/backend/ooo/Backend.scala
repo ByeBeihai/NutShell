@@ -893,8 +893,13 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
     wbu.io.wb.rfSrc2(i):=isu.io.wb.rfSrc2(i)
     wbu.io.wb.rfSrc3(i):=isu.io.wb.rfSrc3(i)
   }
-  val redirct_index = PriorityMux(VecInit((0 to FuType.num-1).map(i => wbu_bits_next(i).decode.cf.redirect.valid && wbu_valid_next(i))).zipWithIndex.map{case(a,b)=>(a,b.U)})
-  io.redirect <> wbu_bits_next(redirct_index).decode.cf.redirect
+  def notafter(ptr1:UInt,ptr2:UInt,flag1:UInt,flag2:UInt):Bool= (ptr1 <= ptr2) ^ (flag1 =/= flag2) 
+  val redirct_index = Mux(exu.io.out(FuType.csr).valid,
+                          Mux(exu.io.out(FuType.alu).valid,
+                              Mux(notafter(exu.io.out(FuType.csr).bits.decode.InstNo,exu.io.out(FuType.alu).bits.decode.InstNo,exu.io.out(FuType.csr).bits.decode.InstFlag,exu.io.out(FuType.alu).bits.decode.InstFlag),FuType.csr,FuType.alu),FuType.csr),FuType.alu)
+  val redirect = WireInit(exu.io.out(redirct_index).bits.decode.cf.redirect)
+  redirect.valid := exu.io.out(redirct_index).bits.decode.cf.redirect.valid & exu.io.out(redirct_index).fire()
+  io.redirect <> redirect
   // forward
   for(i <- 0 to FuType.num-1){
     isu.io.forward(i) <> exu.io.forward(i)  

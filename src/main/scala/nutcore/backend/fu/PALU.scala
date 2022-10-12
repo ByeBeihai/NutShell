@@ -496,7 +496,6 @@ class PALU extends NutCoreModule {
 
     val shifterRes = WireInit(src1)
     val shifterOV  = WireInit(false.B)
-
     when(isRs_16 | isLs_16 |isLR_16){
         val tmp = SetSrc2(16,src2,isLR_16)
         val realSrc2 = tmp(log2Up(16)-1,0)
