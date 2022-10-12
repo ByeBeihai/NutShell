@@ -123,6 +123,24 @@ object SIMDUOpType {
   def umulx8  ="b1011101".U
   def khm8    ="b1000111".U
   def khmx8   ="b1001111".U
+  def smin16  ="b1000000".U
+  def smax16  ="b1000001".U
+  def umin16  ="b1001000".U
+  def umax16  ="b1001001".U
+  def smin8   ="b1000100".U
+  def smax8   ="b1000101".U
+  def umin8   ="b1001100".U
+  def umax8   ="b1001101".U
+  def sclip16 ="b1000010".U
+  def uclip16 ="b1000010".U
+  def sclip8  ="b1000110".U
+  def uclip8  ="b1000110".U
+  def kabs16  = "b1010110".U
+  def kabs8   = "b1010110".U
+  def clrs16  = "b1010111".U
+  def clz16   = "b1010111".U
+  def clrs8  = "b1010111".U
+  def clz8   = "b1010111".U
 }
 
 class SIMDU_IO extends FunctionUnitIO {
