@@ -96,6 +96,10 @@ object RVPInstr extends HasInstrType {
   def SMAX8   = BitPat("b1000101_?????_?????_000_?????_1110111")
   def UMIN8   = BitPat("b1001100_?????_?????_000_?????_1110111")
   def UMAX8   = BitPat("b1001101_?????_?????_000_?????_1110111")
+  def PKBB16  = BitPat("b0000111_?????_?????_001_?????_1110111")
+  def PKBT16  = BitPat("b0001111_?????_?????_001_?????_1110111")
+  def PKTT16  = BitPat("b0010111_?????_?????_001_?????_1110111")
+  def PKTB16  = BitPat("b0011111_?????_?????_001_?????_1110111")
   
   val table = Array(
     ADD16       -> List(InstrP, FuType.simdu, SIMDUOpType.add16),
@@ -189,7 +193,11 @@ object RVPInstr extends HasInstrType {
     SMIN8       -> List(InstrP, FuType.simdu, SIMDUOpType.smin8 ),
     SMAX8       -> List(InstrP, FuType.simdu, SIMDUOpType.smax8 ),
     UMIN8       -> List(InstrP, FuType.simdu, SIMDUOpType.umin8 ),
-    UMAX8       -> List(InstrP, FuType.simdu, SIMDUOpType.umax8 )
+    UMAX8       -> List(InstrP, FuType.simdu, SIMDUOpType.umax8 ),
+    PKBB16      -> List(InstrP, FuType.simdu, SIMDUOpType.pkbb16 ),
+    PKBT16      -> List(InstrP, FuType.simdu, SIMDUOpType.pkbt16 ),
+    PKTT16      -> List(InstrP, FuType.simdu, SIMDUOpType.pktt16 ),
+    PKTB16      -> List(InstrP, FuType.simdu, SIMDUOpType.pktb16 )
   )
 }
 
@@ -214,14 +222,15 @@ object RVPIInstr extends HasInstrType {
   def KSLLI32 = BitPat("b1000010_?????_?????_010_?????_1110111")
   def SCLIP16 = BitPat("b1000010_0_????_?????_000_?????_1110111")
   def UCLIP16 = BitPat("b1000010_1_????_?????_000_?????_1110111")
-  def SCLIP8 = BitPat("b1000110_00_???_?????_000_?????_1110111")
-  def UCLIP8 = BitPat("b1000110_10_???_?????_000_?????_1110111")
-  def KABS16 = BitPat("b1010110_10001_?????_000_?????_1110111")
-  def KABS8  = BitPat("b1010110_10000_?????_000_?????_1110111")
-  def CLRS16 = BitPat("b1010111_01000_?????_000_?????_1110111")
-  def CLZ16  = BitPat("b1010111_01001_?????_000_?????_1110111")
-  def CLRS8 = BitPat("b1010111_00000_?????_000_?????_1110111")
-  def CLZ8  = BitPat("b1010111_00001_?????_000_?????_1110111")
+  def SCLIP8  = BitPat("b1000110_00_???_?????_000_?????_1110111")
+  def UCLIP8  = BitPat("b1000110_10_???_?????_000_?????_1110111")
+  def KABS16  = BitPat("b1010110_10001_?????_000_?????_1110111")
+  def KABS8   = BitPat("b1010110_10000_?????_000_?????_1110111")
+  def CLRS16  = BitPat("b1010111_01000_?????_000_?????_1110111")
+  def CLZ16   = BitPat("b1010111_01001_?????_000_?????_1110111")
+  def CLRS8   = BitPat("b1010111_00000_?????_000_?????_1110111")
+  def CLZ8    = BitPat("b1010111_00001_?????_000_?????_1110111")
+  def SWAP8   = BitPat("b1010110_11000_?????_000_?????_1110111")
 
   val table = Array(
     SRAI16      -> List(InstrPI, FuType.simdu, SIMDUOpType.srai16),
@@ -250,8 +259,17 @@ object RVPIInstr extends HasInstrType {
     KABS8       -> List(InstrPI, FuType.simdu, SIMDUOpType.kabs8),
     CLRS16      -> List(InstrPI, FuType.simdu, SIMDUOpType.clrs16),
     CLZ16       -> List(InstrPI, FuType.simdu, SIMDUOpType.clz16),
-    CLRS8      -> List(InstrPI, FuType.simdu, SIMDUOpType.clrs8),
-    CLZ8       -> List(InstrPI, FuType.simdu, SIMDUOpType.clz8)
+    CLRS8       -> List(InstrPI, FuType.simdu, SIMDUOpType.clrs8),
+    CLZ8        -> List(InstrPI, FuType.simdu, SIMDUOpType.clz8),
+    SWAP8       -> List(InstrPI, FuType.simdu, SIMDUOpType.swap8)
+  )
+}
+
+object RVPBInstr extends HasInstrType {
+  def REV8H   = BitPat("b011010_001000_?????_101_?????_0010011")
+
+  val table = Array(
+    REV8H       -> List(InstrPB, FuType.simdu, SIMDUOpType.rev8h)
   )
 }
 

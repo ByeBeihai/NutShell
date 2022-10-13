@@ -79,7 +79,7 @@ class PALUIO extends NutCoreBundle {
   })
 }
 
-class PALU extends NutCoreModule {
+class PALU extends NutCoreModule with HasInstrType{
     val io = IO(new PALUIO)
 
     val valid = io.in.valid
@@ -488,6 +488,10 @@ class PALU extends NutCoreModule {
     val isCnt_8   = func === "b1010111".U && src2(4,1) === "b0000".U && funct3 === 0.U
     val isCnt     = isCnt_16 | isCnt_8
 
+    val isSwap_16 = func(6,5) === 0.U && func (2,0) === "b111".U && funct3 === 1.U
+    val isSwap_8  = func === "b1010110".U && (src2(4,0) === "b11000".U && funct3 === 0.U && io.in.bits.cf.instrType === InstrPI || src2(5,0) === "b001000".U && funct3 === "b101".U && io.in.bits.cf.instrType === InstrPB)
+    val isSwap    = isSwap_16 | isSwap_8
+
     def shifter(width: Int, src1:UInt, src2:UInt, Round:Bool, ShiftSigned:Bool,Righshift:Bool,Arithmetic:Bool) = {
         var l = List(0.U)
         val OV= Wire(Vec(XLEN/width,Bool()))
@@ -607,6 +611,31 @@ class PALU extends NutCoreModule {
         }
         l.dropRight(1).reduce(Cat(_, _))
     }
+    def swaper(width:Int,sr1:UInt,src2:UInt,mode:UInt)={
+        var l = List(0.U)
+        for(i <- 0 until XLEN/width/2){
+            val res = WireInit(0.U.asTypeOf(Vec(2,UInt(width.W))))
+            val tmp1= src1(i * width * 2 + 2 * width -1,i * width * 2)
+            val tmp2= src2(i * width * 2 + 2 * width -1,i * width * 2)
+            when(mode === 0.U){
+                res(1) := tmp1.asTypeOf(Vec(2,UInt(width.W)))(0)
+                res(0) := tmp2.asTypeOf(Vec(2,UInt(width.W)))(0)
+            }.elsewhen(mode === 1.U){
+                res(1) := tmp1.asTypeOf(Vec(2,UInt(width.W)))(0)
+                res(0) := tmp2.asTypeOf(Vec(2,UInt(width.W)))(1)
+                Debug("[PALU] swaper 111 tmp1 %x tmp2 %x \n",tmp1.asTypeOf(Vec(2,UInt(width.W)))(0),tmp2.asTypeOf(Vec(2,UInt(width.W)))(1))
+            }.elsewhen(mode === 3.U){
+                res(1) := tmp1.asTypeOf(Vec(2,UInt(width.W)))(1)
+                res(0) := tmp2.asTypeOf(Vec(2,UInt(width.W)))(0)
+            }.elsewhen(mode === 2.U){
+                res(1) := tmp1.asTypeOf(Vec(2,UInt(width.W)))(1)
+                res(0) := tmp2.asTypeOf(Vec(2,UInt(width.W)))(1)
+            }
+            Debug("[PALU] swaper mode %x tmp1 %x tmp2 %x res %x \n",mode,tmp1,tmp2,Cat(res(1),res(0)))
+            l = List.concat(List(Cat(res(1),res(0))) ,l)
+        }
+        l.dropRight(1).reduce(Cat(_, _))
+    }
 
     val shifterRes = WireInit(src1)
     val shifterOV  = WireInit(false.B)
@@ -667,6 +696,14 @@ class PALU extends NutCoreModule {
         cntRes := tmp(XLEN-1,0)
     }
 
+    val swapRes= WireInit(src1)
+    val swapOV = WireInit(false.B)
+    when(isSwap_16){
+        swapRes := swaper(16,src1,src2,func(4,3))
+    }.elsewhen(isSwap_8){
+        swapRes := swaper(8,src1,src1,"b01".U)
+    }
+
     when(isAdder){
         io.out.bits.result := adderRes_final
         io.out.bits.DecodeOut.pext.OV := adderOV
@@ -688,6 +725,9 @@ class PALU extends NutCoreModule {
     }.elsewhen(isCnt){
         io.out.bits.result := cntRes
         io.out.bits.DecodeOut.pext.OV := cntOV
+    }.elsewhen(isSwap){
+        io.out.bits.result := swapRes
+        io.out.bits.DecodeOut.pext.OV := swapOV
     }.otherwise{
         io.out.bits.result := adderRes_final
         io.out.bits.DecodeOut.pext.OV := adderOV
