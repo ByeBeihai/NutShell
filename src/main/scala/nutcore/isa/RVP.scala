@@ -226,11 +226,23 @@ object RVPIInstr extends HasInstrType {
   def UCLIP8  = BitPat("b1000110_10_???_?????_000_?????_1110111")
   def KABS16  = BitPat("b1010110_10001_?????_000_?????_1110111")
   def KABS8   = BitPat("b1010110_10000_?????_000_?????_1110111")
+  def KABS32  = BitPat("b1010110_10010_?????_000_?????_1110111")
+  def KABSW   = BitPat("b1010110_10100_?????_000_?????_1110111")
   def CLRS16  = BitPat("b1010111_01000_?????_000_?????_1110111")
   def CLZ16   = BitPat("b1010111_01001_?????_000_?????_1110111")
   def CLRS8   = BitPat("b1010111_00000_?????_000_?????_1110111")
   def CLZ8    = BitPat("b1010111_00001_?????_000_?????_1110111")
   def SWAP8   = BitPat("b1010110_11000_?????_000_?????_1110111")
+  def SUNPKD810 = BitPat("b1010110_01000_?????_000_?????_1110111")
+  def SUNPKD820 = BitPat("b1010110_01001_?????_000_?????_1110111")
+  def SUNPKD830 = BitPat("b1010110_01010_?????_000_?????_1110111")
+  def SUNPKD831 = BitPat("b1010110_01011_?????_000_?????_1110111")
+  def SUNPKD832 = BitPat("b1010110_10011_?????_000_?????_1110111")
+  def ZUNPKD810 = BitPat("b1010110_01100_?????_000_?????_1110111")
+  def ZUNPKD820 = BitPat("b1010110_01101_?????_000_?????_1110111")
+  def ZUNPKD830 = BitPat("b1010110_01110_?????_000_?????_1110111")
+  def ZUNPKD831 = BitPat("b1010110_01111_?????_000_?????_1110111")
+  def ZUNPKD832 = BitPat("b1010110_10111_?????_000_?????_1110111")
 
   val table = Array(
     SRAI16      -> List(InstrPI, FuType.simdu, SIMDUOpType.srai16),
@@ -257,11 +269,23 @@ object RVPIInstr extends HasInstrType {
     UCLIP8      -> List(InstrPI, FuType.simdu, SIMDUOpType.uclip8),
     KABS16      -> List(InstrPI, FuType.simdu, SIMDUOpType.kabs16),
     KABS8       -> List(InstrPI, FuType.simdu, SIMDUOpType.kabs8),
+    KABS32      -> List(InstrPI, FuType.simdu, SIMDUOpType.kabs32),
+    KABSW       -> List(InstrPI, FuType.simdu, SIMDUOpType.kabsw),
     CLRS16      -> List(InstrPI, FuType.simdu, SIMDUOpType.clrs16),
     CLZ16       -> List(InstrPI, FuType.simdu, SIMDUOpType.clz16),
     CLRS8       -> List(InstrPI, FuType.simdu, SIMDUOpType.clrs8),
     CLZ8        -> List(InstrPI, FuType.simdu, SIMDUOpType.clz8),
-    SWAP8       -> List(InstrPI, FuType.simdu, SIMDUOpType.swap8)
+    SWAP8       -> List(InstrPI, FuType.simdu, SIMDUOpType.swap8),
+    SUNPKD810   -> List(InstrPI, FuType.simdu, SIMDUOpType.sunpkd810),
+    SUNPKD820   -> List(InstrPI, FuType.simdu, SIMDUOpType.sunpkd820),
+    SUNPKD830   -> List(InstrPI, FuType.simdu, SIMDUOpType.sunpkd830),
+    SUNPKD831   -> List(InstrPI, FuType.simdu, SIMDUOpType.sunpkd831),
+    SUNPKD832   -> List(InstrPI, FuType.simdu, SIMDUOpType.sunpkd832),
+    ZUNPKD810   -> List(InstrPI, FuType.simdu, SIMDUOpType.zunpkd810),
+    ZUNPKD820   -> List(InstrPI, FuType.simdu, SIMDUOpType.zunpkd820),
+    ZUNPKD830   -> List(InstrPI, FuType.simdu, SIMDUOpType.zunpkd830),
+    ZUNPKD831   -> List(InstrPI, FuType.simdu, SIMDUOpType.zunpkd831),
+    ZUNPKD832   -> List(InstrPI, FuType.simdu, SIMDUOpType.zunpkd832)
   )
 }
 

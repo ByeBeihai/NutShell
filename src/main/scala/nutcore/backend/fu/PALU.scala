@@ -141,6 +141,15 @@ class PALU extends NutCoreModule with HasInstrType{
     val LessThan    = Translation
     
     def MixPrecisionLen = XLEN + XLEN / 8 + XLEN / 8
+    def extender(SrcSigned:Bool,src:UInt,width:Int)={
+        val a = WireInit(0.U(width.W))
+        when(SrcSigned){
+            a := SignExt(src,width)
+        }.otherwise{
+            a := ZeroExt(src,width)
+        }
+        a
+    }
     
     val adderRes_ori = Wire(UInt(MixPrecisionLen.W))
     val adderRes = Wire(UInt(XLEN.W))
@@ -482,7 +491,9 @@ class PALU extends NutCoreModule with HasInstrType{
 
     val isSat_16  = func === "b1010110".U && src2(4,0) === "b10001".U && funct3 === 0.U
     val isSat_8   = func === "b1010110".U && src2(4,0) === "b10000".U && funct3 === 0.U
-    val isSat     = isSat_16 | isSat_8
+    val isSat_32  = func === "b1010110".U && src2(4,0) === "b10010".U && funct3 === 0.U
+    val isSat_W   = func === "b1010110".U && src2(4,0) === "b10100".U && funct3 === 0.U
+    val isSat     = isSat_16 | isSat_8 | isSat_32 | isSat_W
 
     val isCnt_16  = func === "b1010111".U && src2(4,1) === "b0100".U && funct3 === 0.U
     val isCnt_8   = func === "b1010111".U && src2(4,1) === "b0000".U && funct3 === 0.U
@@ -491,6 +502,8 @@ class PALU extends NutCoreModule with HasInstrType{
     val isSwap_16 = func(6,5) === 0.U && func (2,0) === "b111".U && funct3 === 1.U
     val isSwap_8  = func === "b1010110".U && (src2(4,0) === "b11000".U && funct3 === 0.U && io.in.bits.cf.instrType === InstrPI || src2(5,0) === "b001000".U && funct3 === "b101".U && io.in.bits.cf.instrType === InstrPB)
     val isSwap    = isSwap_16 | isSwap_8
+
+    val isUnpack  = func === "b1010110".U && (src2(4,3) === "b01".U || src2(4,0) === "b10011".U || src2(4,0) === "b10111".U) && funct3 === 0.U
 
     def shifter(width: Int, src1:UInt, src2:UInt, Round:Bool, ShiftSigned:Bool,Righshift:Bool,Arithmetic:Bool) = {
         var l = List(0.U)
@@ -636,6 +649,17 @@ class PALU extends NutCoreModule with HasInstrType{
         }
         l.dropRight(1).reduce(Cat(_, _))
     }
+    def unpacker(sr1:UInt,mode:UInt,SrcSigned:Bool)={
+        var l = List(0.U)
+        for(i <- 0 until XLEN/32){
+            val res = WireInit(0.U.asTypeOf(Vec(2,UInt(16.W))))
+            val tmp = src1(i*32+32-1,i*32)
+            res(1) := Mux(mode === "b01000".U,extender(SrcSigned,tmp.asTypeOf(Vec(4,UInt(8.W)))(1),16),Mux(mode === "b01001".U,extender(SrcSigned,tmp.asTypeOf(Vec(4,UInt(8.W)))(2),16),extender(SrcSigned,tmp.asTypeOf(Vec(4,UInt(8.W)))(3),16)))
+            res(0) := Mux(mode === "b10011".U,extender(SrcSigned,tmp.asTypeOf(Vec(4,UInt(8.W)))(2),16),Mux(mode === "b01011".U,extender(SrcSigned,tmp.asTypeOf(Vec(4,UInt(8.W)))(1),16),extender(SrcSigned,tmp.asTypeOf(Vec(4,UInt(8.W)))(0),16)))
+        l = List.concat(List(Cat(res(1),res(0))) ,l)
+        }
+        l.dropRight(1).reduce(Cat(_, _))
+    }
 
     val shifterRes = WireInit(src1)
     val shifterOV  = WireInit(false.B)
@@ -684,6 +708,20 @@ class PALU extends NutCoreModule with HasInstrType{
         val tmp = saturator(8,src1)
         satRes := tmp(XLEN-1,0)
         satOV  := tmp(XLEN)
+    }.elsewhen(isSat_32){
+        val tmp = saturator(32,src1)
+        satRes := tmp(XLEN-1,0)
+        satOV  := tmp(XLEN)
+    }.elsewhen(isSat_W){
+        val tmp = saturator(32,ZeroExt(src1,XLEN))
+        satRes := SignExt(tmp(31,0),XLEN)
+        satOV  := tmp(XLEN)
+    }
+
+    val unpackRes = WireInit(src1)
+    val unpackOV  = WireInit(false.B)
+    when(isUnpack){
+        unpackRes := unpacker(src1,src2(4,0)&"b11011".U,!src2(2).asBool)
     }
 
     val cntRes = WireInit(src1)
@@ -728,6 +766,9 @@ class PALU extends NutCoreModule with HasInstrType{
     }.elsewhen(isSwap){
         io.out.bits.result := swapRes
         io.out.bits.DecodeOut.pext.OV := swapOV
+    }.elsewhen(isUnpack){
+        io.out.bits.result := unpackRes
+        io.out.bits.DecodeOut.pext.OV := unpackOV
     }.otherwise{
         io.out.bits.result := adderRes_final
         io.out.bits.DecodeOut.pext.OV := adderOV

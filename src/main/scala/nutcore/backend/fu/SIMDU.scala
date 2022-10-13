@@ -137,6 +137,8 @@ object SIMDUOpType {
   def uclip8  ="b1000110".U
   def kabs16  = "b1010110".U
   def kabs8   = "b1010110".U
+  def kabs32  = "b1010110".U
+  def kabsw   = "b1010110".U
   def clrs16  = "b1010111".U
   def clz16   = "b1010111".U
   def clrs8   = "b1010111".U
@@ -147,6 +149,16 @@ object SIMDUOpType {
   def pktb16  = "b0011111".U
   def swap8   = "b1010110".U
   def rev8h   = "b1010110".U
+  def sunpkd810 = "b1010110".U
+  def sunpkd820 = "b1010110".U
+  def sunpkd830 = "b1010110".U
+  def sunpkd831 = "b1010110".U
+  def sunpkd832 = "b1010110".U
+  def zunpkd810 = "b1010110".U
+  def zunpkd820 = "b1010110".U
+  def zunpkd830 = "b1010110".U
+  def zunpkd831 = "b1010110".U
+  def zunpkd832 = "b1010110".U
 }
 
 class SIMDU_IO extends FunctionUnitIO {
