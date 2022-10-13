@@ -62,7 +62,8 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
     InstrP -> (SrcType.reg, SrcType.reg),
     InstrPI-> (SrcType.reg, SrcType.imm),
     InstrPB-> (SrcType.reg, SrcType.imm),
-    InstrPM-> (SrcType.reg, SrcType.reg)
+    InstrPM-> (SrcType.reg, SrcType.reg),
+    InstrPRD->(SrcType.reg, SrcType.reg)
   )
   val src1Type = LookupTree(instrType, SrcTypeTable.map(p => (p._1, p._2._1)))
   val src2Type = LookupTree(instrType, SrcTypeTable.map(p => (p._1, p._2._2)))
@@ -97,7 +98,7 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
   val rfSrc1 = Mux(isRVC, rvc_src1, rs)
   val rfSrc2 = Mux(isRVC, rvc_src2, rt)
   val rfDest = Mux(isRVC, rvc_dest, rd)
-  val rfSrc3 = Mux(true.B,0.U,rd)
+  val rfSrc3 = Mux(instrType === InstrPRD,rd,0.U)
   // TODO: refactor decode logic
   // make non-register addressing to zero, since isu.sb.isBusy(0) === false.B
   io.out.bits.ctrl.rfSrc1 := Mux(src1Type === SrcType.pc, 0.U, rfSrc1)

@@ -310,6 +310,10 @@ object RVPMInstr extends HasInstrType {
   def UMULX8  = BitPat("b1011101_?????_?????_000_?????_1110111")
   def KHM8    = BitPat("b1000111_?????_?????_000_?????_1110111")
   def KHMX8   = BitPat("b1001111_?????_?????_000_?????_1110111")
+  def SMMUL   = BitPat("b0100000_?????_?????_001_?????_1110111")
+  def SMMULU  = BitPat("b0101000_?????_?????_001_?????_1110111")
+  def KWMMUL  = BitPat("b0110001_?????_?????_001_?????_1110111")
+  def KWMMULU = BitPat("b0111001_?????_?????_001_?????_1110111")
 
   val table = Array(
     SMUL16      -> List(InstrPM, FuType.simdu, SIMDUOpType.smul16),
@@ -323,6 +327,23 @@ object RVPMInstr extends HasInstrType {
     SMULX8      -> List(InstrPM, FuType.simdu, SIMDUOpType.smulx8),
     UMULX8      -> List(InstrPM, FuType.simdu, SIMDUOpType.umulx8),
     KHM8        -> List(InstrPM, FuType.simdu, SIMDUOpType.khm8),
-    KHMX8       -> List(InstrPM, FuType.simdu, SIMDUOpType.khmx8)
+    KHMX8       -> List(InstrPM, FuType.simdu, SIMDUOpType.khmx8),
+    SMMUL       -> List(InstrPM, FuType.simdu, SIMDUOpType.smmul),
+    SMMULU      -> List(InstrPM, FuType.simdu, SIMDUOpType.smmulu),
+    KWMMUL      -> List(InstrPM, FuType.simdu, SIMDUOpType.kwmmul),
+    KWMMULU     -> List(InstrPM, FuType.simdu, SIMDUOpType.kwmmulu)
+  )
+}
+object RVPRDInstr extends HasInstrType {
+  def KMMAC   = BitPat("b0110000_?????_?????_001_?????_1110111")
+  def KMMACU  = BitPat("b0111000_?????_?????_001_?????_1110111")
+  def KMMSB   = BitPat("b0100001_?????_?????_001_?????_1110111")
+  def KMMSBU  = BitPat("b0101001_?????_?????_001_?????_1110111")
+
+  val table = Array(
+    KMMAC       -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmmac),
+    KMMACU      -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmmacu),
+    KMMSB       -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmmsb),
+    KMMSBU      -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmmsbu)
   )
 }

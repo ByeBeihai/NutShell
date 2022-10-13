@@ -188,7 +188,7 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
 
     val RAWinIssue = VecInit((0 to Issue_Num-1).map(i => {val raw = Wire(Vec(Issue_Num,Bool())) 
                                                         for(j <- 0 to i-1){
-                                                                raw(j) := io.in(j).valid && (isDepend(rfSrc1(i),rfDest(j),rfWen(j))||isDepend(rfSrc2(i),rfDest(j),rfWen(j)))
+                                                                raw(j) := io.in(j).valid && (isDepend(rfSrc1(i),rfDest(j),rfWen(j))||isDepend(rfSrc2(i),rfDest(j),rfWen(j))||isDepend(rfSrc3(i),rfDest(j),rfWen(j)))
                                                         }
                                                         for(j <- i to Issue_Num-1){
                                                                 raw(j) := false.B 
@@ -251,7 +251,7 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
     for(i <- 0 to Issue_Num-1){
         io.out(i).bits.data.src3 := Mux1H(List(
         src3DependEX(i).reduce(_||_) -> io.forward(PriorityMux(src3DependEX(i).zipWithIndex.map{case(a,b)=>(a,b.U)})).wb.rfData, //io.forward.wb.rfData,
-        (src3DependWB(i).reduce(_||_) && !src3DependEX(i).reduce(_||_)) -> io.wb.WriteData(PriorityMux(src2DependWB(i).zipWithIndex.map{case(a,b)=>(a,b.U)})), //io.wb.rfData,
+        (src3DependWB(i).reduce(_||_) && !src3DependEX(i).reduce(_||_)) -> io.wb.WriteData(PriorityMux(src3DependWB(i).zipWithIndex.map{case(a,b)=>(a,b.U)})), //io.wb.rfData,
         (!src3DependEX(i).reduce(_||_) && !src3DependWB(i).reduce(_||_)) -> io.wb.ReadData3(i))
         )
     }
@@ -263,14 +263,9 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
     q.io.setnum := io.out.map(i => i.fire().asUInt).reduce(_+&_)
     q.io.flush  := io.flush
     q.io.clearnum:=io.num_enterwbu
-    val invalidnum = (0 to Issue_Num-1).map(i => {
-                                            if(i == 0){
-                                                0.U
-                                            }else{
-                                                (0 to i-1).map(j => (!io.in(j).valid).asUInt).reduce(_+&_)
-                                            }})
+
     for(i <- 0 to Issue_Num-1){
-        val mightbeInstNo = q.io.HeadPtr +& i.U - invalidnum(i)
+        val mightbeInstNo = q.io.HeadPtr +& i.U
         val startNewQueue = mightbeInstNo >= Queue_num.U
         io.out(i).bits.InstNo := Mux(startNewQueue,mightbeInstNo-Queue_num.U,mightbeInstNo)
         io.out(i).bits.InstFlag:= Mux(startNewQueue,!q.io.Flag,q.io.Flag)
@@ -289,11 +284,12 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
     InstBoard.io.flush   := io.flush
 
     for(i <- 0 to Issue_Num-1){
-    Debug("[SIMD_ISU] issue %x valid %x rfSrc1 %x rfSrc2 %x rfdata1 %x rfdata2 %x rfsrc1ready %x rfsrc2ready %x\n", i.U,io.in(i).valid,rfSrc1(i),rfSrc2(i), io.out(i).bits.data.src1,io.out(i).bits.data.src2,src1Ready(i),src2Ready(i))
-    Debug("[SIMD_ISU] issue %x outvalid %x InstNo %x pc %x inst %x futype %x futypeop %x src1ex %x src2ex %x src1wb %x src2wb %x \n",i.U,io.out(i).valid,io.out(i).bits.InstNo,io.in(i).bits.cf.pc,io.in(i).bits.cf.instr,io.in(i).bits.ctrl.fuType,io.in(i).bits.ctrl.fuOpType,src1DependEX(i).reduce(_|_),src2DependEX(i).reduce(_|_),src1DependWB(i).reduce(_|_),src2DependWB(i).reduce(_|_))
+    Debug("[SIMD_ISU] issue %x valid %x rfSrc1 %x rfSrc2 %x rfSrc3 %x rfdata1 %x rfdata2 %x rfdata3 %x rfsrc1ready %x rfsrc2ready %x rfsrc3ready %x\n", i.U,io.in(i).valid,rfSrc1(i),rfSrc2(i), rfSrc3(i),io.out(i).bits.data.src1,io.out(i).bits.data.src2,io.out(i).bits.data.src3,src1Ready(i),src2Ready(i),src3Ready(i))
+    Debug("[SIMD_ISU] issue %x outvalid %x InstNo %x pc %x inst %x futype %x futypeop %x src1ex %x src2ex %x src1ex3 %x src1wb %x src2wb %x src3wb %x \n",i.U,io.out(i).valid,io.out(i).bits.InstNo,io.in(i).bits.cf.pc,io.in(i).bits.cf.instr,io.in(i).bits.ctrl.fuType,io.in(i).bits.ctrl.fuOpType,src1DependEX(i).reduce(_|_),src2DependEX(i).reduce(_|_),src3DependEX(i).reduce(_|_),src1DependWB(i).reduce(_|_),src2DependWB(i).reduce(_|_),src3DependWB(i).reduce(_|_))
     Debug(io.out(0).fire(),"[SIMD_ISU] InstNo %x\n", io.out(0).bits.InstNo)
     }
     for(i <- 0 to FuType.num-1){
         Debug("[SIMD_ISU]futype %x rfdest %x rfwen %x wdata %x \n",i.U,io.forward(i).wb.rfDest,forwardRfWen(i),io.forward(i).wb.rfData)
     }
+    Debug("[SIMD_ISU] isLatestData(rfSrc3(0),io.forward(6).InstNo) %x isDepend(rfSrc3(0), io.forward(6).wb.rfDest, forwardRfWen(6)) %x \n",isLatestData(rfSrc3(0),io.forward(6).InstNo),isDepend(rfSrc3(0), io.forward(6).wb.rfDest, forwardRfWen(6)))
 }

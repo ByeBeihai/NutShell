@@ -159,6 +159,14 @@ object SIMDUOpType {
   def zunpkd830 = "b1010110".U
   def zunpkd831 = "b1010110".U
   def zunpkd832 = "b1010110".U
+  def smmul   = "b0100000".U
+  def smmulu  = "b0100000".U
+  def kwmmul  = "b0110001".U
+  def kwmmulu = "b0111001".U
+  def kmmac   = "b0110000".U
+  def kmmacu  = "b0111000".U
+  def kmmsb   = "b0100001".U
+  def kmmsbu  = "b0101001".U
 }
 
 class SIMDU_IO extends FunctionUnitIO {
@@ -190,7 +198,7 @@ class SIMDU(hasBru: Boolean = false,NO1: Boolean = true) extends NutCoreModule w
   io.out.valid := Mux(OutputIsPALU,PALU.io.out.valid,PMDU.io.out.valid)
   PALU.io.out.ready := Mux(OutputIsPALU,io.out.ready,false.B)
   PMDU.io.out.ready := Mux(OutputIsPALU,false.B,io.out.ready)
-  io.FirstStageFire := valid && ((PALU.io.in.ready && (io.DecodeIn.cf.instrType === InstrP || io.DecodeIn.cf.instrType === InstrPB || io.DecodeIn.cf.instrType === InstrPI)) || (PMDU.io.in.ready && io.DecodeIn.cf.instrType === InstrPM))
+  io.FirstStageFire := valid && ((PALU.io.in.ready && (io.DecodeIn.cf.instrType === InstrP || io.DecodeIn.cf.instrType === InstrPB || io.DecodeIn.cf.instrType === InstrPI)) || (PMDU.io.in.ready && io.DecodeIn.cf.instrType === InstrPM || PMDU.io.in.ready && io.DecodeIn.cf.instrType === InstrPRD))
 
   val PALU_bits_next = Wire(new DecodeIO)
   val PALU_bits      = RegInit(0.U.asTypeOf(new DecodeIO))
@@ -214,7 +222,7 @@ class SIMDU(hasBru: Boolean = false,NO1: Boolean = true) extends NutCoreModule w
   val PMDU_valid_next = Wire(Bool())
   PMDU_valid_next:= PMDU_valid
   when(PMDU.io.FirstStageFire){PMDU_valid_next := false.B}
-  when(valid && PMDU.io.in.ready && io.DecodeIn.cf.instrType === InstrPM){PMDU_valid_next := true.B
+  when(valid && PMDU.io.in.ready && (io.DecodeIn.cf.instrType === InstrPM || PMDU.io.in.ready && io.DecodeIn.cf.instrType === InstrPRD)){PMDU_valid_next := true.B
                                                                           PMDU_bits_next  := io.DecodeIn}
   when(io.flush){PMDU_valid_next := false.B}
   PMDU_valid := PMDU_valid_next
