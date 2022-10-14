@@ -156,6 +156,7 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
         val flush = Input(Bool())
         val num_enterwbu = Input(UInt(log2Up(Queue_num).W))
         val TailPtr = Output(UInt(log2Up(Queue_num).W))
+        val HeadPtr = Output(UInt(log2Up(Queue_num).W))
     })
     for(i<-0 to Issue_Num-1){
         io.out(i):=DontCare
@@ -214,9 +215,9 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
 
     for(i <- 0 to Issue_Num-1){
         if(i == 0){
-            io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i) && src3Ready(i) &&(io.in(i).bits.ctrl.fuType =/= FuType.csr || io.in(i).bits.ctrl.fuType===FuType.csr && q.io.TailPtr === q.io.HeadPtr)
+            io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i) && src3Ready(i) && Mux(isCsrMouOp(i),q.io.TailPtr === q.io.HeadPtr,true.B)
         }else{
-            io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i) && src3Ready(i) && !RAWinIssue(i) && !FrontHasCsrMouOp(i) && !(isCsrMouOp(i) && !FrontisClear(i))
+            io.out(i).valid := io.in(i).valid && src1Ready(i) && src2Ready(i) && src3Ready(i) && !RAWinIssue(i) && !FrontHasCsrMouOp(i) && !isCsrMouOp(i)
             Debug("[SIMD_ISU] RAWinIssue %x FrontHasCsrMouOp %x isCsrMouOp %x FrontisClear %x \n",RAWinIssue(i),FrontHasCsrMouOp(i),isCsrMouOp(i),FrontisClear(i))
         }
     }
@@ -271,6 +272,7 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
         io.out(i).bits.InstFlag:= Mux(startNewQueue,!q.io.Flag,q.io.Flag)
     }
     io.TailPtr := q.io.TailPtr
+    io.HeadPtr := q.io.HeadPtr
 
     InstBoard.io.Wen     := VecInit((0 to NRReg-1).map(i => VecInit((0 to Issue_Num-1).map(j => i.U === rfDest(j)&&io.out(j).fire()&&rfWen(j))).reduce(_|_)))
     InstBoard.io.WInstNo := VecInit((0 to NRReg-1).map(i => {val raw = Wire(UInt(log2Up(Queue_num).W))

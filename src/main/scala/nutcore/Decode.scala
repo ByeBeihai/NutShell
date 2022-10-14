@@ -71,6 +71,18 @@ object FuType extends HasNutCoreConst {
   def simdu = "b110".U
   def simdu1 = "b111".U
   def apply() = UInt(log2Up(num).W)
+
+  def alu_int = 0
+  def lsu_int = 1
+  def mdu_int = 2
+  def csr_int = 3
+  def mou_int = 4
+  def alu1_int = 5
+  def bru_int = if(IndependentBru) 5
+                else alu_int
+  def simdu_int = 6
+  def simdu1_int = 7
+  
 }
 
 object FuOpType {

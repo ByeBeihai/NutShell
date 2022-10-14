@@ -734,7 +734,7 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   val exu_valid = Reg(Vec(FuType.num,Bool()))
   val exu_valid_next = Wire(Vec(FuType.num,Bool()))
   (0 to FuType.num-1).map(i => exu_valid_next(i) := exu_valid(i))
-  (0 to FuType.num-1).map(i => {when(exu.io.out(i).fire() && i.U =/= FuType.lsu && i.U =/= FuType.simdu && i.U =/= FuType.simdu1){exu_valid_next(i) := false.B}})
+  (0 to FuType.num-1).map(i => {if(i != FuType.lsu_int && i!= FuType.simdu_int && i != FuType.simdu1_int){when(exu.io.out(i).fire()){exu_valid_next(i) := false.B}}})
   
   val lsu_firststage_fire = WireInit(false.B)
   BoringUtils.addSink(lsu_firststage_fire, "lsu_firststage_fire")
@@ -767,13 +767,7 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
                                                   }else{
                                                     (0 to i-1).map(j => isu.io.out(j).fire() || !isu.io.in(j).valid).reduce(_&_)
                                                   }})
-  val ExuisEmpty   = (0 to FuType.num-1).map(i => {val raw = Wire(Bool())
-                                                  when(i.U === FuType.mou){
-                                                    raw := true.B
-                                                  }.otherwise{
-                                                    raw := exu.io.in(i).ready
-                                                  }
-                                                  raw}).reduce(_&&_)
+  val ExuisEmpty   = isu.io.HeadPtr === isu.io.TailPtr
   for(i <- 0 to Issue_Num-1){
     for(j <- 0 to FuType.num-1){
       val issue_matched = (0 to j).map( k => {if(k == j){
