@@ -100,6 +100,8 @@ object RVPInstr extends HasInstrType {
   def PKBT16  = BitPat("b0001111_?????_?????_001_?????_1110111")
   def PKTT16  = BitPat("b0010111_?????_?????_001_?????_1110111")
   def PKTB16  = BitPat("b0011111_?????_?????_001_?????_1110111")
+  def PBSAD   = BitPat("b1111110_?????_?????_000_?????_1110111")
+  def PBSADA  = BitPat("b1111111_?????_?????_000_?????_1110111")
   
   val table = Array(
     ADD16       -> List(InstrP, FuType.simdu, SIMDUOpType.add16),
@@ -197,7 +199,9 @@ object RVPInstr extends HasInstrType {
     PKBB16      -> List(InstrP, FuType.simdu, SIMDUOpType.pkbb16 ),
     PKBT16      -> List(InstrP, FuType.simdu, SIMDUOpType.pkbt16 ),
     PKTT16      -> List(InstrP, FuType.simdu, SIMDUOpType.pktt16 ),
-    PKTB16      -> List(InstrP, FuType.simdu, SIMDUOpType.pktb16 )
+    PKTB16      -> List(InstrP, FuType.simdu, SIMDUOpType.pktb16 ),
+    PBSAD       -> List(InstrP, FuType.simdu, SIMDUOpType.pbsad ),
+    PBSADA      -> List(InstrP, FuType.simdu, SIMDUOpType.pbsada )
   )
 }
 
@@ -243,6 +247,10 @@ object RVPIInstr extends HasInstrType {
   def ZUNPKD830 = BitPat("b1010110_01110_?????_000_?????_1110111")
   def ZUNPKD831 = BitPat("b1010110_01111_?????_000_?????_1110111")
   def ZUNPKD832 = BitPat("b1010110_10111_?????_000_?????_1110111")
+  def SCLIP32 = BitPat("b1110010_?????_?????_000_?????_1110111")
+  def UCLIP32 = BitPat("b1111010_?????_?????_000_?????_1110111")
+  def CLRS32  = BitPat("b1010111_11000_?????_000_?????_1110111")
+  def CLZ32   = BitPat("b1010111_11001_?????_000_?????_1110111")
 
   val table = Array(
     SRAI16      -> List(InstrPI, FuType.simdu, SIMDUOpType.srai16),
@@ -285,7 +293,11 @@ object RVPIInstr extends HasInstrType {
     ZUNPKD820   -> List(InstrPI, FuType.simdu, SIMDUOpType.zunpkd820),
     ZUNPKD830   -> List(InstrPI, FuType.simdu, SIMDUOpType.zunpkd830),
     ZUNPKD831   -> List(InstrPI, FuType.simdu, SIMDUOpType.zunpkd831),
-    ZUNPKD832   -> List(InstrPI, FuType.simdu, SIMDUOpType.zunpkd832)
+    ZUNPKD832   -> List(InstrPI, FuType.simdu, SIMDUOpType.zunpkd832),
+    SCLIP32     -> List(InstrPI, FuType.simdu, SIMDUOpType.sclip32),
+    UCLIP32     -> List(InstrPI, FuType.simdu, SIMDUOpType.uclip32),
+    CLRS32      -> List(InstrPI, FuType.simdu, SIMDUOpType.clrs32),
+    CLZ32       -> List(InstrPI, FuType.simdu, SIMDUOpType.clz32)
   )
 }
 

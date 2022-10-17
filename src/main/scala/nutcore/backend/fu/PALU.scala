@@ -85,6 +85,7 @@ class PALU extends NutCoreModule with HasInstrType{
     val valid = io.in.valid
     val src1  = io.in.bits.data.src1
     val src2  = io.in.bits.data.src2
+    val src3  = io.in.bits.data.src3
     val func  = io.in.bits.ctrl.fuOpType
     val funct3= io.in.bits.ctrl.funct3
     val func24= io.in.bits.ctrl.func24
@@ -119,8 +120,10 @@ class PALU extends NutCoreModule with HasInstrType{
     val isMaxMin_8   = func(6,4) === 4.U && func(2,1) === 2.U && funct3 === 0.U
     val isMaxMin     = isMaxMin_16 | isMaxMin_8
 
+    val isPbs     = func(6,1) === "b111111".U && funct3 === 0.U
+
     val isSub = WireInit(0.U(8.W))
-    when(isSub_64 | isSub_32 | isSub_16 | isSub_8 | isComp_16 | isComp_8 | isMaxMin){
+    when(isSub_64 | isSub_32 | isSub_16 | isSub_8 | isComp_16 | isComp_8 | isMaxMin | isPbs){
         isSub:= "b11111111".U
     }.elsewhen(isCras_16){
         isSub:= "b00000101".U
@@ -132,7 +135,7 @@ class PALU extends NutCoreModule with HasInstrType{
         isSub:= "b00000010".U
     }
 
-    val isAdder = (isSub=/=0.U | isAdd | isCr) && !isCompare && !isMaxMin
+    val isAdder = (isSub=/=0.U | isAdd | isCr) && !isCompare && !isMaxMin && !isPbs
 
     val SrcSigned   = func(6,4) === 0.U
     val Saturating  = func(3).asBool 
@@ -252,7 +255,12 @@ class PALU extends NutCoreModule with HasInstrType{
             add2 := add_src_map(8, src2, isSub,!func(3).asBool,false.B)
             add1_drophighestbit := add_src_map_drophighestbit(8, src1, 0.B,false.B)
             add2_drophighestbit := add_src_map_drophighestbit(8, src2, isSub,false.B)
-        } .otherwise {
+        } .elsewhen(isPbs){
+            add1 := add_src_map(8, src1, 0.B,false.B,false.B)
+            add2 := add_src_map(8, src2, isSub,false.B,false.B)
+            add1_drophighestbit := add_src_map_drophighestbit(8, src1, 0.B,false.B)
+            add2_drophighestbit := add_src_map_drophighestbit(8, src2, isSub,false.B)
+        }.otherwise {
             add1 := DontCare
             add2 := DontCare
             add1_drophighestbit := DontCare
@@ -307,6 +315,11 @@ class PALU extends NutCoreModule with HasInstrType{
         } .elsewhen(isMaxMin_8){
             add1 := add_src_map(8, src1, 0.B,!func(3).asBool,false.B)
             add2 := add_src_map(8, src2, isSub,!func(3).asBool,false.B)
+            add1_drophighestbit := add_src_map_drophighestbit(8, src1, 0.B,false.B)
+            add2_drophighestbit := add_src_map_drophighestbit(8, src2, isSub,false.B)
+        } .elsewhen(isPbs){
+            add1 := add_src_map(8, src1, 0.B,false.B,false.B)
+            add2 := add_src_map(8, src2, isSub,false.B,false.B)
             add1_drophighestbit := add_src_map_drophighestbit(8, src1, 0.B,false.B)
             add2_drophighestbit := add_src_map_drophighestbit(8, src2, isSub,false.B)
         } .otherwise {
@@ -403,7 +416,7 @@ class PALU extends NutCoreModule with HasInstrType{
         l.dropRight(1).reduce(Cat(_, _))
     }    
 
-    when (isAdd_8 | isSub_8) {
+    when (isAdd_8 | isSub_8 | isPbs) {
         adderRes := adder_gather(adderRes_ori, 8)
     } .elsewhen (isAdd_16 | isSub_16 | isCras_16 | isCrsa_16) {
         adderRes := adder_gather(adderRes_ori, 16)
@@ -459,6 +472,12 @@ class PALU extends NutCoreModule with HasInstrType{
         maxminRes := MaxMin(adderRes_ori,8 ,src1,src2,!func(0).asBool)
     }
 
+    val pbsOV  = WireInit(false.B)
+    val pbsRes = WireInit(0.U(XLEN.W))
+    when(isPbs){
+        pbsRes := Mux(func(0).asBool,src3,0.U) + (0 until XLEN/8).map(i => Mux(adderRes_ori(gather_offset(8, i)+1),(Fill(8,1.U)^adderRes(i*8+8-1,i*8))+1.U,adderRes(i*8+8-1,i*8))).reduce(_+&_)
+    }
+
 
     Debug("[PALU] src1 %x src2 %x func %x is_Add8 %x is_Sub8 %x is_Add16 %x isSub_16 %x isCras_16 %x isCrsa_16 %x SrcSigned %x Saturating %x Translation %x \n",src1,src2,func,isAdd_8,isSub_8,isAdd_16,isSub_16,isCras_16,isCrsa_16,SrcSigned,Saturating,Translation)
     Debug("[PALU] isAdd_32 %x isSub_32 %x isCras_32 %x isCrsa_32 %x \n",isAdd_32,isSub_32,isCras_32,isCrsa_32)
@@ -487,7 +506,8 @@ class PALU extends NutCoreModule with HasInstrType{
 
     val isClip_16 = func === "b1000010".U & funct3 === 0.U
     val isClip_8  = func === "b1000110".U & funct3 === 0.U
-    val isClip = isClip_16 | isClip_8
+    val isclip_32 = func(6,4) === "b111".U & func(2,0) === "b010".U & funct3 === 0.U
+    val isClip = isClip_16 | isClip_8 | isclip_32
 
     val isSat_16  = func === "b1010110".U && src2(4,0) === "b10001".U && funct3 === 0.U
     val isSat_8   = func === "b1010110".U && src2(4,0) === "b10000".U && funct3 === 0.U
@@ -497,7 +517,8 @@ class PALU extends NutCoreModule with HasInstrType{
 
     val isCnt_16  = func === "b1010111".U && src2(4,1) === "b0100".U && funct3 === 0.U
     val isCnt_8   = func === "b1010111".U && src2(4,1) === "b0000".U && funct3 === 0.U
-    val isCnt     = isCnt_16 | isCnt_8
+    val isCnt_32  = func === "b1010111".U && src2(4,1) === "b1100".U && funct3 === 0.U
+    val isCnt     = isCnt_16 | isCnt_8 | isCnt_32
 
     val isSwap_16 = func(6,5) === 0.U && func (2,0) === "b111".U && funct3 === 1.U
     val isSwap_8  = func === "b1010110".U && (src2(4,0) === "b11000".U && funct3 === 0.U && io.in.bits.cf.instrType === InstrPI || src2(5,0) === "b001000".U && funct3 === "b101".U && io.in.bits.cf.instrType === InstrPB)
@@ -696,6 +717,10 @@ class PALU extends NutCoreModule with HasInstrType{
         val tmp = cliper(8,src1,src2(2,0),!func24)
         clipRes := tmp(XLEN-1,0)
         clipOV  := tmp(XLEN)
+    }.elsewhen(isclip_32){
+        val tmp = cliper(32,src1,src2(4,0),!func(3))
+        clipRes := tmp(XLEN-1,0)
+        clipOV  := tmp(XLEN)
     }
 
     val satRes = WireInit(src1)
@@ -731,6 +756,9 @@ class PALU extends NutCoreModule with HasInstrType{
         cntRes := tmp(XLEN-1,0)
     }.elsewhen(isCnt_8){
         val tmp = counter(8,src1,src2(0))
+        cntRes := tmp(XLEN-1,0)
+    }.elsewhen(isCnt_32){
+        val tmp = counter(32,src1,src2(0))
         cntRes := tmp(XLEN-1,0)
     }
 
@@ -769,6 +797,9 @@ class PALU extends NutCoreModule with HasInstrType{
     }.elsewhen(isUnpack){
         io.out.bits.result := unpackRes
         io.out.bits.DecodeOut.pext.OV := unpackOV
+    }.elsewhen(isPbs){
+        io.out.bits.result := pbsRes
+        io.out.bits.DecodeOut.pext.OV := pbsOV
     }.otherwise{
         io.out.bits.result := adderRes_final
         io.out.bits.DecodeOut.pext.OV := adderOV

@@ -202,6 +202,12 @@ object SIMDUOpType {
   def kmsda    = "b0100110".U
   def kmsxda   = "b0100111".U
   def smal     = "b0101111".U
+  def sclip32  = "b1110010".U
+  def uclip32  = "b1111010".U
+  def clrs32   = "b1010111".U
+  def clz32    = "b1010111".U
+  def pbsad    = "b1111110".U
+  def pbsada   = "b1111111".U
 }
 
 class SIMDU_IO extends FunctionUnitIO {

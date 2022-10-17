@@ -854,6 +854,19 @@ class PMDU extends NutCoreModule {
     val src1_out = io.out.bits.DecodeOut.data.src1
     val src2_out = io.out.bits.DecodeOut.data.src2
     val src3_out = io.out.bits.DecodeOut.data.src3
+
+    val tmp34 = Wire(Vec(2,UInt(34.W)))
+    val adder34_0= WireInit(0.U.asTypeOf(Vec(2,UInt(34.W))))
+    val adder34_1= WireInit(0.U.asTypeOf(Vec(2,UInt(34.W))))
+    val adder34_2= WireInit(0.U.asTypeOf(Vec(2,UInt(34.W))))
+    (0 to 1).map(i => tmp34(i) := adder34_0(i)+adder34_1(i)+adder34_2(i)) 
+
+    val tmp68 = Wire(UInt(68.W))
+    val adder68_0= WireInit(0.U(68.W))
+    val adder68_1= WireInit(0.U(68.W))
+    val adder68_2= WireInit(0.U(68.W))
+    tmp68 := adder68_0 + adder68_1 + adder68_2
+
     if(XLEN == 64){
         when(isMul_16(func_out,funct3_out)){
             val src1_out = io.out.bits.DecodeOut.data.src1
@@ -967,13 +980,16 @@ class PMDU extends NutCoreModule {
                 val sat = func_out(6,4)==="b011".U && func_out(2,0) === "b001".U
                 val round = Mux(!sat,Mux(func_out(3).asBool,if(i == 0 && XLEN == 64){MulAdd33_0.io.out.bits.result(63,31)+1.U}else{MulAdd65_0.io.out.bits.result(63,31)+1.U},if(i == 0 && XLEN == 64){MulAdd33_0.io.out.bits.result(63,31)}else{MulAdd65_0.io.out.bits.result(63,31)})(32,1)
                                     ,Mux(func_out(3).asBool,if(i == 0 && XLEN == 64){MulAdd33_0.io.out.bits.result(63,30)+1.U}else{MulAdd65_0.io.out.bits.result(63,30)+1.U},if(i == 0 && XLEN == 64){MulAdd33_0.io.out.bits.result(63,30)}else{MulAdd65_0.io.out.bits.result(63,30)})(32,1))
-                val tmp   = SignExt(src3_out(i * 32 + 32 -1, i * 32),33) + (Fill(33,sub.asUInt)^SignExt(round,33))+sub.asBool
-                val res   = WireInit(tmp(31,0))
-                Debug("[PMDU] sub %x add %x sat %x round %x tmp %x res%x \n",sub,add,sat,round,tmp,res)
+                adder34_0(i) := SignExt(src3_out(i * 32 + 32 -1, i * 32),33)
+                adder34_1(i) := (Fill(33,sub.asUInt)^SignExt(round,33))
+                adder34_2(i) := sub.asBool
+                //val tmp   = SignExt(src3_out(i * 32 + 32 -1, i * 32),33) + (Fill(33,sub.asUInt)^SignExt(round,33))+sub.asBool
+                val res   = WireInit(tmp34(i)(31,0))
+                Debug("[PMDU] sub %x add %x sat %x round %x tmp %x res%x \n",sub,add,sat,round,tmp34(i)(31,0),res)
                 when(add || sub){
-                    when((Fill(33,tmp(32))^tmp)(32,31) =/= 0.U){
+                    when((Fill(33,tmp34(i)(32))^tmp34(i))(32,31) =/= 0.U){
                         io.out.bits.DecodeOut.pext.OV := true.B
-                        when(tmp(32).asBool){
+                        when(tmp34(i)(32).asBool){
                             res := Cat(1.U,Fill(31,0.U))
                         }.otherwise{
                             res := Cat(0.U,Fill(31,1.U))
@@ -1005,15 +1021,17 @@ class PMDU extends NutCoreModule {
                     io.out.bits.DecodeOut.pext.OV := true.B
                     round := Cat(0.U,Fill(31,1.U))
                 }
-
-                val tmp   = SignExt(src3_out(i * 32 + 32 -1, i * 32),33) + SignExt(round,33)
-                val res   = WireInit(tmp(31,0))
-                Debug("[PMDU] add %x sat %x round0 %x round %x tmp %x res %x src2_clip %x\n",add,sat,round0,round,tmp,res,src2_clip)
+                adder34_0(i) := SignExt(src3_out(i * 32 + 32 -1, i * 32),33)
+                adder34_1(i) := SignExt(round,33)
+                adder34_2(i) := 0.U
+                //val tmp   = SignExt(src3_out(i * 32 + 32 -1, i * 32),33) + SignExt(round,33)
+                val res   = WireInit(tmp34(i)(31,0))
+                Debug("[PMDU] add %x sat %x round0 %x round %x tmp %x res %x src2_clip %x\n",add,sat,round0,round,tmp34(i),res,src2_clip)
                 
                 when(add){
-                    when((Fill(33,tmp(32))^tmp)(32,31) =/= 0.U){
+                    when((Fill(33,tmp34(i)(32))^tmp34(i))(32,31) =/= 0.U){
                         io.out.bits.DecodeOut.pext.OV := true.B
-                        when(tmp(32).asBool){
+                        when(tmp34(i)(32).asBool){
                             res := Cat(1.U,Fill(31,0.U))
                         }.otherwise{
                             res := Cat(0.U,Fill(31,1.U))
@@ -1044,16 +1062,19 @@ class PMDU extends NutCoreModule {
                        }else{
                         Mux(twopairs,0.U(32.W),MulAdd33_0.io.out.bits.result(31,0))
                        }}
-                val tmp = SignExt(src3_out(i * 32 + 32 -1, i * 32),34) + ((Fill(34,submul1.asUInt)^SignExt(mul1,34)) + submul1.asUInt) + ((Fill(34,submul2.asUInt)^SignExt(mul2,34)) + submul2.asUInt)
-                res := tmp(31,0)
+                adder34_0(i) := SignExt(src3_out(i * 32 + 32 -1, i * 32),34)
+                adder34_1(i) := ((Fill(34,submul1.asUInt)^SignExt(mul1,34)) + submul1.asUInt)
+                adder34_2(i) := ((Fill(34,submul2.asUInt)^SignExt(mul2,34)) + submul2.asUInt)
+                //val tmp = SignExt(src3_out(i * 32 + 32 -1, i * 32),34) + ((Fill(34,submul1.asUInt)^SignExt(mul1,34)) + submul1.asUInt) + ((Fill(34,submul2.asUInt)^SignExt(mul2,34)) + submul2.asUInt)
+                res := tmp34(i)(31,0)
                 when(checkmode1 && src1_out(i * 32 + 32 -1, i * 32) === Cat(Cat(1.U,Fill(15,0.U)),Cat(1.U,Fill(15,0.U))) && src2_out(i * 32 + 32 -1, i * 32) === Cat(Cat(1.U,Fill(15,0.U)),Cat(1.U,Fill(15,0.U)))){
                     res := Cat(0.U,Fill(31,1.U))
                     io.out.bits.DecodeOut.pext.OV := true.B
                 }
                 when(checkmode2){
-                    when((Fill(34,tmp(33))^tmp)(33,31) =/= 0.U){
+                    when((Fill(34,tmp34(i)(33))^tmp34(i))(33,31) =/= 0.U){
                         io.out.bits.DecodeOut.pext.OV := true.B
-                        when(tmp(33).asBool){
+                        when(tmp34(i)(33).asBool){
                             res := Cat(1.U,Fill(31,0.U))
                         }.otherwise{
                             res := Cat(0.U,Fill(31,1.U))
@@ -1061,13 +1082,16 @@ class PMDU extends NutCoreModule {
                     }
                 }
                 l = List.concat(List(res),l)
-                Debug("[PMDUis1632] mul1 %x res %x tmp %x src3 %x \n",mul1,res,tmp,src3_out(i * 32 + 32 -1, i * 32))
+                Debug("[PMDUis1632] mul1 %x res %x tmp %x src3 %x \n",mul1,res,tmp34(i),src3_out(i * 32 + 32 -1, i * 32))
             }
             l.dropRight(1).reduce(Cat(_,_))
         }
         Debug("[PMDUis1632] twopairs %x submul1 %x submul2 %x checkmode1 %x checkmode2 %x\n",twopairs,submul1,submul2,checkmode1,checkmode2)
     }.elsewhen(isS1664(func_out,funct3_out)){
-        io.out.bits.result := src1_out + SignExt(MulAdd65_0.io.out.bits.result(31,0),64) + SignExt(MulAdd33_0.io.out.bits.result(31,0),64)
+        adder68_0 := src1_out
+        adder68_1 := SignExt(MulAdd65_0.io.out.bits.result(31,0),64)
+        adder68_2 := SignExt(MulAdd33_0.io.out.bits.result(31,0),64)
+        io.out.bits.result := tmp68(63,0)
     }
 
 

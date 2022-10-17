@@ -98,7 +98,7 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
   val rfSrc1 = Mux(isRVC, rvc_src1, rs)
   val rfSrc2 = Mux(isRVC, rvc_src2, rt)
   val rfDest = Mux(isRVC, rvc_dest, rd)
-  val rfSrc3 = Mux(instrType === InstrPRD,rd,0.U)
+  val rfSrc3 = Mux(instrType === InstrPRD,rd,Mux(instrType === InstrP && fuOpType(6,1)==="b111111".U && instr(14,12) === "b000".U,rd,0.U))
   // TODO: refactor decode logic
   // make non-register addressing to zero, since isu.sb.isBusy(0) === false.B
   io.out.bits.ctrl.rfSrc1 := Mux(src1Type === SrcType.pc, 0.U, rfSrc1)
