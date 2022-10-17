@@ -208,6 +208,9 @@ object SIMDUOpType {
   def clz32    = "b1010111".U
   def pbsad    = "b1111110".U
   def pbsada   = "b1111111".U
+  def smaqa    = "b1100100".U
+  def smaqasu  = "b1100101".U
+  def umaqa    = "b1100110".U
 }
 
 class SIMDU_IO extends FunctionUnitIO {

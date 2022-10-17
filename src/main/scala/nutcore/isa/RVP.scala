@@ -403,6 +403,9 @@ object RVPRDInstr extends HasInstrType {
   def KMAXDS  = BitPat("b0111110_?????_?????_001_?????_1110111")
   def KMSDA   = BitPat("b0100110_?????_?????_001_?????_1110111")
   def KMSXDA  = BitPat("b0100111_?????_?????_001_?????_1110111")
+  def SMAQA   = BitPat("b1100100_?????_?????_000_?????_1110111")
+  def SMAQASU = BitPat("b1100101_?????_?????_000_?????_1110111")
+  def UMAQA   = BitPat("b1100110_?????_?????_000_?????_1110111")
 
   val table = Array(
     KMMAC       -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmmac),
@@ -426,6 +429,9 @@ object RVPRDInstr extends HasInstrType {
     KMADRS      -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmadrs),
     KMAXDS      -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmaxds),
     KMSDA       -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmsda),
-    KMSXDA      -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmsxda)
+    KMSXDA      -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmsxda),
+    SMAQA       -> List(InstrPRD, FuType.simdu, SIMDUOpType.smaqa),
+    SMAQASU     -> List(InstrPRD, FuType.simdu, SIMDUOpType.smaqasu),
+    UMAQA       -> List(InstrPRD, FuType.simdu, SIMDUOpType.umaqa)
   )
 }
