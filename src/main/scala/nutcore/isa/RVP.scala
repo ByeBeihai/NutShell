@@ -314,6 +314,23 @@ object RVPMInstr extends HasInstrType {
   def SMMULU  = BitPat("b0101000_?????_?????_001_?????_1110111")
   def KWMMUL  = BitPat("b0110001_?????_?????_001_?????_1110111")
   def KWMMULU = BitPat("b0111001_?????_?????_001_?????_1110111")
+  def SMMWB   = BitPat("b0100010_?????_?????_001_?????_1110111")
+  def SMMWBU  = BitPat("b0101010_?????_?????_001_?????_1110111")
+  def SMMWT   = BitPat("b0110010_?????_?????_001_?????_1110111")
+  def SMMWTU  = BitPat("b0111010_?????_?????_001_?????_1110111")
+  def KMMWB2  = BitPat("b1000111_?????_?????_001_?????_1110111")
+  def KMMWB2U = BitPat("b1001111_?????_?????_001_?????_1110111")
+  def KMMWT2  = BitPat("b1010111_?????_?????_001_?????_1110111")
+  def KMMWT2U = BitPat("b1011111_?????_?????_001_?????_1110111")
+  def SMBB16  = BitPat("b0000100_?????_?????_001_?????_1110111")
+  def SMBT16  = BitPat("b0001100_?????_?????_001_?????_1110111")
+  def SMTT16  = BitPat("b0010100_?????_?????_001_?????_1110111")
+  def KMDA    = BitPat("b0011100_?????_?????_001_?????_1110111")
+  def KMXDA   = BitPat("b0011101_?????_?????_001_?????_1110111")
+  def SMDS    = BitPat("b0101100_?????_?????_001_?????_1110111")
+  def SMDRS   = BitPat("b0110100_?????_?????_001_?????_1110111")
+  def SMXDS   = BitPat("b0111100_?????_?????_001_?????_1110111")
+  def SMAL    = BitPat("b0101111_?????_?????_001_?????_1110111")
 
   val table = Array(
     SMUL16      -> List(InstrPM, FuType.simdu, SIMDUOpType.smul16),
@@ -331,7 +348,24 @@ object RVPMInstr extends HasInstrType {
     SMMUL       -> List(InstrPM, FuType.simdu, SIMDUOpType.smmul),
     SMMULU      -> List(InstrPM, FuType.simdu, SIMDUOpType.smmulu),
     KWMMUL      -> List(InstrPM, FuType.simdu, SIMDUOpType.kwmmul),
-    KWMMULU     -> List(InstrPM, FuType.simdu, SIMDUOpType.kwmmulu)
+    KWMMULU     -> List(InstrPM, FuType.simdu, SIMDUOpType.kwmmulu),
+    SMMWB       -> List(InstrPM, FuType.simdu, SIMDUOpType.smmwb),
+    SMMWBU      -> List(InstrPM, FuType.simdu, SIMDUOpType.smmwbu),
+    SMMWT       -> List(InstrPM, FuType.simdu, SIMDUOpType.smmwt),
+    SMMWTU      -> List(InstrPM, FuType.simdu, SIMDUOpType.smmwtu),
+    KMMWB2      -> List(InstrPM, FuType.simdu, SIMDUOpType.kmmwb2),
+    KMMWB2U     -> List(InstrPM, FuType.simdu, SIMDUOpType.kmmwb2u),
+    KMMWT2      -> List(InstrPM, FuType.simdu, SIMDUOpType.kmmwt2),
+    KMMWT2U     -> List(InstrPM, FuType.simdu, SIMDUOpType.kmmwt2u),
+    SMBB16      -> List(InstrPM, FuType.simdu, SIMDUOpType.smbb16),
+    SMBT16      -> List(InstrPM, FuType.simdu, SIMDUOpType.smbt16),
+    SMTT16      -> List(InstrPM, FuType.simdu, SIMDUOpType.smtt16),
+    KMDA        -> List(InstrPM, FuType.simdu, SIMDUOpType.kmda),
+    KMXDA       -> List(InstrPM, FuType.simdu, SIMDUOpType.kmxda),
+    SMDS        -> List(InstrPM, FuType.simdu, SIMDUOpType.smds),
+    SMDRS       -> List(InstrPM, FuType.simdu, SIMDUOpType.smdrs),
+    SMXDS       -> List(InstrPM, FuType.simdu, SIMDUOpType.smxds),
+    SMAL        -> List(InstrPM, FuType.simdu, SIMDUOpType.smal)
   )
 }
 object RVPRDInstr extends HasInstrType {
@@ -339,11 +373,47 @@ object RVPRDInstr extends HasInstrType {
   def KMMACU  = BitPat("b0111000_?????_?????_001_?????_1110111")
   def KMMSB   = BitPat("b0100001_?????_?????_001_?????_1110111")
   def KMMSBU  = BitPat("b0101001_?????_?????_001_?????_1110111")
+  def KMMAWB  = BitPat("b0100011_?????_?????_001_?????_1110111")
+  def KMMAWBU = BitPat("b0101011_?????_?????_001_?????_1110111")
+  def KMMAWT  = BitPat("b0110011_?????_?????_001_?????_1110111")
+  def KMMAWTU = BitPat("b0111011_?????_?????_001_?????_1110111")
+  def KMMAWB2 = BitPat("b1100111_?????_?????_001_?????_1110111")
+  def KMMAWB2U= BitPat("b1101111_?????_?????_001_?????_1110111")
+  def KMMAWT2 = BitPat("b1110111_?????_?????_001_?????_1110111")
+  def KMMAWT2U= BitPat("b1111111_?????_?????_001_?????_1110111")
+  def KMABB   = BitPat("b0101101_?????_?????_001_?????_1110111")
+  def KMABT   = BitPat("b0110101_?????_?????_001_?????_1110111")
+  def KMATT   = BitPat("b0111101_?????_?????_001_?????_1110111")
+  def KMADA   = BitPat("b0100100_?????_?????_001_?????_1110111")
+  def KMAXDA  = BitPat("b0100101_?????_?????_001_?????_1110111")
+  def KMADS   = BitPat("b0101110_?????_?????_001_?????_1110111")
+  def KMADRS  = BitPat("b0110110_?????_?????_001_?????_1110111")
+  def KMAXDS  = BitPat("b0111110_?????_?????_001_?????_1110111")
+  def KMSDA   = BitPat("b0100110_?????_?????_001_?????_1110111")
+  def KMSXDA  = BitPat("b0100111_?????_?????_001_?????_1110111")
 
   val table = Array(
     KMMAC       -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmmac),
     KMMACU      -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmmacu),
     KMMSB       -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmmsb),
-    KMMSBU      -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmmsbu)
+    KMMSBU      -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmmsbu),
+    KMMAWB      -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmmawb),
+    KMMAWBU     -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmmawbu),
+    KMMAWT      -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmmawt),
+    KMMAWTU     -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmmawtu),
+    KMMAWB2     -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmmawb2),
+    KMMAWB2U    -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmmawb2u),
+    KMMAWT2     -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmmawt2),
+    KMMAWT2U    -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmmawt2u),
+    KMABB       -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmabb),
+    KMABT       -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmabt),
+    KMATT       -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmatt),
+    KMADA       -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmada),
+    KMAXDA      -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmaxda),
+    KMADS       -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmads),
+    KMADRS      -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmadrs),
+    KMAXDS      -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmaxds),
+    KMSDA       -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmsda),
+    KMSXDA      -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmsxda)
   )
 }

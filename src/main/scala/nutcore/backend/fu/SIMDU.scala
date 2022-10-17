@@ -167,6 +167,41 @@ object SIMDUOpType {
   def kmmacu  = "b0111000".U
   def kmmsb   = "b0100001".U
   def kmmsbu  = "b0101001".U
+  def smmwb   = "b0100010".U
+  def smmwbu  = "b0101010".U
+  def smmwt   = "b0110010".U
+  def smmwtu  = "b0111010".U
+  def kmmawb  = "b0100011".U
+  def kmmawbu = "b0101011".U
+  def kmmawt  = "b0110011".U
+  def kmmawtu = "b0111011".U
+  def kmmwb2   = "b1000111".U
+  def kmmwb2u  = "b1001111".U
+  def kmmwt2   = "b1010111".U
+  def kmmwt2u  = "b1011111".U
+  def kmmawb2  = "b1100111".U
+  def kmmawb2u = "b1101111".U
+  def kmmawt2  = "b1110111".U
+  def kmmawt2u = "b1111111".U
+  def smbb16   = "b0000100".U
+  def smbt16   = "b0001100".U
+  def smtt16   = "b0010100".U
+  def kmda     = "b0011100".U
+  def kmxda    = "b0011101".U
+  def smds     = "b0101100".U
+  def smdrs    = "b0110100".U
+  def smxds    = "b0111100".U
+  def kmabb    = "b0101101".U
+  def kmabt    = "b0110101".U
+  def kmatt    = "b0111101".U
+  def kmada    = "b0100100".U
+  def kmaxda   = "b0100101".U
+  def kmads    = "b0101110".U
+  def kmadrs   = "b0110110".U
+  def kmaxds   = "b0111110".U
+  def kmsda    = "b0100110".U
+  def kmsxda   = "b0100111".U
+  def smal     = "b0101111".U
 }
 
 class SIMDU_IO extends FunctionUnitIO {
