@@ -227,6 +227,16 @@ object SIMDUOpType {
   def kmsr64 = "b1001011".U
   def umsr64 = "b1010011".U
   def ukmsr64= "b1011011".U
+  def smalbb = "b1000100".U
+  def smalbt = "b1001100".U
+  def smaltt = "b1010100".U
+  def smalds = "b1000101".U
+  def smaldrs= "b1001101".U
+  def smalxds= "b1010101".U
+  def smalda = "b1000110".U
+  def smalxda= "b1001110".U
+  def smslda = "b1010110".U
+  def smslxda= "b1011110".U
 }
 
 class SIMDU_IO extends FunctionUnitIO {

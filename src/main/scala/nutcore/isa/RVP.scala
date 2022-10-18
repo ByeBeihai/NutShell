@@ -430,6 +430,16 @@ object RVPRDInstr extends HasInstrType {
   def KMSR64  = BitPat("b1001011_?????_?????_001_?????_1110111")
   def UMSR64  = BitPat("b1010011_?????_?????_001_?????_1110111")
   def UKMSR64 = BitPat("b1011011_?????_?????_001_?????_1110111")
+  def SMALBB  = BitPat("b1000100_?????_?????_001_?????_1110111")
+  def SMALBT  = BitPat("b1001100_?????_?????_001_?????_1110111")
+  def SMALTT  = BitPat("b1010100_?????_?????_001_?????_1110111")
+  def SMALDS  = BitPat("b1000101_?????_?????_001_?????_1110111")
+  def SMALDRS = BitPat("b1001101_?????_?????_001_?????_1110111")
+  def SMALXDS = BitPat("b1010101_?????_?????_001_?????_1110111")
+  def SMALDA  = BitPat("b1000110_?????_?????_001_?????_1110111")
+  def SMALXDA = BitPat("b1001110_?????_?????_001_?????_1110111")
+  def SMSLDA  = BitPat("b1010110_?????_?????_001_?????_1110111")
+  def SMSLXDA = BitPat("b1011110_?????_?????_001_?????_1110111")
 
   val table = Array(
     KMMAC       -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmmac),
@@ -464,6 +474,16 @@ object RVPRDInstr extends HasInstrType {
     SMSR64      -> List(InstrPRD, FuType.simdu, SIMDUOpType.smsr64),
     KMSR64      -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmsr64),
     UMSR64      -> List(InstrPRD, FuType.simdu, SIMDUOpType.umsr64),
-    UKMSR64     -> List(InstrPRD, FuType.simdu, SIMDUOpType.ukmsr64)
+    UKMSR64     -> List(InstrPRD, FuType.simdu, SIMDUOpType.ukmsr64),
+    SMALBB      -> List(InstrPRD, FuType.simdu, SIMDUOpType.smalbb),
+    SMALBT      -> List(InstrPRD, FuType.simdu, SIMDUOpType.smalbt),
+    SMALTT      -> List(InstrPRD, FuType.simdu, SIMDUOpType.smaltt),
+    SMALDS      -> List(InstrPRD, FuType.simdu, SIMDUOpType.smalds),
+    SMALDRS     -> List(InstrPRD, FuType.simdu, SIMDUOpType.smaldrs),
+    SMALXDS     -> List(InstrPRD, FuType.simdu, SIMDUOpType.smalxds),
+    SMALDA      -> List(InstrPRD, FuType.simdu, SIMDUOpType.smalda),
+    SMALXDA     -> List(InstrPRD, FuType.simdu, SIMDUOpType.smalxda),
+    SMSLDA      -> List(InstrPRD, FuType.simdu, SIMDUOpType.smslda),
+    SMSLXDA     -> List(InstrPRD, FuType.simdu, SIMDUOpType.smslxda)
   )
 }
