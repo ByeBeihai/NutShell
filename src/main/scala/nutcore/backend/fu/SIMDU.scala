@@ -211,6 +211,14 @@ object SIMDUOpType {
   def smaqa    = "b1100100".U
   def smaqasu  = "b1100101".U
   def umaqa    = "b1100110".U
+  def radd64 = "b1000000".U
+  def kadd64 = "b1001000".U
+  def uradd64= "b1010000".U
+  def ukadd64= "b1011000".U
+  def rsub64 = "b1000001".U
+  def ksub64 = "b1001001".U
+  def ursub64= "b1010001".U
+  def uksub64= "b1011001".U
 }
 
 class SIMDU_IO extends FunctionUnitIO {

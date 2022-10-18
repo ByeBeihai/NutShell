@@ -102,6 +102,14 @@ object RVPInstr extends HasInstrType {
   def PKTB16  = BitPat("b0011111_?????_?????_001_?????_1110111")
   def PBSAD   = BitPat("b1111110_?????_?????_000_?????_1110111")
   def PBSADA  = BitPat("b1111111_?????_?????_000_?????_1110111")
+  def RADD64  = BitPat("b1000000_?????_?????_001_?????_1110111")
+  def KADD64  = BitPat("b1001000_?????_?????_001_?????_1110111")
+  def URADD64 = BitPat("b1010000_?????_?????_001_?????_1110111")
+  def UKADD64 = BitPat("b1011000_?????_?????_001_?????_1110111")
+  def RSUB64  = BitPat("b1000001_?????_?????_001_?????_1110111")
+  def KSUB64  = BitPat("b1001001_?????_?????_001_?????_1110111")
+  def URSUB64 = BitPat("b1010001_?????_?????_001_?????_1110111")
+  def UKSUB64 = BitPat("b1011001_?????_?????_001_?????_1110111")
   
   val table = Array(
     ADD16       -> List(InstrP, FuType.simdu, SIMDUOpType.add16),
@@ -201,7 +209,16 @@ object RVPInstr extends HasInstrType {
     PKTT16      -> List(InstrP, FuType.simdu, SIMDUOpType.pktt16 ),
     PKTB16      -> List(InstrP, FuType.simdu, SIMDUOpType.pktb16 ),
     PBSAD       -> List(InstrP, FuType.simdu, SIMDUOpType.pbsad ),
-    PBSADA      -> List(InstrP, FuType.simdu, SIMDUOpType.pbsada )
+    PBSADA      -> List(InstrP, FuType.simdu, SIMDUOpType.pbsada ),
+    RADD64      -> List(InstrP, FuType.simdu, SIMDUOpType.radd64),
+    KADD64      -> List(InstrP, FuType.simdu, SIMDUOpType.kadd64),
+    URADD64     -> List(InstrP, FuType.simdu, SIMDUOpType.uradd64),
+    UKADD64     -> List(InstrP, FuType.simdu, SIMDUOpType.ukadd64),
+    RSUB64      -> List(InstrP, FuType.simdu, SIMDUOpType.rsub64),
+    KSUB64      -> List(InstrP, FuType.simdu, SIMDUOpType.ksub64),
+    URSUB64     -> List(InstrP, FuType.simdu, SIMDUOpType.ursub64),
+    UKSUB64     -> List(InstrP, FuType.simdu, SIMDUOpType.uksub64),
+    
   )
 }
 
