@@ -219,6 +219,14 @@ object SIMDUOpType {
   def ksub64 = "b1001001".U
   def ursub64= "b1010001".U
   def uksub64= "b1011001".U
+  def smar64 = "b1000010".U
+  def kmar64 = "b1001010".U
+  def umar64 = "b1010010".U
+  def ukmar64= "b1011010".U
+  def smsr64 = "b1000011".U
+  def kmsr64 = "b1001011".U
+  def umsr64 = "b1010011".U
+  def ukmsr64= "b1011011".U
 }
 
 class SIMDU_IO extends FunctionUnitIO {

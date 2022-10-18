@@ -217,8 +217,7 @@ object RVPInstr extends HasInstrType {
     RSUB64      -> List(InstrP, FuType.simdu, SIMDUOpType.rsub64),
     KSUB64      -> List(InstrP, FuType.simdu, SIMDUOpType.ksub64),
     URSUB64     -> List(InstrP, FuType.simdu, SIMDUOpType.ursub64),
-    UKSUB64     -> List(InstrP, FuType.simdu, SIMDUOpType.uksub64),
-    
+    UKSUB64     -> List(InstrP, FuType.simdu, SIMDUOpType.uksub64)
   )
 }
 
@@ -423,6 +422,14 @@ object RVPRDInstr extends HasInstrType {
   def SMAQA   = BitPat("b1100100_?????_?????_000_?????_1110111")
   def SMAQASU = BitPat("b1100101_?????_?????_000_?????_1110111")
   def UMAQA   = BitPat("b1100110_?????_?????_000_?????_1110111")
+  def SMAR64  = BitPat("b1000010_?????_?????_001_?????_1110111")
+  def KMAR64  = BitPat("b1001010_?????_?????_001_?????_1110111")
+  def UMAR64  = BitPat("b1010010_?????_?????_001_?????_1110111")
+  def UKMAR64 = BitPat("b1011010_?????_?????_001_?????_1110111")
+  def SMSR64  = BitPat("b1000011_?????_?????_001_?????_1110111")
+  def KMSR64  = BitPat("b1001011_?????_?????_001_?????_1110111")
+  def UMSR64  = BitPat("b1010011_?????_?????_001_?????_1110111")
+  def UKMSR64 = BitPat("b1011011_?????_?????_001_?????_1110111")
 
   val table = Array(
     KMMAC       -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmmac),
@@ -449,6 +456,14 @@ object RVPRDInstr extends HasInstrType {
     KMSXDA      -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmsxda),
     SMAQA       -> List(InstrPRD, FuType.simdu, SIMDUOpType.smaqa),
     SMAQASU     -> List(InstrPRD, FuType.simdu, SIMDUOpType.smaqasu),
-    UMAQA       -> List(InstrPRD, FuType.simdu, SIMDUOpType.umaqa)
+    UMAQA       -> List(InstrPRD, FuType.simdu, SIMDUOpType.umaqa),
+    SMAR64      -> List(InstrPRD, FuType.simdu, SIMDUOpType.smar64),
+    KMAR64      -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmar64),
+    UMAR64      -> List(InstrPRD, FuType.simdu, SIMDUOpType.umar64),
+    UKMAR64     -> List(InstrPRD, FuType.simdu, SIMDUOpType.ukmar64),
+    SMSR64      -> List(InstrPRD, FuType.simdu, SIMDUOpType.smsr64),
+    KMSR64      -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmsr64),
+    UMSR64      -> List(InstrPRD, FuType.simdu, SIMDUOpType.umsr64),
+    UKMSR64     -> List(InstrPRD, FuType.simdu, SIMDUOpType.ukmsr64)
   )
 }

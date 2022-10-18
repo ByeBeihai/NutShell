@@ -601,6 +601,7 @@ class PMDU extends NutCoreModule {
     def isS1632(func:UInt,funct3:UInt)    = {(!func(6).asBool && (func(2,0) === "b100".U || func(2,0) === "b101".U && func(6,3) > 2.U || func(2,0) === "b110".U && func(5).asBool || func === "b0100111".U)) && funct3 === 1.U}
     def isS1664(func:UInt,funct3:UInt)    = {func === "b0101111".U && funct3 === 1.U}
     def is832(func:UInt,funct3:UInt)      = {func(6,3) === "b1100".U && func(2,0) =/= "b111".U && funct3 === 0.U}
+    def is3264(func:UInt,funct3:UInt)     = {func(6,5) === "b10".U && func(2,1) === "b01".U && funct3 === "b001".U}
     def SrcSigned(func:UInt)  = {func(6,3) =/= "b1011".U}
     def Xsrc(func:UInt)       = {func(1,0) ===  "b01".U || func(6,3) === "b1001".U}
     def Saturating(func:UInt) = {func(1,0) ===  "b11".U}
@@ -798,6 +799,15 @@ class PMDU extends NutCoreModule {
             MulAdd9_3.io.in.bits.srcs(2)  := 0.U
             MulAdd17_0.io.in.bits.srcs(2) := 0.U
             MulAdd17_1.io.in.bits.srcs(2) := 0.U
+            MulAdd33_0.io.in.bits.srcs(2) := 0.U
+            MulAdd65_0.io.in.bits.srcs(2) := 0.U
+        }.elsewhen(is3264(func,funct3)){
+            val width = 32
+            val issigned   = !func(4).asBool
+            MulAdd33_0.io.in.bits.srcs(0) := extender(issigned,src1(0*width+width-1,0*width),33)
+            MulAdd65_0.io.in.bits.srcs(0) := extender(issigned,src1(1*width+width-1,1*width),65)
+            MulAdd33_0.io.in.bits.srcs(1) := extender(issigned,src2(0*width+width-1,0*width),33)
+            MulAdd65_0.io.in.bits.srcs(1) := extender(issigned,src2(1*width+width-1,1*width),65)
             MulAdd33_0.io.in.bits.srcs(2) := 0.U
             MulAdd65_0.io.in.bits.srcs(2) := 0.U
         }
@@ -1015,6 +1025,7 @@ class PMDU extends NutCoreModule {
                 }
             }
         }
+    }
     when(isMSW_3232(func_out,funct3_out)){
         io.out.bits.result := {
             var l = List(0.U)
@@ -1137,47 +1148,83 @@ class PMDU extends NutCoreModule {
         adder68_2 := SignExt(MulAdd33_0.io.out.bits.result(31,0),64)
         io.out.bits.result := tmp68(63,0)
     }.elsewhen(is832(func_out,funct3_out)){
-            val isunsigned = funct3_out === "b110".U
-            io.out.bits.result := {
-                var l = List(0.U)
-                for(i <- 0 until XLEN/32){
-                    val add0 = WireInit(0.U(32.W))
-                    val add1 = WireInit(0.U(32.W))
-                    val add2 = WireInit(0.U(32.W))
-                    val add3 = WireInit(0.U(32.W))
-                    if(i == 0){
-                        if(XLEN == 32){
-                            add0 := extender(!isunsigned,MulAdd17_0.io.out.bits.result(16,0),32)
-                            add1 := extender(!isunsigned,MulAdd17_1.io.out.bits.result(16,0),32)
-                            add2 := extender(!isunsigned,MulAdd33_0.io.out.bits.result(16,0),32)
-                            add3 := extender(!isunsigned,MulAdd65_0.io.out.bits.result(16,0),32)
-                        }else{
-                            add0 := extender(!isunsigned,MulAdd9_0.io.out.bits.result(16,0),32)
-                            add1 := extender(!isunsigned,MulAdd9_1.io.out.bits.result(16,0),32)
-                            add2 := extender(!isunsigned,MulAdd9_2.io.out.bits.result(16,0),32)
-                            add3 := extender(!isunsigned,MulAdd9_3.io.out.bits.result(16,0),32)
-                        }
-                    }else{
+        val isunsigned = func_out(2,0) === "b110".U
+        io.out.bits.result := {
+            var l = List(0.U)
+            for(i <- 0 until XLEN/32){
+                val add0 = WireInit(0.U(32.W))
+                val add1 = WireInit(0.U(32.W))
+                val add2 = WireInit(0.U(32.W))
+                val add3 = WireInit(0.U(32.W))
+                if(i == 0){
+                    if(XLEN == 32){
                         add0 := extender(!isunsigned,MulAdd17_0.io.out.bits.result(16,0),32)
                         add1 := extender(!isunsigned,MulAdd17_1.io.out.bits.result(16,0),32)
                         add2 := extender(!isunsigned,MulAdd33_0.io.out.bits.result(16,0),32)
                         add3 := extender(!isunsigned,MulAdd65_0.io.out.bits.result(16,0),32)
+                    }else{
+                        add0 := extender(!isunsigned,MulAdd9_0.io.out.bits.result(16,0),32)
+                        add1 := extender(!isunsigned,MulAdd9_1.io.out.bits.result(16,0),32)
+                        add2 := extender(!isunsigned,MulAdd9_2.io.out.bits.result(16,0),32)
+                        add3 := extender(!isunsigned,MulAdd9_3.io.out.bits.result(16,0),32)
                     }
-                    adder34_0(i) := src3_out(32*i+32-1,32*i)
-                    adder34_1(i) := add0 + add1
-                    adder34_2(i) := add2 + add3
-                    val res = tmp34(i)(31,0)
-                    l = List.concat(List(res),l)
-                    Debug("[PMDU] add0 %x add1 %x add2 %x add3 %x src3_out %x res %x \n",add0,add1,add2,add3,src3_out(32*i+32-1,32*i),res)
+                }else{
+                    add0 := extender(!isunsigned,MulAdd17_0.io.out.bits.result(16,0),32)
+                    add1 := extender(!isunsigned,MulAdd17_1.io.out.bits.result(16,0),32)
+                    add2 := extender(!isunsigned,MulAdd33_0.io.out.bits.result(16,0),32)
+                    add3 := extender(!isunsigned,MulAdd65_0.io.out.bits.result(16,0),32)
                 }
-                l.dropRight(1).reduce(Cat(_,_))
+                adder34_0(i) := src3_out(32*i+32-1,32*i)
+                adder34_1(i) := add0 + add1
+                adder34_2(i) := add2 + add3
+                val res = tmp34(i)(31,0)
+                l = List.concat(List(res),l)
+                Debug("[PMDU] add0 %x add1 %x add2 %x add3 %x src3_out %x res %x \n",add0,add1,add2,add3,src3_out(32*i+32-1,32*i),res)
             }
+            l.dropRight(1).reduce(Cat(_,_))
+        }
+    }.elsewhen(is3264(func_out,funct3_out)){
+        val issigned = !func_out(4).asBool
+        val issub    =  func_out(0).asBool
+        val saturating = func_out(3).asBool
+        io.out.bits.result := {
+            val add0 = WireInit(0.U(66.W))
+            val add1 = WireInit(0.U(66.W))
+            add0 := extender(issigned,MulAdd33_0.io.out.bits.result(64,0),66)
+            add1 := extender(issigned,MulAdd65_0.io.out.bits.result(64,0),66)
+            adder68_0 :=  extender(issigned,src3_out(63,0),66)
+            adder68_1 := (Fill(66,issub)^add0)+issub.asUInt
+            adder68_2 := (Fill(66,issub)^add1)+issub.asUInt
+            val res = WireInit(tmp68(63,0))
+            when(saturating){
+                when(issigned){
+                    when((Fill(66,tmp68(65))^tmp68)(65,63) =/= 0.U){
+                        io.out.bits.DecodeOut.pext.OV := true.B
+                        when(tmp68(65).asBool){
+                            res := Cat(1.U,Fill(63,0.U))
+                        }.otherwise{
+                            res := Cat(0.U,Fill(63,1.U))
+                        }
+                    }
+                }.otherwise{
+                    when(issub && tmp68(65).asBool){
+                        io.out.bits.DecodeOut.pext.OV := true.B
+                        res := Fill(64,0.U)
+                    }.elsewhen(!issub && tmp68(65,64)=/=0.U){
+                        io.out.bits.DecodeOut.pext.OV := true.B
+                        res := Fill(64,1.U)
+                    }
+                }
+            }
+            Debug("[PMDU] add0 %x add1 %x src3_out %x res %x issigned %x issub %x saturating %x\n",add0,add1,src3_out,res,issigned,issub,saturating)
+            res
         }
     }
+    
 
 
     Debug("[PMDU] in_valid %x out_valid %x inPC %x func_in %x outPC %x func_out %x \n",io.in.valid,io.out.valid,io.in.bits.cf.pc,func,io.out.bits.DecodeOut.cf.pc,io.out.bits.DecodeOut.ctrl.fuOpType)
-    Debug("[PMDU] in_mul16 %x in_mul8 %x in_msw3232 %x in_msw3216 %x in_s1632 %x\n",isMul_16(func,funct3),isMul_8(func,funct3),isMSW_3232(func,funct3),isMSW_3216(func,funct3),isS1632(func,funct3))
-    Debug("[PMDU] out_mul16 %x out_mul8 %x out_msw3232 %x out_msw3232 %x out_s1632 %x\n",isMul_16(func_out,funct3_out),isMul_8(func_out,funct3_out),isMSW_3232(func_out,funct3_out),isMSW_3216(func_out,funct3_out),isS1632(func_out,funct3_out))
-    Debug("[PMDU] Madd90 src1 %x src2 %x src3 %x out %x \n",MulAdd9_0.io.in.bits.srcs(0),MulAdd9_0.io.in.bits.srcs(1),MulAdd9_0.io.in.bits.srcs(2),MulAdd9_0.io.out.bits.result)
+    Debug("[PMDU] in_mul16 %x in_mul8 %x in_msw3232 %x in_msw3216 %x in_s1632 %x in3264 %x\n",isMul_16(func,funct3),isMul_8(func,funct3),isMSW_3232(func,funct3),isMSW_3216(func,funct3),isS1632(func,funct3),is3264(func,funct3))
+    Debug("[PMDU] out_mul16 %x out_mul8 %x out_msw3232 %x out_msw3232 %x out_s1632 %x out3264 %x\n",isMul_16(func_out,funct3_out),isMul_8(func_out,funct3_out),isMSW_3232(func_out,funct3_out),isMSW_3216(func_out,funct3_out),isS1632(func_out,funct3_out),is3264(func_out,funct3_out))
+    //Debug("[PMDU] Madd90 src1 %x src2 %x src3 %x out %x \n",MulAdd9_0.io.in.bits.srcs(0),MulAdd9_0.io.in.bits.srcs(1),MulAdd9_0.io.in.bits.srcs(2),MulAdd9_0.io.out.bits.result)
 }
