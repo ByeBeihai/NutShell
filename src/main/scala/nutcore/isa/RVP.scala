@@ -110,6 +110,10 @@ object RVPInstr extends HasInstrType {
   def KSUB64  = BitPat("b1001001_?????_?????_001_?????_1110111")
   def URSUB64 = BitPat("b1010001_?????_?????_001_?????_1110111")
   def UKSUB64 = BitPat("b1011001_?????_?????_001_?????_1110111")
+  def KADDH   = BitPat("b0000010_?????_?????_001_?????_1110111")
+  def UKADDH  = BitPat("b0001010_?????_?????_001_?????_1110111")
+  def KSUBH   = BitPat("b0000011_?????_?????_001_?????_1110111")
+  def UKSUBH  = BitPat("b0001011_?????_?????_001_?????_1110111")
   
   val table = Array(
     ADD16       -> List(InstrP, FuType.simdu, SIMDUOpType.add16),
@@ -217,7 +221,11 @@ object RVPInstr extends HasInstrType {
     RSUB64      -> List(InstrP, FuType.simdu, SIMDUOpType.rsub64),
     KSUB64      -> List(InstrP, FuType.simdu, SIMDUOpType.ksub64),
     URSUB64     -> List(InstrP, FuType.simdu, SIMDUOpType.ursub64),
-    UKSUB64     -> List(InstrP, FuType.simdu, SIMDUOpType.uksub64)
+    UKSUB64     -> List(InstrP, FuType.simdu, SIMDUOpType.uksub64),
+    KADDH       -> List(InstrP, FuType.simdu, SIMDUOpType.kaddh),
+    UKADDH      -> List(InstrP, FuType.simdu, SIMDUOpType.ukaddh),
+    KSUBH       -> List(InstrP, FuType.simdu, SIMDUOpType.ksubh),
+    UKSUBH      -> List(InstrP, FuType.simdu, SIMDUOpType.uksubh),
   )
 }
 
@@ -359,6 +367,9 @@ object RVPMInstr extends HasInstrType {
   def SMDRS   = BitPat("b0110100_?????_?????_001_?????_1110111")
   def SMXDS   = BitPat("b0111100_?????_?????_001_?????_1110111")
   def SMAL    = BitPat("b0101111_?????_?????_001_?????_1110111")
+  def KHMBB   = BitPat("b0000110_?????_?????_001_?????_1110111")
+  def KHMBT   = BitPat("b0001110_?????_?????_001_?????_1110111")
+  def KHMTT   = BitPat("b0010110_?????_?????_001_?????_1110111")
 
   val table = Array(
     SMUL16      -> List(InstrPM, FuType.simdu, SIMDUOpType.smul16),
@@ -393,7 +404,10 @@ object RVPMInstr extends HasInstrType {
     SMDS        -> List(InstrPM, FuType.simdu, SIMDUOpType.smds),
     SMDRS       -> List(InstrPM, FuType.simdu, SIMDUOpType.smdrs),
     SMXDS       -> List(InstrPM, FuType.simdu, SIMDUOpType.smxds),
-    SMAL        -> List(InstrPM, FuType.simdu, SIMDUOpType.smal)
+    SMAL        -> List(InstrPM, FuType.simdu, SIMDUOpType.smal),
+    KHMBB       -> List(InstrPM, FuType.simdu, SIMDUOpType.khmbb),
+    KHMBT       -> List(InstrPM, FuType.simdu, SIMDUOpType.khmbt),
+    KHMTT       -> List(InstrPM, FuType.simdu, SIMDUOpType.khmtt)
   )
 }
 object RVPRDInstr extends HasInstrType {

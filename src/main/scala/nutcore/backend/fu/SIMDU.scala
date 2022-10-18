@@ -237,6 +237,13 @@ object SIMDUOpType {
   def smalxda= "b1001110".U
   def smslda = "b1010110".U
   def smslxda= "b1011110".U
+  def kaddh  = "b0000010".U
+  def ukaddh = "b0001010".U
+  def ksubh  = "b0000011".U
+  def uksubh = "b0001011".U
+  def khmbb  = "b0000110".U
+  def khmbt  = "b0001110".U
+  def khmtt  = "b0010110".U
 }
 
 class SIMDU_IO extends FunctionUnitIO {
