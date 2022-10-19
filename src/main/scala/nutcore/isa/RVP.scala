@@ -114,6 +114,17 @@ object RVPInstr extends HasInstrType {
   def UKADDH  = BitPat("b0001010_?????_?????_001_?????_1110111")
   def KSUBH   = BitPat("b0000011_?????_?????_001_?????_1110111")
   def UKSUBH  = BitPat("b0001011_?????_?????_001_?????_1110111")
+  def KADDW   = BitPat("b0000000_?????_?????_001_?????_1110111")
+  def UKADDW  = BitPat("b0001000_?????_?????_001_?????_1110111")
+  def KSUBW   = BitPat("b0000001_?????_?????_001_?????_1110111")
+  def UKSUBW  = BitPat("b0001001_?????_?????_001_?????_1110111")
+  def KSLRAW  = BitPat("b0110111_?????_?????_001_?????_1110111")
+  def KSLRAWU = BitPat("b0111111_?????_?????_001_?????_1110111")
+  def KSLLW   = BitPat("b0010011_?????_?????_001_?????_1110111")
+  def RADDW   = BitPat("b0010000_?????_?????_001_?????_1110111")
+  def URADDW  = BitPat("b0011000_?????_?????_001_?????_1110111")
+  def RSUBW   = BitPat("b0010001_?????_?????_001_?????_1110111")
+  def URSUBW  = BitPat("b0011001_?????_?????_001_?????_1110111")
   
   val table = Array(
     ADD16       -> List(InstrP, FuType.simdu, SIMDUOpType.add16),
@@ -226,6 +237,17 @@ object RVPInstr extends HasInstrType {
     UKADDH      -> List(InstrP, FuType.simdu, SIMDUOpType.ukaddh),
     KSUBH       -> List(InstrP, FuType.simdu, SIMDUOpType.ksubh),
     UKSUBH      -> List(InstrP, FuType.simdu, SIMDUOpType.uksubh),
+    KADDW       -> List(InstrP, FuType.simdu, SIMDUOpType.kaddw),
+    UKADDW      -> List(InstrP, FuType.simdu, SIMDUOpType.ukaddw),
+    KSUBW       -> List(InstrP, FuType.simdu, SIMDUOpType.ksubw),
+    UKSUBW      -> List(InstrP, FuType.simdu, SIMDUOpType.uksubw),
+    KSLRAW      -> List(InstrP, FuType.simdu, SIMDUOpType.kslraw),
+    KSLRAWU     -> List(InstrP, FuType.simdu, SIMDUOpType.kslrawu),
+    KSLLW       -> List(InstrP, FuType.simdu, SIMDUOpType.ksllw),
+    RADDW       -> List(InstrP, FuType.simdu, SIMDUOpType.raddw),
+    URADDW      -> List(InstrP, FuType.simdu, SIMDUOpType.uraddw),
+    RSUBW       -> List(InstrP, FuType.simdu, SIMDUOpType.rsubw),
+    URSUBW      -> List(InstrP, FuType.simdu, SIMDUOpType.ursubw)
   )
 }
 
@@ -275,6 +297,7 @@ object RVPIInstr extends HasInstrType {
   def UCLIP32 = BitPat("b1111010_?????_?????_000_?????_1110111")
   def CLRS32  = BitPat("b1010111_11000_?????_000_?????_1110111")
   def CLZ32   = BitPat("b1010111_11001_?????_000_?????_1110111")
+  def KSLLWI  = BitPat("b0011011_?????_?????_001_?????_1110111")
 
   val table = Array(
     SRAI16      -> List(InstrPI, FuType.simdu, SIMDUOpType.srai16),
@@ -321,7 +344,8 @@ object RVPIInstr extends HasInstrType {
     SCLIP32     -> List(InstrPI, FuType.simdu, SIMDUOpType.sclip32),
     UCLIP32     -> List(InstrPI, FuType.simdu, SIMDUOpType.uclip32),
     CLRS32      -> List(InstrPI, FuType.simdu, SIMDUOpType.clrs32),
-    CLZ32       -> List(InstrPI, FuType.simdu, SIMDUOpType.clz32)
+    CLZ32       -> List(InstrPI, FuType.simdu, SIMDUOpType.clz32),
+    KSLLWI      -> List(InstrPI, FuType.simdu, SIMDUOpType.ksllwi)
   )
 }
 
@@ -370,6 +394,11 @@ object RVPMInstr extends HasInstrType {
   def KHMBB   = BitPat("b0000110_?????_?????_001_?????_1110111")
   def KHMBT   = BitPat("b0001110_?????_?????_001_?????_1110111")
   def KHMTT   = BitPat("b0010110_?????_?????_001_?????_1110111")
+  def KDMBB   = BitPat("b0000101_?????_?????_001_?????_1110111")
+  def KDMBT   = BitPat("b0001101_?????_?????_001_?????_1110111")
+  def KDMTT   = BitPat("b0010101_?????_?????_001_?????_1110111")
+  def MULSR64 = BitPat("b1110000_?????_?????_001_?????_1110111")
+  def MULR64  = BitPat("b1111000_?????_?????_001_?????_1110111")
 
   val table = Array(
     SMUL16      -> List(InstrPM, FuType.simdu, SIMDUOpType.smul16),
@@ -407,7 +436,12 @@ object RVPMInstr extends HasInstrType {
     SMAL        -> List(InstrPM, FuType.simdu, SIMDUOpType.smal),
     KHMBB       -> List(InstrPM, FuType.simdu, SIMDUOpType.khmbb),
     KHMBT       -> List(InstrPM, FuType.simdu, SIMDUOpType.khmbt),
-    KHMTT       -> List(InstrPM, FuType.simdu, SIMDUOpType.khmtt)
+    KHMTT       -> List(InstrPM, FuType.simdu, SIMDUOpType.khmtt),
+    KDMBB       -> List(InstrPM, FuType.simdu, SIMDUOpType.kdmbb),
+    KDMBT       -> List(InstrPM, FuType.simdu, SIMDUOpType.kdmbt),
+    KDMTT       -> List(InstrPM, FuType.simdu, SIMDUOpType.kdmtt),
+    MULR64      -> List(InstrPM, FuType.simdu, SIMDUOpType.mulr64),
+    MULSR64     -> List(InstrPM, FuType.simdu, SIMDUOpType.mulsr64)
   )
 }
 object RVPRDInstr extends HasInstrType {
@@ -454,6 +488,11 @@ object RVPRDInstr extends HasInstrType {
   def SMALXDA = BitPat("b1001110_?????_?????_001_?????_1110111")
   def SMSLDA  = BitPat("b1010110_?????_?????_001_?????_1110111")
   def SMSLXDA = BitPat("b1011110_?????_?????_001_?????_1110111")
+  def KDMABB  = BitPat("b1101001_?????_?????_001_?????_1110111")
+  def KDMABT  = BitPat("b1110001_?????_?????_001_?????_1110111")
+  def KDMATT  = BitPat("b1111001_?????_?????_001_?????_1110111")
+  def MADDR32 = BitPat("b1100010_?????_?????_001_?????_1110111")
+  def MSUBR32 = BitPat("b1100011_?????_?????_001_?????_1110111")
 
   val table = Array(
     KMMAC       -> List(InstrPRD, FuType.simdu, SIMDUOpType.kmmac),
@@ -498,6 +537,11 @@ object RVPRDInstr extends HasInstrType {
     SMALDA      -> List(InstrPRD, FuType.simdu, SIMDUOpType.smalda),
     SMALXDA     -> List(InstrPRD, FuType.simdu, SIMDUOpType.smalxda),
     SMSLDA      -> List(InstrPRD, FuType.simdu, SIMDUOpType.smslda),
-    SMSLXDA     -> List(InstrPRD, FuType.simdu, SIMDUOpType.smslxda)
+    SMSLXDA     -> List(InstrPRD, FuType.simdu, SIMDUOpType.smslxda),
+    KDMABB      -> List(InstrPRD, FuType.simdu, SIMDUOpType.kdmabb),
+    KDMABT      -> List(InstrPRD, FuType.simdu, SIMDUOpType.kdmabt),
+    KDMATT      -> List(InstrPRD, FuType.simdu, SIMDUOpType.kdmatt),
+    MADDR32     -> List(InstrPRD, FuType.simdu, SIMDUOpType.maddr32),
+    MSUBR32     -> List(InstrPRD, FuType.simdu, SIMDUOpType.msubr32)
   )
 }

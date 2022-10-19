@@ -244,6 +244,30 @@ object SIMDUOpType {
   def khmbb  = "b0000110".U
   def khmbt  = "b0001110".U
   def khmtt  = "b0010110".U
+  def kaddw  = "b0000000".U
+  def ukaddw = "b0001000".U
+  def ksubw  = "b0000001".U
+  def uksubw = "b0001001".U
+  def kdmbb  = "b0000101".U
+  def kdmbt  = "b0001101".U
+  def kdmtt  = "b0010101".U
+  def kslraw = "b0110111".U
+  def kslrawu= "b0111111".U
+  def ksllw  = "b0010011".U
+  def ksllwi = "b0011011".U
+  def kdmabb = "b1101001".U
+  def kdmabt = "b1110001".U
+  def kdmatt = "b1111001".U
+  def rdov   = "b0000000".U
+  def clrov  = "b0000000".U
+  def raddw  = "b0010000".U
+  def uraddw = "b0011000".U
+  def rsubw  = "b0010001".U
+  def ursubw = "b0011001".U
+  def mulr64 = "b1111000".U
+  def mulsr64= "b1110000".U
+  def maddr32= "b1100010".U
+  def msubr32= "b1100011".U
 }
 
 class SIMDU_IO extends FunctionUnitIO {
