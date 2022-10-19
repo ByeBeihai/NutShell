@@ -268,6 +268,15 @@ object SIMDUOpType {
   def mulsr64= "b1110000".U
   def maddr32= "b1100010".U
   def msubr32= "b1100011".U
+  def ave    = "b1110000".U
+  def srau   = "b0010010".U
+  def sraiu  = "b1101010".U
+  def bitrev = "b1110011".U
+  def bitrevi= "b1110100".U
+  def cmix   = "b0000011".U
+  def wext   = "b1100111".U
+  def wexti  = "b1101111".U
+  def insb   = "b1010110".U
 }
 
 class SIMDU_IO extends FunctionUnitIO {

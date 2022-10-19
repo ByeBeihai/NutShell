@@ -125,6 +125,11 @@ object RVPInstr extends HasInstrType {
   def URADDW  = BitPat("b0011000_?????_?????_001_?????_1110111")
   def RSUBW   = BitPat("b0010001_?????_?????_001_?????_1110111")
   def URSUBW  = BitPat("b0011001_?????_?????_001_?????_1110111")
+  def AVE     = BitPat("b1110000_?????_?????_000_?????_1110111")
+  def SRAU    = BitPat("b0010010_?????_?????_001_?????_1110111")
+  def BITREV  = BitPat("b1110011_?????_?????_000_?????_1110111")
+  def CMIX    = BitPat("b?????_11_?????_?????_001_?????_0110011")
+  def WEXT    = BitPat("b1100111_?????_?????_000_?????_1110111")
   
   val table = Array(
     ADD16       -> List(InstrP, FuType.simdu, SIMDUOpType.add16),
@@ -247,7 +252,12 @@ object RVPInstr extends HasInstrType {
     RADDW       -> List(InstrP, FuType.simdu, SIMDUOpType.raddw),
     URADDW      -> List(InstrP, FuType.simdu, SIMDUOpType.uraddw),
     RSUBW       -> List(InstrP, FuType.simdu, SIMDUOpType.rsubw),
-    URSUBW      -> List(InstrP, FuType.simdu, SIMDUOpType.ursubw)
+    URSUBW      -> List(InstrP, FuType.simdu, SIMDUOpType.ursubw),
+    AVE         -> List(InstrP, FuType.simdu, SIMDUOpType.ave),
+    SRAU        -> List(InstrP, FuType.simdu, SIMDUOpType.srau),
+    BITREV      -> List(InstrP, FuType.simdu, SIMDUOpType.bitrev),
+    CMIX        -> List(InstrP, FuType.simdu, SIMDUOpType.cmix),
+    WEXT        -> List(InstrP, FuType.simdu, SIMDUOpType.wext)
   )
 }
 
@@ -298,6 +308,10 @@ object RVPIInstr extends HasInstrType {
   def CLRS32  = BitPat("b1010111_11000_?????_000_?????_1110111")
   def CLZ32   = BitPat("b1010111_11001_?????_000_?????_1110111")
   def KSLLWI  = BitPat("b0011011_?????_?????_001_?????_1110111")
+  def SRAIU   = BitPat("b110101_??????_?????_001_?????_1110111")
+  def BITREVI = BitPat("b111010_??????_?????_000_?????_1110111")
+  def WEXTI   = BitPat("b1101111_?????_?????_000_?????_1110111")
+  def INSB    = BitPat("b101011000_???_?????_000_?????_1110111")
 
   val table = Array(
     SRAI16      -> List(InstrPI, FuType.simdu, SIMDUOpType.srai16),
@@ -345,7 +359,11 @@ object RVPIInstr extends HasInstrType {
     UCLIP32     -> List(InstrPI, FuType.simdu, SIMDUOpType.uclip32),
     CLRS32      -> List(InstrPI, FuType.simdu, SIMDUOpType.clrs32),
     CLZ32       -> List(InstrPI, FuType.simdu, SIMDUOpType.clz32),
-    KSLLWI      -> List(InstrPI, FuType.simdu, SIMDUOpType.ksllwi)
+    KSLLWI      -> List(InstrPI, FuType.simdu, SIMDUOpType.ksllwi),
+    SRAIU       -> List(InstrPI, FuType.simdu, SIMDUOpType.sraiu),
+    BITREVI     -> List(InstrPI, FuType.simdu, SIMDUOpType.bitrevi),
+    WEXTI       -> List(InstrPI, FuType.simdu, SIMDUOpType.wexti),
+    INSB        -> List(InstrPI, FuType.simdu, SIMDUOpType.insb)
   )
 }
 
