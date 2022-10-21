@@ -323,6 +323,17 @@ object SIMDUOpType {
   def pktb32  ="b0011111".U
   def pack    ="b0000100".U
   def packu   ="b0100100".U
+  def kmda32  ="b0011100".U
+  def kmxda32 ="b0011101".U
+  def kmaxda32="b0100101".U
+  def kmsda32 ="b0100110".U
+  def kmsxda32="b0100111".U
+  def kmads32 ="b0101110".U
+  def kmadrs32="b0110110".U
+  def kmaxds32="b0111110".U
+  def smds32  ="b0101100".U
+  def smdrs32 ="b0110100".U
+  def smxds32 ="b0111100".U
 }
 
 class SIMDU_IO extends FunctionUnitIO {

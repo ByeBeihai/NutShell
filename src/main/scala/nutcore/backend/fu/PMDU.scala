@@ -610,7 +610,7 @@ class PMDU extends NutCoreModule {
     def isQ15_64ONLY(func:UInt,funct3:UInt)={func(6,5) === "b11".U && func(4,3)=/="b00".U && func(2) === "b1".U && func(1,0) =/= "b11".U && funct3 === "b001".U}
     def isQ63_64ONLY(func:UInt,funct3:UInt)={func(6,5) === "b01".U && func(4,3)=/="b00".U && func(2,0) === "b101".U && funct3 === "b010".U}
     def isMul_32_64ONLY(func:UInt,funct3:UInt) = {(func(6,3) === "b0010".U || func(6,3) === "b0001".U) && func(2,0) === "b100".U && funct3 === "b010".U}
-    
+    def isPMA_64ONLY(func:UInt,funct3:UInt)={(func(6,3)==="b0011".U && func(2,1) === "b10".U || func(6,3)==="b0100".U && func(2).asBool || (func(2,0) === "b100".U || func(2,0) === "b110".U) && func(6,5)==="b01".U && func(4,3)=/="b00".U) && funct3 === "b010".U}
     def SrcSigned(func:UInt)  = {func(6,3) =/= "b1011".U}
     def Xsrc(func:UInt)       = {func(1,0) ===  "b01".U || func(6,3) === "b1001".U}
     def Saturating(func:UInt) = {func(1,0) ===  "b11".U}
@@ -907,6 +907,19 @@ class PMDU extends NutCoreModule {
             MulAdd65_0.io.in.bits.srcs(0) := SignExt(src1_clip,65)
             MulAdd65_0.io.in.bits.srcs(1) := SignExt(src2_clip,65)
             MulAdd65_0.io.in.bits.srcs(2) := SignExt(0.U,65)
+        }.elsewhen(isPMA_64ONLY(func,funct3)){
+            val cross = func(2,0) === "b101".U || func(2,0) === "b111".U || func(6,3) === "b0111".U
+            val src1_clip1 = src1(31,0)
+            val src1_clip2 = src1(63,32)
+            val src2_clip1 = Mux(cross,src2(63,32),src2(31,0 ))
+            val src2_clip2 = Mux(cross,src2(31,0) ,src2(63,32))
+            MulAdd33_0.io.in.bits.srcs(0) := SignExt(src1_clip1,33)
+            MulAdd33_0.io.in.bits.srcs(1) := SignExt(src2_clip1,33)
+            MulAdd33_0.io.in.bits.srcs(2) := SignExt(0.U,33)
+            MulAdd65_0.io.in.bits.srcs(0) := SignExt(src1_clip2,65)
+            MulAdd65_0.io.in.bits.srcs(1) := SignExt(src2_clip2,65)
+            MulAdd65_0.io.in.bits.srcs(2) := SignExt(0.U,65)
+            Debug("[PMDUisPMA64] cross %x src1_clip1 %x src1_clip2 %x src2_clip1 %x src2_clip2 %x\n",cross,src1_clip1,src1_clip2,src2_clip1,src2_clip2)
         }
     }else if(XLEN == 32){
         when(isMSW_3232(func,funct3)){
@@ -1212,6 +1225,30 @@ class PMDU extends NutCoreModule {
                         res := Cat(0.U,Fill(63,1.U))
                     }
                 }
+                res
+            }
+        }.elsewhen(isPMA_64ONLY(func_out,funct3)){
+            io.out.bits.result := {
+                val usesrc3 = !(func_out(2,0)==="b100".U || func_out === "b0011101".U)
+                val mul1sub = func(6,3) === "b0101".U || func(6,3) === "b0111".U || func(6,1) === "b010011".U
+                val mul2sub = func(6,3) === "b0110".U || func(6,1) === "b010011".U
+                val saturating = !(func(6,5) === "b01".U && func(2,0) === "b100".U)
+                adder68_0 := Mux(usesrc3,SignExt(src3_out,66),0.U)
+                adder68_1 := (Fill(66,mul1sub)^SignExt(MulAdd33_0.io.out.bits.result(63,0),66)) + mul1sub.asUInt
+                adder68_2 := (Fill(66,mul2sub)^SignExt(MulAdd65_0.io.out.bits.result(63,0),66)) + mul2sub.asUInt
+                val res = WireInit(tmp68(63,0))
+                when(saturating){
+                    when((Fill(66,tmp68(65))^tmp68)(65,63)=/=0.U){
+                    io.out.bits.DecodeOut.pext.OV := true.B                       
+                        when(tmp68(65)){
+                            res := Cat(1.U,Fill(63,0.U))
+                        }.otherwise{
+                            res := Cat(0.U,Fill(63,1.U))
+                        }
+                    }
+                }
+                Debug("[PMDUisPMA64ONLY] usesrc3 %x mul1sub %x mul2sub %x saturating %x res %x tmp68 %x\n",usesrc3,mul1sub,mul2sub,saturating,res,tmp68)
+                Debug("[PMDUisPMA64ONLY] adder68_0 %x adder68_1 %x adder68_2 %x MulAdd33_0 %x MulAdd65_0 %x\n",adder68_0,adder68_1,adder68_2,MulAdd33_0.io.out.bits.result(63,0),MulAdd65_0.io.out.bits.result(63,0))
                 res
             }
         }
