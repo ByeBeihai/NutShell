@@ -188,7 +188,7 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
 
     val RAWinIssue = VecInit((0 to Issue_Num-1).map(i => {val raw = Wire(Vec(Issue_Num,Bool())) 
                                                         for(j <- 0 to i-1){
-                                                                raw(j) := io.in(j).valid && (isDepend(rfSrc1(i),rfDest(j),rfWen(j))||isDepend(rfSrc2(i),rfDest(j),rfWen(j)))
+                                                                raw(j) := io.in(j).valid && (isDepend(rfSrc1(i),rfDest(j),rfWen(j))||isDepend(rfSrc2(i),rfDest(j),rfWen(j))||isDepend(rfSrc3(i),rfDest(j),rfWen(j)))
                                                         }
                                                         for(j <- i to Issue_Num-1){
                                                                 raw(j) := false.B 
@@ -251,7 +251,7 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
     for(i <- 0 to Issue_Num-1){
         io.out(i).bits.data.src3 := Mux1H(List(
         src3DependEX(i).reduce(_||_) -> io.forward(PriorityMux(src3DependEX(i).zipWithIndex.map{case(a,b)=>(a,b.U)})).wb.rfData, //io.forward.wb.rfData,
-        (src3DependWB(i).reduce(_||_) && !src3DependEX(i).reduce(_||_)) -> io.wb.WriteData(PriorityMux(src2DependWB(i).zipWithIndex.map{case(a,b)=>(a,b.U)})), //io.wb.rfData,
+        (src3DependWB(i).reduce(_||_) && !src3DependEX(i).reduce(_||_)) -> io.wb.WriteData(PriorityMux(src3DependWB(i).zipWithIndex.map{case(a,b)=>(a,b.U)})), //io.wb.rfData,
         (!src3DependEX(i).reduce(_||_) && !src3DependWB(i).reduce(_||_)) -> io.wb.ReadData3(i))
         )
     }

@@ -62,7 +62,8 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
     InstrP -> (SrcType.reg, SrcType.reg),
     InstrPI-> (SrcType.reg, SrcType.imm),
     InstrPB-> (SrcType.reg, SrcType.imm),
-    InstrPM-> (SrcType.reg, SrcType.reg)
+    InstrPM-> (SrcType.reg, SrcType.reg),
+    InstrPRD->(SrcType.reg, SrcType.reg)
   )
   val src1Type = LookupTree(instrType, SrcTypeTable.map(p => (p._1, p._2._1)))
   val src2Type = LookupTree(instrType, SrcTypeTable.map(p => (p._1, p._2._2)))
@@ -94,10 +95,12 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
   val rvc_src2 = LookupTree(rvcSrc2Type, RegLookUpTable.map(p => (p._1, p._2)))
   val rvc_dest =  LookupTree(rvcDestType, RegLookUpTable.map(p => (p._1, p._2)))
 
+  val src3fromhead = instr(14,12) === "b001".U && instr(6,0) === "b0110011".U && instr(26,25) === "b11".U
+  val insb         = fuOpType === "b1010110".U && instr(24,23) === "b00".U && instr(14,12) === "b000".U
   val rfSrc1 = Mux(isRVC, rvc_src1, rs)
   val rfSrc2 = Mux(isRVC, rvc_src2, rt)
   val rfDest = Mux(isRVC, rvc_dest, rd)
-  val rfSrc3 = Mux(true.B,0.U,rd)
+  val rfSrc3 = Mux(src3fromhead,instr(31,27),Mux(instrType === InstrPRD,rd,Mux(instrType === InstrP && fuOpType(6,1)==="b111111".U && instr(14,12) === "b000".U || insb,rd,0.U)))
   // TODO: refactor decode logic
   // make non-register addressing to zero, since isu.sb.isBusy(0) === false.B
   io.out.bits.ctrl.rfSrc1 := Mux(src1Type === SrcType.pc, 0.U, rfSrc1)
@@ -114,7 +117,7 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
     InstrB  -> SignExt(Cat(instr(31), instr(7), instr(30, 25), instr(11, 8), 0.U(1.W)), XLEN),
     InstrU  -> SignExt(Cat(instr(31, 12), 0.U(12.W)), XLEN),//fixed
     InstrJ  -> SignExt(Cat(instr(31), instr(19, 12), instr(20), instr(30, 21), 0.U(1.W)), XLEN),
-    InstrPI -> SignExt(instr(24,20),XLEN),
+    InstrPI -> SignExt(instr(25,20),XLEN),
     InstrPB -> SignExt(instr(25,20),XLEN)
   ))
   val immrvc = LookupTree(rvcImmType, List(
