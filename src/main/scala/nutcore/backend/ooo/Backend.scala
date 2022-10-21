@@ -747,6 +747,7 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   when(simdu_firststage_fire){exu_valid_next(FuType.simdu) := false.B}
   when(simdu1_firststage_fire){exu_valid_next(FuType.simdu1) := false.B}
 
+  
   def MultiOperatorMatch(futype1:UInt,futype2:UInt,isBru:Bool):Bool = ((futype1 === FuType.alu) && (futype2 ===FuType.alu || futype2 === FuType.alu1) && !isBru
                                                                     ||(futype1 === FuType.simdu) && (futype2 ===FuType.simdu || futype2 === FuType.simdu1))
   for(i <- 0 to FuType.num-1){
