@@ -95,7 +95,9 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
   val rvc_src2 = LookupTree(rvcSrc2Type, RegLookUpTable.map(p => (p._1, p._2)))
   val rvc_dest =  LookupTree(rvcDestType, RegLookUpTable.map(p => (p._1, p._2)))
 
-  val src3fromhead = instr(14,12) === "b001".U && instr(6,0) === "b0110011".U && instr(26,25) === "b11".U
+  val src3fromhead = (instr(14,12) === "b001".U && instr(6,0) === "b0110011".U && instr(26,25) === "b11".U
+                    ||instr(26,25) === "b10".U  && instr(14,12) === "b101".U   && instr(6,0) === "b0111011".U //fsrw
+                    )
   val insb         = fuOpType === "b1010110".U && instr(24,23) === "b00".U && instr(14,12) === "b000".U
   val rfSrc1 = Mux(isRVC, rvc_src1, rs)
   val rfSrc2 = Mux(isRVC, rvc_src2, rt)

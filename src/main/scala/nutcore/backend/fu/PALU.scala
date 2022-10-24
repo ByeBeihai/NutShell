@@ -609,7 +609,9 @@ class PALU extends NutCoreModule with HasInstrType{
     val isLs_Q31= func(6,4) === "b001".U && func(2,0) === "b011".U && funct3 === "b001".U
     val isRs_XLEN = (func(6,3) === "b0010".U || func(6,3)==="b1101".U) && func(2,1) === "b01".U && funct3 === "b001".U
     val isSRAIWU= func === "b0011010".U && funct3 === "b001".U
-    val isShifter = isRs_16 | isLs_16 | isLR_16 | isRs_8 | isLs_8 | isLR_8 | isRs_32 | isLs_32 | isLR_32 | isLs_Q31 | isLR_Q31 | isRs_XLEN | isSRAIWU
+    val isFSRW  = io.in.bits.cf.instr(26,25) === "b10".U  && funct3 === "b101".U   && func === "b0111011".U
+    val isWext    = func(6,4) === "b110".U && func(2,0) === "b111".U && funct3 === "b000".U
+    val isShifter = isRs_16 | isLs_16 | isLR_16 | isRs_8 | isLs_8 | isLR_8 | isRs_32 | isLs_32 | isLR_32 | isLs_Q31 | isLR_Q31 | isRs_XLEN | isSRAIWU | isFSRW | isWext
 
     val Round       =((func(6,3) === "b0110".U &&(func(1) === 0.U || func(1,0) === "b11".U)
                     ||func(6,3) === "b0111".U && (func(2,1) === 0.U && func24.asBool || func(2,1) === 2.U && func23.asBool)) && funct3 === 0.U
@@ -642,11 +644,10 @@ class PALU extends NutCoreModule with HasInstrType{
 
     val isUnpack  = func === "b1010110".U && (src2(4,3) === "b01".U || src2(4,0) === "b10011".U || src2(4,0) === "b10111".U) && funct3 === 0.U
 
-    val isBitrev  = func(6,3) === "b1110".U && (func(2,0) === "b011".U || func(2,1) === "b10".U)
+    val isBitrev  = (func(6,3) === "b1110".U && (func(2,0) === "b011".U || func(2,1) === "b10".U) && funct3 === 0.U
+                   || func === "b0110101".U && funct3 === "b101".U && io.in.bits.cf.instr(6,0) === "b0010011".U && src2(4,0) === "b11111".U)
 
     val isCmix    = io.in.bits.cf.instr(14,12) === "b001".U && io.in.bits.cf.instr(6,0) === "b0110011".U && io.in.bits.cf.instr(26,25) === "b11".U
-
-    val isWext    = func(6,4) === "b110".U && func(2,0) === "b111".U && funct3 === "b000".U
 
     val isInsertb = func === "b1010110".U && io.in.bits.cf.instr(24,23) === "b00".U && funct3 === "b000".U
 
@@ -817,10 +818,6 @@ class PALU extends NutCoreModule with HasInstrType{
             space:= Cat(Fill(64,0.U),Reverse(src1))
         ((space << src2) << 1.U)(XLEN+XLEN-1,XLEN)
     }
-    def wext(src1:UInt,src2:UInt) = {
-        val tmp = 32.U-src2
-        SignExt((src1 >> src2)(31,0),XLEN)
-    }
     def cmix(src1:UInt,src2:UInt,src3:UInt) = {
         val space = Wire(Vec(XLEN,UInt(1.W)))
         (0 until XLEN).map(i => space(i):=Mux(src2(i).asBool,src1(i),src3(i)))
@@ -874,6 +871,12 @@ class PALU extends NutCoreModule with HasInstrType{
         val tmp = SetSrc2(32,src2,false.B)
         val realSrc2 = tmp(log2Up(32)-1,0)
         val tmp2 = shifter(32,src1,realSrc2,Round,ShiftSigned,true.B,Arithmetic)
+        shifterRes := SignExt(tmp2(32-1,0).asUInt,64)
+        shifterOV  := tmp2(XLEN).asBool
+    }.elsewhen(isFSRW | isWext){
+        val tmp = SetSrc2(64,src2,false.B)
+        val realSrc2 = tmp(log2Up(32)-1,0)
+        val tmp2 = shifter(64,Mux(isFSRW,Cat(src3(31,0),src1(31,0)),src1),realSrc2,false.B,false.B,true.B,false.B)
         shifterRes := SignExt(tmp2(32-1,0).asUInt,64)
         shifterOV  := tmp2(XLEN).asBool
     }
@@ -944,7 +947,7 @@ class PALU extends NutCoreModule with HasInstrType{
     val bitrevRes= WireInit(src1)
     val bitrevOV = WireInit(false.B)
     when(isBitrev){
-        bitrevRes := bitrev(src1,src2(log2Up(XLEN)-1,0))
+        bitrevRes := Reverse(src1)(XLEN-1,0)
     }
 
     val cmixRes= WireInit(src1)
@@ -953,11 +956,6 @@ class PALU extends NutCoreModule with HasInstrType{
         cmixRes := cmix(src1,src2,src3)
     }
 
-    val wextRes= WireInit(src1)
-    val wextOV = WireInit(false.B)
-    when(isWext){
-        wextRes := wext(src1,src2(log2Up(32)-1,0))
-    }
     val insbRes= WireInit(src1)
     val insbOV = WireInit(false.B)
     when(isInsertb){
@@ -1011,10 +1009,6 @@ class PALU extends NutCoreModule with HasInstrType{
     }.elsewhen(isBitrev){
         io.out.bits.result := bitrevRes
         io.out.bits.DecodeOut.pext.OV := bitrevOV
-    }.elsewhen(isWext){
-        io.out.bits.result := wextRes
-        io.out.bits.DecodeOut.pext.OV := wextOV
-        Debug("[PALU]iswext")
     }.elsewhen(isInsertb){
         io.out.bits.result := insbRes
         io.out.bits.DecodeOut.pext.OV := insbOV
