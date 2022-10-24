@@ -400,4 +400,5 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
       Debug("[SIMD_EXU] [Issue: %x ]BeforeCSRhasRedirect %x TakeBranch %x BranchTo %x \n", i.U,BeforeCSRhasRedirect, io.out(i).bits.decode.cf.redirect.valid, io.out(i).bits.decode.cf.redirect.target)
       }
   }
+  
 }
