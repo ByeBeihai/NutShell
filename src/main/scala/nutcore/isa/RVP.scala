@@ -427,13 +427,17 @@ object RVPBInstr extends HasInstrType {
   def MIN     = BitPat("b0000101_?????_?????_100_?????_0110011")
   def PACK    = BitPat("b0000100_?????_?????_100_?????_0110011")
   def PACKU   = BitPat("b0100100_?????_?????_100_?????_0110011")
+  def FSRW    = BitPat("b?????_10_?????_?????_101_?????_0111011")
+  def REV     = BitPat("b011010_?_11111_?????_101_?????_0010011")
 
   val table = Array(
     REV8H       -> List(InstrPB, FuType.simdu, SIMDUOpType.rev8h),
     MAX         -> List(InstrP , FuType.simdu, SIMDUOpType.max),
     MIN         -> List(InstrP , FuType.simdu, SIMDUOpType.min),
     PACK        -> List(InstrP , FuType.simdu, SIMDUOpType.pack),
-    PACKU       -> List(InstrP , FuType.simdu, SIMDUOpType.packu)
+    PACKU       -> List(InstrP , FuType.simdu, SIMDUOpType.packu),
+    FSRW        -> List(InstrP , FuType.simdu, SIMDUOpType.fsrw),
+    REV         -> List(InstrPB, FuType.simdu, SIMDUOpType.rev)
   )
 }
 
