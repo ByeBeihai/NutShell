@@ -477,6 +477,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val OVWEN = WireInit(false.B)
   BoringUtils.addSink(OVWEN,"OVWEN")
   when(OVWEN){vxsat := 1.U}
+  Debug("[CSR] VXSAT %x VXSAT_NEXT %x\n", vxsat,OVWEN)
 
   // CSR inst decode
   val ret = Wire(Bool())

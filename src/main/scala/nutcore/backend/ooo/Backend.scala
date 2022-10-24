@@ -864,13 +864,8 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   }
   val num_enterwbu = exu.io.out.map(i => i.fire().asUInt).reduce(_+&_)
   wbu_bits := wbu_bits_next
-  val FronthasRedirect = (0 to FuType.num-1).map(i => {if(i == 0){
-                                                        false.B 
-                                                      }else{
-                                                        (0 to i-1).map(j => wbu_bits_next(j).decode.cf.redirect.valid && wbu_valid_next(j)).reduce(_||_)
-                                                      }})
   for(i <- 0 to FuType.num-1){
-    when(reset.asBool || FronthasRedirect(i)){
+    when(reset.asBool ){
       wbu_valid_next(i) := false.B
     }
   }
