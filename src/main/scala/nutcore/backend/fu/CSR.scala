@@ -430,9 +430,9 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     MaskedRegMap(Pmpcfg2, pmpcfg2),
     MaskedRegMap(Pmpcfg3, pmpcfg3),
     MaskedRegMap(PmpaddrBase + 0, pmpaddr0,"h3ffffffff".U),
-    MaskedRegMap(PmpaddrBase + 1, pmpaddr1,"h3ffffffff".U),
-    MaskedRegMap(PmpaddrBase + 2, pmpaddr2,"h3ffffffff".U),
-    MaskedRegMap(PmpaddrBase + 3, pmpaddr3,"h3ffffffff".U),
+    MaskedRegMap(PmpaddrBase + 1, pmpaddr1,"h3fffffc00".U),
+    MaskedRegMap(PmpaddrBase + 2, pmpaddr2,"h3fffffc00".U),
+    MaskedRegMap(PmpaddrBase + 3, pmpaddr3,"h3fffffc00".U),
 
     MaskedRegMap(VXSAT,vxsat,1.U,MaskedRegMap.NoSideEffect,1.U)
 

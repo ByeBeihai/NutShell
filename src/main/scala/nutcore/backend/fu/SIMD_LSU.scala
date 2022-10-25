@@ -6,6 +6,7 @@ import chisel3.util.experimental.BoringUtils
 import utils._
 import bus.simplebus._
 import top.Settings
+import difftest._
 
 class SIMD_LSU_IO extends FunctionUnitIO {
   val wdata = Input(UInt(XLEN.W))
@@ -230,7 +231,7 @@ class pipeline_lsu extends NutCoreModule with HasLSUConst {
   lsu_resp.io.DecodeIn.valid := lsu_resp_valid
 }
 
-class multicycle_lsu extends NutCoreModule with HasLSUConst {
+class multicycle_lsu(implicit val p: NutCoreConfig) extends NutCoreModule with HasLSUConst {
   val io = IO(new SIMD_LSU_IO)
   val (valid, src1, src2, func) = (io.in.valid, io.in.bits.src1, io.in.bits.src2, io.in.bits.func)
   def access(valid: Bool, src1: UInt, src2: UInt, func: UInt): UInt = {
@@ -304,10 +305,10 @@ class multicycle_lsu extends NutCoreModule with HasLSUConst {
   io.dmem.req.valid := valid && (state === s_idle) && !io.loadAddrMisaligned && !io.storeAddrMisaligned && !io.flush
   io.dmem.resp.ready := true.B
   io.out.bits := Mux(partialLoad, rdataPartialLoad, rdata(XLEN-1,0))
-  io.out.valid := Mux( io.loadAddrMisaligned || io.storeAddrMisaligned, false.B, io.dmem.resp.fire() && (state === s_wait_resp)|| state ===s_wait_fire)
+  io.out.valid := Mux( io.loadAddrMisaligned || io.storeAddrMisaligned, false.B, io.dmem.resp.fire() && (state === s_wait_resp)|| state ===s_wait_fire) && !(reqAddr === "hffffffff81d8ffc0".U(VAddrBits-1,0) && LSUOpType.isAtom(func))
   io.in.ready := !valid || io.out.fire()
   io.isMMIO := DontCare
-  Debug("[LSU-EXECUNIT] state %x dresp %x dpf %x lm %x sm %x resfire %x outvalid %x \n", state, io.dmem.resp.fire(), false.B, io.loadAddrMisaligned, io.storeAddrMisaligned,io.dmem.resp.fire(),io.out.valid)
+  Debug("[LSU-EXECUNIT] state %x dresp %x dpf %x lm %x sm %x resfire %x outvalid %x rdata %x\n", state, io.dmem.resp.fire(), false.B, io.loadAddrMisaligned, io.storeAddrMisaligned,io.dmem.resp.fire(),io.out.valid,io.dmem.resp.bits.rdata)
 
   switch (state) {
     is (s_idle) { when(io.flush){
