@@ -16,6 +16,7 @@ class SIMD_LSU_IO extends FunctionUnitIO {
   val flush = Input(Bool())
   val DecodeOut = new DecodeIO
   val DecodeIn = Flipped(new DecodeIO)
+  val dtlbPF = Output(Bool())
 }
 
 class SIMD_LSU extends NutCoreModule with HasLSUConst {
@@ -248,6 +249,11 @@ class multicycle_lsu extends NutCoreModule with HasLSUConst {
   val s_idle :: s_wait_resp :: s_wait_fire ::Nil = Enum(3)
   val state = RegInit(s_idle)
 
+  val dtlbFinish = WireInit(false.B)
+  val dtlbPF = WireInit(false.B)
+  val dtlbEnable = WireInit(false.B)
+  io.dtlbPF := dtlbPF
+
   Debug( "[LSU] addr %x, size %x, wdata_raw %x, isStore %x reqfire %x \n", addr, func(1,0), io.wdata, isStore,io.dmem.req.fire())
 
   val size = func(1,0)
@@ -307,10 +313,18 @@ class multicycle_lsu extends NutCoreModule with HasLSUConst {
     is (s_idle) { when(io.flush){
                     state := s_idle
                 }.elsewhen (io.dmem.req.fire()){ 
-                    state := s_wait_resp } }
-    is (s_wait_resp) { when (io.dmem.resp.fire() && io.out.fire() || io.flush) { state := s_idle 
-                      }.elsewhen(io.dmem.resp.fire() && !io.out.fire()) {state := s_wait_fire
-                                                                        rdatacache := rdata} }
+                    state := s_wait_resp 
+                }.elsewhen(dtlbPF){
+                    state := s_wait_fire
+                } }
+    is (s_wait_resp) { when (io.dmem.resp.fire() && io.out.fire() || io.flush || dtlbPF) { 
+                        state := s_idle 
+                      }.elsewhen(io.dmem.resp.fire() && !io.out.fire()) {
+                        state := s_wait_fire
+                        rdatacache := rdata
+                      }.elsewhen(dtlbPF){
+                        state := s_wait_fire
+                      }}
     is (s_wait_fire) { when(io.out.fire() || io.flush){state := s_idle}}
   }
 
@@ -324,6 +338,11 @@ class multicycle_lsu extends NutCoreModule with HasLSUConst {
   BoringUtils.addSource(BoolStopWatch(io.dmem.isWrite(), io.dmem.resp.fire()), "perfCntCondMstoreStall")
   BoringUtils.addSource(io.isMMIO, "perfCntCondMmmioInstr")
 
+  if (Settings.get("HasDTLB")) {
+    BoringUtils.addSink(dtlbFinish, "DTLBFINISH")
+    BoringUtils.addSink(dtlbPF, "DTLBPF")
+    BoringUtils.addSink(dtlbEnable, "DTLBENABLE")
+  }
 
   val lsuMMIO = WireInit(false.B)
   BoringUtils.addSink(lsuMMIO, "lsuMMIO")
