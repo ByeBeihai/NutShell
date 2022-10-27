@@ -602,8 +602,8 @@ class PALU extends NutCoreModule with HasInstrType{
     val isRs_8  = func(6,5) === 1.U && func(4,3) =/= 0.U && func(2,1) === 2.U && funct3 === 0.U
     val isLs_8  = func(6,5) === 1.U && func(4,3) =/= 0.U && func(2,0) === 6.U && funct3 === 0.U
     val isLR_8  =(func(6,3) === 5.U || func(6,3) === 6.U)&& func(2,0) === 7.U && funct3 === 0.U
-    val isRs_32 =((func(5).asBool && func(4,3) =/= 0.U) || func(6,3) === 8.U) && func(2,1) === 0.U && funct3 === 2.U
-    val isLs_32 =((func(5).asBool && func(4,3) =/= 0.U) || func(6,3) === 8.U) && func(2,0) === 2.U && funct3 === 2.U
+    val isRs_32 =((func(6,5)==="b01".U && func(4,3) =/= 0.U) || func(6,3) === 8.U) && func(2,1) === 0.U && funct3 === 2.U
+    val isLs_32 =((func(6,5)==="b01".U && func(4,3) =/= 0.U) || func(6,3) === 8.U) && func(2,0) === 2.U && funct3 === 2.U
     val isLR_32 =(func(6,3) === 5.U || func(6,3) === 6.U) && func(2,0) === 3.U && funct3 === 2.U
     val isLR_Q31= func(6,4) === "b011".U && func(2,0) === "b111".U && funct3 === "b001".U
     val isLs_Q31= func(6,4) === "b001".U && func(2,0) === "b011".U && funct3 === "b001".U
@@ -677,11 +677,11 @@ class PALU extends NutCoreModule with HasInstrType{
                         tmp := src1_cat >> src2_cat
                     }
                     when(Round){
-                        res := (Cat(tmp(width-1),tmp) + 1.U)(width,1).asUInt
+                        res := (extender(Arithmetic,tmp,width+1) + 1.U)(width,1).asUInt
                     }.otherwise{
                         res := tmp.asUInt
                     }
-                    Debug("[PALUrightshift] src1_cat %x src2_cat %x tmp %x res %x\n",src1_cat,src2_cat,tmp,res)
+                    Debug("[PALUrightshift] src1_cat %x src2 %x src2_cat %x tmp %x res %x\n",src1_cat,src2,src2_cat,tmp,res)
                 }.otherwise{
                     val tmp = Cat(Fill(width,src1_clip(width-1)),src1_clip)
                     val tmp1= tmp << src2
@@ -709,15 +709,15 @@ class PALU extends NutCoreModule with HasInstrType{
     def SetSrc2(width: Int,src2:UInt,isLR:Bool) = {
         val realSrc2 = WireInit(src2(log2Up(width)-1,0))
         when(isLR){
-            when(src2(log2Up(width)).asBool){
+            when(src2(log2Up(width)-1).asBool){
                 val tmp = (Fill(log2Up(width),1.U) ^ src2(log2Up(width)-1,0)) + 1.U
                 realSrc2 := tmp
-                when(tmp === 0.U){
-                    realSrc2 := Fill(log2Up(width),1.U)
+                when(tmp === Cat(1.U,Fill(log2Up(width)-1,0.U))){
+                    realSrc2 := Cat(0.U,Fill(log2Up(width)-1,1.U))
                 }
             }
         }
-        Cat(src2(log2Up(width)),realSrc2).asUInt
+        Cat(src2(log2Up(width)-1),realSrc2).asUInt
     }
     def cliper(width: Int, src1:UInt, src2:UInt,Arithmetic:Bool)={
         var l = List(0.U)
@@ -832,7 +832,9 @@ class PALU extends NutCoreModule with HasInstrType{
                 tmp := src1(7,0)
             }
             l= List.concat(List(tmp),l)
+            Debug("[PALUINSB] tmp %x\n",tmp)
         }
+        Debug("[PALUINSB] src1 %x src2 %x src3 %x\n",src1,src2,src3)
         l.dropRight(1).reduce(Cat(_,_))
     }
 
@@ -840,27 +842,31 @@ class PALU extends NutCoreModule with HasInstrType{
     val shifterOV  = WireInit(false.B)
 
     when(isRs_16 | isLs_16 |isLR_16){
-        val tmp = SetSrc2(16,src2,isLR_16)
-        val realSrc2 = tmp(log2Up(16)-1,0)
-        val isLR_do_rightshift = tmp(log2Up(16))
+        val tmp = WireInit(0.U(64.W))
+            tmp:= Mux(isLR_16,SetSrc2(32,src2,true.B),SetSrc2(16,src2,false.B))
+        val realSrc2 = Mux(isLR_16,tmp(log2Up(32)-1,0), tmp(log2Up(16)-1,0))
+        val isLR_do_rightshift = tmp(log2Up(32))
         val tmp2 = shifter(16,src1,realSrc2,Round,ShiftSigned,isRs_16||isLR_16 && isLR_do_rightshift.asBool,Arithmetic)
         shifterRes := tmp2(XLEN-1,0).asUInt
         shifterOV  := tmp2(XLEN).asBool
     }.elsewhen(isRs_8 | isLs_8 |isLR_8){
-        val tmp = SetSrc2(8,src2,isLR_8)
-        val realSrc2 = tmp(log2Up(8)-1,0)
-        val isLR_do_rightshift = tmp(log2Up(8))
+        val tmp = WireInit(0.U(64.W))
+            tmp:= Mux(isLR_8,SetSrc2(16,src2,true.B),SetSrc2(8,src2,false.B))
+        val realSrc2 = Mux(isLR_8,tmp(log2Up(16)-1,0), tmp(log2Up(8)-1,0))
+        val isLR_do_rightshift = tmp(log2Up(16))
         val tmp2 = shifter(8,src1,realSrc2,Round,ShiftSigned,isRs_8||isLR_8 && isLR_do_rightshift.asBool,Arithmetic)
         shifterRes := tmp2(XLEN-1,0).asUInt
         shifterOV  := tmp2(XLEN).asBool
+        Debug("[PALU] isLR_do_rightshift %x tmp %x realSrc2 %x tmp2 %x \n",isLR_do_rightshift,tmp,realSrc2,tmp2)
     }.elsewhen(isRs_32 | isLs_32 | isLR_32 | isLs_Q31 | isLR_Q31){
-        val tmp = SetSrc2(32,src2,isLR_32 | isLR_Q31)
-        val realSrc2 = tmp(log2Up(32)-1,0)
-        val isLR_do_rightshift = tmp(log2Up(32))
-        val tmp2 = shifter(32,src1,realSrc2,Round,ShiftSigned,isRs_32||(isLR_32 || isLR_Q31) && isLR_do_rightshift.asBool,Arithmetic)
+        val tmp = WireInit(0.U(64.W))
+            tmp:= Mux(isLR_Q31 | isLR_32,SetSrc2(64,src2,true.B),SetSrc2(32,src2,false.B))
+        val realSrc2 = Mux(isLR_Q31 | isLR_32,tmp(log2Up(64)-1,0),tmp(log2Up(32)-1,0))
+        val isLR_do_rightshift = tmp(log2Up(64))
+        val tmp2 = shifter(32,Mux(isLR_Q31 | isLs_Q31,ZeroExt(src1(31,0),XLEN),src1),realSrc2,Round,ShiftSigned,isRs_32||(isLR_32 || isLR_Q31) && isLR_do_rightshift.asBool,Arithmetic)
         shifterRes := Mux(isLs_Q31 | isLR_Q31,SignExt(tmp2(31,0),XLEN),tmp2(XLEN-1,0).asUInt)
         shifterOV  := tmp2(XLEN).asBool
-        Debug("[PALU] isLs_Q31 %x isLR_Q31 %x isLR_do_rightshift %x \n",isLs_Q31,isLR_Q31,isLR_do_rightshift)
+        Debug("[PALU] isLs_Q31 %x isLR_Q31 %x isLR_do_rightshift %x tmp %x realSrc2 %x \n",isLs_Q31,isLR_Q31,isLR_do_rightshift,tmp,realSrc2)
     }.elsewhen(isRs_XLEN){
         val tmp = SetSrc2(XLEN,src2,false.B)
         val realSrc2 = tmp(log2Up(XLEN)-1,0)
@@ -959,7 +965,7 @@ class PALU extends NutCoreModule with HasInstrType{
     val insbRes= WireInit(src1)
     val insbOV = WireInit(false.B)
     when(isInsertb){
-        insbRes := insertb(src1,src2(log2Up(XLEN/8-5)-1,0),src3)
+        insbRes := insertb(src1,src2(log2Up(XLEN/8)-1,0),src3)
     }
 
     val packRes= WireInit(src1)
