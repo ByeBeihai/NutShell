@@ -160,7 +160,7 @@ object SIMDUOpType {
   def zunpkd831 = "b1010110".U
   def zunpkd832 = "b1010110".U
   def smmul   = "b0100000".U
-  def smmulu  = "b0100000".U
+  def smmulu  = "b0101000".U
   def kwmmul  = "b0110001".U
   def kwmmulu = "b0111001".U
   def kmmac   = "b0110000".U

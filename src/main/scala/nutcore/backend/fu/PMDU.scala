@@ -1227,12 +1227,12 @@ class PMDU extends NutCoreModule {
                 }
                 res
             }
-        }.elsewhen(isPMA_64ONLY(func_out,funct3)){
+        }.elsewhen(isPMA_64ONLY(func_out,funct3_out)){
             io.out.bits.result := {
                 val usesrc3 = !(func_out(2,0)==="b100".U || func_out === "b0011101".U)
-                val mul1sub = func(6,3) === "b0101".U || func(6,3) === "b0111".U || func(6,1) === "b010011".U
-                val mul2sub = func(6,3) === "b0110".U || func(6,1) === "b010011".U
-                val saturating = !(func(6,5) === "b01".U && func(2,0) === "b100".U)
+                val mul1sub = func_out(6,3) === "b0101".U || func_out(6,3) === "b0111".U || func_out(6,1) === "b010011".U
+                val mul2sub = func_out(6,3) === "b0110".U || func_out(6,1) === "b010011".U
+                val saturating = !(func_out(6,5) === "b01".U && func_out(2,0) === "b100".U)
                 adder68_0 := Mux(usesrc3,SignExt(src3_out,66),0.U)
                 adder68_1 := (Fill(66,mul1sub)^SignExt(MulAdd33_0.io.out.bits.result(63,0),66)) + mul1sub.asUInt
                 adder68_2 := (Fill(66,mul2sub)^SignExt(MulAdd65_0.io.out.bits.result(63,0),66)) + mul2sub.asUInt
@@ -1501,8 +1501,8 @@ class PMDU extends NutCoreModule {
         }
     }.elsewhen(isQ31_type1(func_out,funct3_out)){
         io.out.bits.result := {
-            val bb = func_out(4,3) === "b00".U 
-            val bt = func_out(4,3) === "b01".U 
+            val bb = func_out(4,3) === "b01".U 
+            val bt = func_out(4,3) === "b10".U 
             val src1_clip1 = Mux(bb,src1_out(15,0),Mux(bt,src1_out(15,0),src1_out(31,16)))
             val src2_clip1 = Mux(bb,src2_out(15,0),src2_out(31,16))
             val tmp = MulAdd65_0.io.out.bits.result(31,0)
@@ -1526,6 +1526,7 @@ class PMDU extends NutCoreModule {
                     res := SignExt(Cat(0.U,Fill(31,1.U)),XLEN)
                 }
             }
+            Debug("[PMDUQ31T1]bb %x bt %x src1_clip1 %x src2_clip1 %x adder68_0 %x adder68_1 %x tmp68 %x res %x\n",bb,bt,src1_clip1,src2_clip1,adder68_0,adder68_1,tmp68,res)
             res
         }
     }.elsewhen(isC31(func_out,funct3_out)){
