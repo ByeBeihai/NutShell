@@ -11,68 +11,11 @@ import bus.simplebus._
 import top.Settings
 import difftest._
 
-object VALUOpType {
-    // rearrange OpType according to element size
-    // mostly sync with VXUOpType
-    def OpLen = 8
-    def add8  = "b00000_00".U
-    def add16 = "b00000_01".U
-    def add32 = "b00000_10".U
-    def add64 = "b00000_11".U
-    
-    def sub8  = "b00001_00".U
-    def sub16 = "b00001_01".U
-    def sub32 = "b00001_10".U
-    def sub64 = "b00001_11".U
-    
-    // 00010 reserved for rsub
-    
-    def sll8  = "b00011_00".U
-    def sll16 = "b00011_01".U
-    def sll32 = "b00011_10".U
-    def sll64 = "b00011_11".U
-    
-    def srl8  = "b00100_00".U
-    def srl16 = "b00100_01".U
-    def srl32 = "b00100_10".U
-    def srl64 = "b00100_11".U
-    
-    def sra8  = "b00101_00".U
-    def sra16 = "b00101_01".U
-    def sra32 = "b00101_10".U
-    def sra64 = "b00101_11".U
-    
-    
-    // note: normal calculation does NOT use this!!!
-    // thus this encoding may NOT be the most proper choice
-    // may introduce confliction with other function
-    def slt8  = "b00110_00".U
-    def slt16 = "b00110_01".U
-    def slt32 = "b00110_10".U
-    def slt64 = "b00110_11".U
-    
-    def sltu8  = "b00111_00".U
-    def sltu16 = "b00111_01".U
-    def sltu32 = "b00111_10".U
-    def sltu64 = "b00111_11".U
-    
-    
-    
-    // no extra handling needed
-    def xor  = "b01100".U
-    
-    def or   = "b01011".U
-    
-    def and  = "b01010".U
-    
-    
-    
-    
-}
-
-
 class PALUIO extends NutCoreBundle {
-    val in = Flipped(Decoupled(new DecodeIO))
+    val in = Flipped(Decoupled(new Bundle{
+        val DecodeIn = new DecodeIO
+        val Pctrl = new PIDUIO
+    }))
     val out = Decoupled(new Bundle{
         val result = Output(UInt(XLEN.W))
         val DecodeOut = new DecodeIO
@@ -83,59 +26,59 @@ class PALU extends NutCoreModule with HasInstrType{
     val io = IO(new PALUIO)
 
     val valid = io.in.valid
-    val src1  = io.in.bits.data.src1
-    val src2  = io.in.bits.data.src2
-    val src3  = io.in.bits.data.src3
-    val func  = io.in.bits.ctrl.fuOpType
-    val funct3= io.in.bits.ctrl.funct3
-    val func24= io.in.bits.ctrl.func24
-    val func23= io.in.bits.ctrl.func23
+    val src1  = io.in.bits.DecodeIn.data.src1
+    val src2  = io.in.bits.DecodeIn.data.src2
+    val src3  = io.in.bits.DecodeIn.data.src3
+    val func  = io.in.bits.DecodeIn.ctrl.fuOpType
+    val funct3= io.in.bits.DecodeIn.ctrl.funct3
+    val func24= io.in.bits.DecodeIn.ctrl.func24
+    val func23= io.in.bits.DecodeIn.ctrl.func23
 
     io.in.ready := !valid || io.out.fire()
     io.out.valid:= valid
-    io.out.bits.DecodeOut := io.in.bits
+    io.out.bits.DecodeOut := io.in.bits.DecodeIn
     
-    val isAdd_64 = func(6,5) === "b10".U && func(2,0) === "b000".U && funct3 === "b001".U 
-    val isAdd_32 = func(2,0).asUInt === 0.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U) && funct3 === 2.U//false.B//VALUOpType.add32 === func
-    val isAdd_16 = func(2,0).asUInt === 0.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U) && funct3 === 0.U
-    val isAdd_8  = func(2,0).asUInt === 4.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U) && funct3 === 0.U//false.B//VALUOpType.add8 === func
-    val isAdd_Q15= func(6,4) === "b000".U && func(2,0) === "b010".U && funct3 === 1.U
-    val isAdd_Q31= func(6,4) === "b000".U && func(2,0) === "b000".U && funct3 === 1.U
-    val isAdd_C31= func(6,4) === "b001".U && func(2,0) === "b000".U && funct3 === 1.U
-    val isAve    = func === "b1110000".U && funct3 === "b000".U
-    val isAdd = isAdd_64 | isAdd_32 | isAdd_16 | isAdd_8 | isAdd_Q15 | isAdd_Q31 | isAdd_C31 | isAve
+    val isAdd_64 = io.in.bits.Pctrl.isAdd_64
+    val isAdd_32 = io.in.bits.Pctrl.isAdd_32
+    val isAdd_16 = io.in.bits.Pctrl.isAdd_16
+    val isAdd_8  = io.in.bits.Pctrl.isAdd_8
+    val isAdd_Q15= io.in.bits.Pctrl.isAdd_Q15
+    val isAdd_Q31= io.in.bits.Pctrl.isAdd_Q31
+    val isAdd_C31= io.in.bits.Pctrl.isAdd_C31
+    val isAve    = io.in.bits.Pctrl.isAve
+    val isAdd = io.in.bits.Pctrl.isAdd
 
-    val isSub_64 = func(6,5) === "b10".U && func(2,0) === "b001".U && funct3 === "b001".U 
-    val isSub_32 = func(2,0).asUInt === 1.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U) && funct3 === 2.U//false.B//VALUOpType.sub32 === io.in.func
-    val isSub_16 = func(2,0).asUInt === 1.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U) && funct3 === 0.U//VALUOpType.sub16 === io.in.func
-    val isSub_8  = func(2,0).asUInt === 5.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U) && funct3 === 0.U//VALUOpType.sub8 === io.in.func
-    val isSub_Q15= func(6,4) === "b000".U && func(2,0) === "b011".U && funct3 === 1.U
-    val isSub_Q31= func(6,4) === "b000".U && func(2,0) === "b001".U && funct3 === 1.U
-    val isSub_C31= func(6,4) === "b001".U && func(2,0) === "b001".U && funct3 === 1.U 
+    val isSub_64 = io.in.bits.Pctrl.isSub_64
+    val isSub_32 = io.in.bits.Pctrl.isSub_32
+    val isSub_16 = io.in.bits.Pctrl.isSub_16
+    val isSub_8  = io.in.bits.Pctrl.isSub_8
+    val isSub_Q15= io.in.bits.Pctrl.isSub_Q15
+    val isSub_Q31= io.in.bits.Pctrl.isSub_Q31
+    val isSub_C31= io.in.bits.Pctrl.isSub_C31
 
-    val isCras_16 = func(2,0).asUInt === 2.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U)&& funct3 === 0.U
-    val isCrsa_16 = func(2,0).asUInt === 3.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U)&& funct3 === 0.U
-    val isCras_32 = func(2,0).asUInt === 2.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U)&& funct3 === 2.U
-    val isCrsa_32 = func(2,0).asUInt === 3.U && (func(6,5).asUInt === 0.U ||  func(6,3) === 4.U)&& funct3 === 2.U
-    val isCr = isCras_16 | isCrsa_16 | isCras_32 | isCrsa_32
+    val isCras_16 = io.in.bits.Pctrl.isCras_16
+    val isCrsa_16 = io.in.bits.Pctrl.isCrsa_16
+    val isCras_32 = io.in.bits.Pctrl.isCras_32
+    val isCrsa_32 = io.in.bits.Pctrl.isCrsa_32
+    val isCr = io.in.bits.Pctrl.isCr
 
-    val isStas_16 = (func(6,5) === "b11".U || func(6,4) === "b101".U) && func(2,0) === "b010".U && funct3 === "b010".U
-    val isStsa_16 = (func(6,5) === "b11".U || func(6,4) === "b101".U) && func(2,0) === "b011".U && funct3 === "b010".U
-    val isStas_32 = (func(6,5) === "b11".U || func(6,4) === "b101".U) && func(2,0) === "b000".U && funct3 === "b010".U
-    val isStsa_32 = (func(6,5) === "b11".U || func(6,4) === "b101".U) && func(2,0) === "b001".U && funct3 === "b010".U
-    val isSt = isStas_16 | isStsa_16 | isStas_32 | isStsa_32
+    val isStas_16 = io.in.bits.Pctrl.isStas_16
+    val isStsa_16 = io.in.bits.Pctrl.isStsa_16
+    val isStas_32 = io.in.bits.Pctrl.isStas_32
+    val isStsa_32 = io.in.bits.Pctrl.isStsa_32
+    val isSt = io.in.bits.Pctrl.isSt
 
-    val isComp_16 = func(2,0).asUInt === 6.U && (func(6,5) === 0.U || func(6,3) === 4.U) && funct3 === 0.U 
-    val isComp_8  = func(2,0).asUInt === 7.U && (func(6,5) === 0.U || func(6,3) === 4.U) && funct3 === 0.U 
-    val isCompare = isComp_16 | isComp_8
+    val isComp_16 = io.in.bits.Pctrl.isComp_16
+    val isComp_8  = io.in.bits.Pctrl.isComp_8
+    val isCompare = io.in.bits.Pctrl.isCompare
 
-    val isMaxMin_16  = func(6,4) === 4.U && func(2,1) === 0.U && funct3 === 0.U
-    val isMaxMin_8   = func(6,4) === 4.U && func(2,1) === 2.U && funct3 === 0.U
-    val isMaxMin_XLEN= func === "b0000101".U && funct3(2) === "b1".U  && funct3(0) === "b0".U && io.in.bits.cf.instr(6,0) === "b0110011".U
-    val isMaxMin_32  = (func(6,3) === "b1001".U || func(6,3) === "b1010".U) && func(2,1) === 0.U && funct3 === "b010".U
-    val isMaxMin     = isMaxMin_16 | isMaxMin_8 | isMaxMin_XLEN | isMaxMin_32
+    val isMaxMin_16  = io.in.bits.Pctrl.isMaxMin_16
+    val isMaxMin_8   = io.in.bits.Pctrl.isMaxMin_8
+    val isMaxMin_XLEN= io.in.bits.Pctrl.isMaxMin_XLEN
+    val isMaxMin_32  = io.in.bits.Pctrl.isMaxMin_32
+    val isMaxMin     = io.in.bits.Pctrl.isMaxMin
 
-    val isPbs     = func(6,1) === "b111111".U && funct3 === 0.U
+    val isPbs     = io.in.bits.Pctrl.isPbs
 
     val isSub = WireInit(0.U(8.W))
     when(isSub_64 | isSub_32 | isSub_16 | isSub_8 | isComp_16 | isComp_8 | isMaxMin | isPbs | isSub_Q15 | isSub_Q31 | isSub_C31){
@@ -317,96 +260,36 @@ class PALU extends NutCoreModule with HasInstrType{
             add2_drophighestbit := DontCare
         }
     } else if (XLEN == 64) {
-        when (isAdd_8 | isSub_8) {
-            add1 := add_src_map(8, src1, 0.B,SrcSigned,false.B)
-            add2 := add_src_map(8, src2, isSub,SrcSigned,false.B)
+        when (isAdd_8 | isSub_8 | isComp_8 | isMaxMin_8 | isPbs) {
+            val isSrcSigned = Mux(isMaxMin_8,!func(3).asBool,Mux(isPbs,false.B,SrcSigned))
+            add1 := add_src_map(8, src1, 0.B,isSrcSigned,false.B)
+            add2 := add_src_map(8, src2, isSub,isSrcSigned,false.B)
             add1_drophighestbit := add_src_map_drophighestbit(8, src1, 0.B,false.B)
             add2_drophighestbit := add_src_map_drophighestbit(8, src2, isSub,false.B)
-        } .elsewhen (isAdd_16 | isSub_16) {
-            add1 := add_src_map(16, src1, 0.B,SrcSigned,false.B)
-            add2 := add_src_map(16, src2, isSub,SrcSigned,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(16, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(16, src2, isSub,false.B)
-        } .elsewhen (isAdd_32 | isSub_32) {
-            add1 := add_src_map(32, src1, 0.B,SrcSigned,false.B)
-            add2 := add_src_map(32, src2, isSub,SrcSigned,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(32, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(32, src2, isSub,false.B)
-        } .elsewhen (isAdd_64 | isSub_64) {
-            add1 := add_src_map(64, src1, 0.B,SrcSigned,false.B)
-            add2 := add_src_map(64,  src2, isSub,SrcSigned,false.B)
+        } .elsewhen (isAdd_16 | isSub_16 | isCras_16 | isCrsa_16 | isStas_16 | isStsa_16 | isComp_16 | isMaxMin_16 | isAdd_Q15 | isSub_Q15) {
+            val realsrc1 = Mux(isAdd_Q15 | isSub_Q15,Cat(Fill(48,0.U),src1(15,0)),src1)
+            val realsrc2 = Mux(isAdd_Q15 | isSub_Q15,Cat(Fill(48,0.U),src2(15,0)),src2)
+            val isSrcSigned = Mux(isMaxMin_16 | isAdd_Q15 | isSub_Q15,!func(3).asBool,SrcSigned)
+            val isCross = Mux(isCras_16 | isCrsa_16,true.B,false.B)
+            add1 := add_src_map(16, realsrc1, 0.B,isSrcSigned,false.B)
+            add2 := add_src_map(16, realsrc2, isSub,isSrcSigned,isCross)
+            add1_drophighestbit := add_src_map_drophighestbit(16, realsrc1, 0.B,false.B)
+            add2_drophighestbit := add_src_map_drophighestbit(16, realsrc2, isSub,isCross)
+        } .elsewhen (isAdd_32 | isSub_32 | isCras_32 | isCrsa_32 | isStas_32 | isStsa_32 | isMaxMin_32 | isAdd_Q31 | isSub_Q31 | isSub_C31 |isAdd_C31) {
+            val realsrc1 = Mux(isAdd_Q31 | isSub_Q31 | isSub_C31 |isAdd_C31,Cat(Fill(32,0.U),src1(31,0)),src1)
+            val realsrc2 = Mux(isAdd_Q31 | isSub_Q31 | isSub_C31 |isAdd_C31,Cat(Fill(32,0.U),src2(31,0)),src2)
+            val isSrcSigned = Mux(isAdd_Q31 | isSub_Q31 | isSub_C31 |isAdd_C31,!func(3).asBool,Mux(isMaxMin_32,func(3).asBool,SrcSigned))
+            val isCross = Mux(isCras_32 | isCrsa_32,true.B,false.B)
+            add1 := add_src_map(32, realsrc1, 0.B,isSrcSigned,false.B)
+            add2 := add_src_map(32, realsrc2, isSub,isSrcSigned,isCross)
+            add1_drophighestbit := add_src_map_drophighestbit(32, realsrc1, 0.B,false.B)
+            add2_drophighestbit := add_src_map_drophighestbit(32, realsrc2, isSub,isCross)
+        } .elsewhen (isAdd_64 | isSub_64 | isMaxMin_XLEN) {
+            val isSrcSigned = Mux(isMaxMin_XLEN | isAve,true.B,SrcSigned)
+            add1 := add_src_map(64, src1, 0.B,isSrcSigned,false.B)
+            add2 := add_src_map(64,  src2, isSub,isSrcSigned,false.B)
             add1_drophighestbit := add_src_map_drophighestbit(64, src1, 0.B,false.B)
             add2_drophighestbit := add_src_map_drophighestbit(64, src2, isSub,false.B)
-        } .elsewhen (isCras_16 | isCrsa_16){
-            add1 := add_src_map(16, src1, 0.B,SrcSigned,false.B)
-            add2 := add_src_map(16, src2, isSub,SrcSigned,true.B)
-            add1_drophighestbit := add_src_map_drophighestbit(16, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(16, src2, isSub,true.B)
-        } .elsewhen(isCras_32 | isCrsa_32){
-            add1 := add_src_map(32, src1, 0.B,SrcSigned,false.B)
-            add2 := add_src_map(32, src2, isSub,SrcSigned,true.B)
-            add1_drophighestbit := add_src_map_drophighestbit(32, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(32, src2, isSub,true.B)
-        } .elsewhen(isStas_16 | isStsa_16){
-            add1 := add_src_map(16, src1, 0.B,SrcSigned,false.B)
-            add2 := add_src_map(16, src2, isSub,SrcSigned,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(16, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(16, src2, isSub,false.B)
-        } .elsewhen(isStas_32 | isStsa_32){
-            add1 := add_src_map(32, src1, 0.B,SrcSigned,false.B)
-            add2 := add_src_map(32, src2, isSub,SrcSigned,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(32, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(32, src2, isSub,false.B)
-        } .elsewhen(isComp_16){
-            add1 := add_src_map(16, src1, 0.B,SrcSigned,false.B)
-            add2 := add_src_map(16, src2, isSub,SrcSigned,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(16, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(16, src2, isSub,false.B)
-        } .elsewhen(isComp_8){
-            add1 := add_src_map(8, src1, 0.B,SrcSigned,false.B)
-            add2 := add_src_map(8, src2, isSub,SrcSigned,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(16, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(16, src2, isSub,false.B)
-        } .elsewhen(isMaxMin_16){
-            add1 := add_src_map(16, src1, 0.B,!func(3).asBool,false.B)
-            add2 := add_src_map(16, src2, isSub,!func(3).asBool,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(16, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(16, src2, isSub,false.B)
-        } .elsewhen(isMaxMin_8){
-            add1 := add_src_map(8, src1, 0.B,!func(3).asBool,false.B)
-            add2 := add_src_map(8, src2, isSub,!func(3).asBool,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(8, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(8, src2, isSub,false.B)
-        } .elsewhen(isMaxMin_32){
-            add1 := add_src_map(32, src1, 0.B,func(3).asBool,false.B)
-            add2 := add_src_map(32, src2, isSub,func(3).asBool,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(32, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(32, src2, isSub,false.B)
-        }.elsewhen(isMaxMin_XLEN){
-            add1 := add_src_map(XLEN, src1, 0.B,true.B,false.B)
-            add2 := add_src_map(XLEN, src2, isSub,true.B,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(XLEN, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(XLEN, src2, isSub,false.B)
-        } .elsewhen(isPbs){
-            add1 := add_src_map(8, src1, 0.B,false.B,false.B)
-            add2 := add_src_map(8, src2, isSub,false.B,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(8, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(8, src2, isSub,false.B)
-        }  .elsewhen(isAdd_Q15 | isSub_Q15){
-            add1 := add_src_map(16, Cat(Fill(48,0.U),src1(15,0)), 0.B,!func(3).asBool,false.B)
-            add2 := add_src_map(16, Cat(Fill(48,0.U),src2(15,0)), isSub,!func(3).asBool,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(16, Cat(Fill(48,0.U),src1(15,0)), 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(16, Cat(Fill(48,0.U),src2(15,0)), isSub,false.B)
-        } .elsewhen(isAdd_Q31 | isSub_Q31 | isSub_C31 |isAdd_C31){
-            add1 := add_src_map(32, Cat(Fill(32,0.U),src1(31,0)), 0.B,!func(3).asBool,false.B)
-            add2 := add_src_map(32, Cat(Fill(32,0.U),src2(31,0)), isSub,!func(3).asBool,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(32,Cat(Fill(32,0.U),src1(31,0)), 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(32,Cat(Fill(32,0.U),src2(31,0)), isSub,false.B)
-        }.elsewhen(isAve){
-            add1 := add_src_map(64, src1, 0.B,true.B,false.B)
-            add2 := add_src_map(64, src2, isSub,true.B,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(64,src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(64,src2, isSub,false.B)
         }.otherwise {
             add1 := DontCare
             add2 := DontCare
@@ -515,10 +398,11 @@ class PALU extends NutCoreModule with HasInstrType{
 
     val adderOV = WireInit(false.B)
     val adderRes_final = WireInit(adderRes)
-    when(isAdd_16 | isSub_16 | isCras_16 | isCrsa_16 | isStas_16 | isStsa_16){
-        when(Saturating){
-            val Saturated_Check_Res = Saturated_Check(adderRes_ori,adderRes_ori_drophighestbit,16,SrcSigned,isSub)
-            adderRes_final := Saturated_Check_Res(XLEN-1,0)
+    when(isAdd_16 | isSub_16 | isCras_16 | isCrsa_16 | isStas_16 | isStsa_16 | isAdd_Q15| isSub_Q15){
+        when(Saturating | isAdd_Q15 | isSub_Q15){
+            val isSrcSigned =Mux(isAdd_Q15| isSub_Q15,!func(3).asBool,SrcSigned)
+            val Saturated_Check_Res = Saturated_Check(adderRes_ori,adderRes_ori_drophighestbit,16,isSrcSigned,isSub)
+            adderRes_final := Mux(isAdd_Q15 | isSub_Q15,SignExt(Saturated_Check_Res(15,0),XLEN),Saturated_Check_Res(XLEN-1,0))
             adderOV := Saturated_Check_Res(XLEN).asBool
         }.elsewhen(Translation){
             adderRes_final := AdderRes_Translation(adderRes_ori,16)
@@ -531,10 +415,11 @@ class PALU extends NutCoreModule with HasInstrType{
         }.elsewhen(Translation){
             adderRes_final := AdderRes_Translation(adderRes_ori,8)
         }
-    }.elsewhen(isAdd_32 | isSub_32 | isCras_32 | isCrsa_32 | isStas_32 | isStsa_32){
-        when(Saturating){
-            val Saturated_Check_Res = Saturated_Check(adderRes_ori,adderRes_ori_drophighestbit,32,SrcSigned,isSub)
-            adderRes_final := Saturated_Check_Res(XLEN-1,0)
+    }.elsewhen(isAdd_32 | isSub_32 | isCras_32 | isCrsa_32 | isStas_32 | isStsa_32 | isAdd_Q31 | isSub_Q31){
+        when(Saturating | isAdd_Q31 | isSub_Q31){
+            val isSrcSigned =Mux(isAdd_Q31 | isSub_Q31,!func(3).asBool,SrcSigned)
+            val Saturated_Check_Res = Saturated_Check(adderRes_ori,adderRes_ori_drophighestbit,32,isSrcSigned,isSub)
+            adderRes_final := Mux(isAdd_Q31 | isSub_Q31,SignExt(Saturated_Check_Res(31,0),XLEN),Saturated_Check_Res(XLEN-1,0))
             adderOV := Saturated_Check_Res(XLEN).asBool
         }.elsewhen(Translation){
             adderRes_final := AdderRes_Translation(adderRes_ori,32)
@@ -547,14 +432,6 @@ class PALU extends NutCoreModule with HasInstrType{
         }.elsewhen(Translation){
             adderRes_final := AdderRes_Translation(adderRes_ori,64)
         }
-    }.elsewhen(isAdd_Q15| isSub_Q15){
-        val Saturated_Check_Res = Saturated_Check(adderRes_ori,adderRes_ori_drophighestbit,16,!func(3).asBool,isSub)
-        adderRes_final := SignExt(Saturated_Check_Res(15,0),XLEN)
-        adderOV := Saturated_Check_Res(XLEN).asBool
-    }.elsewhen(isAdd_Q31 | isSub_Q31 ){
-        val Saturated_Check_Res = Saturated_Check(adderRes_ori,adderRes_ori_drophighestbit,32,!func(3).asBool,isSub)
-        adderRes_final := SignExt(Saturated_Check_Res(31,0),XLEN)
-        adderOV := Saturated_Check_Res(XLEN).asBool
     }.elsewhen(isSub_C31 |isAdd_C31){
         adderRes_final := SignExt(AdderRes_Translation(adderRes_ori,32)(31,0),XLEN)
     }.elsewhen(isAve){
@@ -596,22 +473,22 @@ class PALU extends NutCoreModule with HasInstrType{
     Debug("[PALU] isComp_16 %x LessThan %x LessEqual %x compareRes %x \n",isComp_16,LessThan,LessEqual,compareRes)
 
     //shift ops
-    val isRs_16 = func(6,5) === 1.U && func(4,3) =/= 0.U && func(2,1) === 0.U && funct3 === 0.U
-    val isLs_16 = func(6,5) === 1.U && func(4,3) =/= 0.U && func(2,0) === 2.U && funct3 === 0.U 
-    val isLR_16 =(func(6,3) === 5.U || func(6,3) === 6.U)&& func(2,0) === 3.U && funct3 === 0.U
-    val isRs_8  = func(6,5) === 1.U && func(4,3) =/= 0.U && func(2,1) === 2.U && funct3 === 0.U
-    val isLs_8  = func(6,5) === 1.U && func(4,3) =/= 0.U && func(2,0) === 6.U && funct3 === 0.U
-    val isLR_8  =(func(6,3) === 5.U || func(6,3) === 6.U)&& func(2,0) === 7.U && funct3 === 0.U
-    val isRs_32 =((func(6,5)==="b01".U && func(4,3) =/= 0.U) || func(6,3) === 8.U) && func(2,1) === 0.U && funct3 === 2.U
-    val isLs_32 =((func(6,5)==="b01".U && func(4,3) =/= 0.U) || func(6,3) === 8.U) && func(2,0) === 2.U && funct3 === 2.U
-    val isLR_32 =(func(6,3) === 5.U || func(6,3) === 6.U) && func(2,0) === 3.U && funct3 === 2.U
-    val isLR_Q31= func(6,4) === "b011".U && func(2,0) === "b111".U && funct3 === "b001".U
-    val isLs_Q31= func(6,4) === "b001".U && func(2,0) === "b011".U && funct3 === "b001".U
-    val isRs_XLEN = (func(6,3) === "b0010".U || func(6,3)==="b1101".U) && func(2,1) === "b01".U && funct3 === "b001".U
-    val isSRAIWU= func === "b0011010".U && funct3 === "b001".U
-    val isFSRW  = io.in.bits.cf.instr(26,25) === "b10".U  && funct3 === "b101".U   && func === "b0111011".U
-    val isWext    = func(6,4) === "b110".U && func(2,0) === "b111".U && funct3 === "b000".U
-    val isShifter = isRs_16 | isLs_16 | isLR_16 | isRs_8 | isLs_8 | isLR_8 | isRs_32 | isLs_32 | isLR_32 | isLs_Q31 | isLR_Q31 | isRs_XLEN | isSRAIWU | isFSRW | isWext
+    val isRs_16 = io.in.bits.Pctrl.isRs_16
+    val isLs_16 = io.in.bits.Pctrl.isLs_16
+    val isLR_16 = io.in.bits.Pctrl.isLR_16
+    val isRs_8  = io.in.bits.Pctrl.isRs_8
+    val isLs_8  = io.in.bits.Pctrl.isLs_8
+    val isLR_8  = io.in.bits.Pctrl.isLR_8
+    val isRs_32 = io.in.bits.Pctrl.isRs_32
+    val isLs_32 = io.in.bits.Pctrl.isLs_32
+    val isLR_32 = io.in.bits.Pctrl.isLR_32
+    val isLR_Q31= io.in.bits.Pctrl.isLR_Q31
+    val isLs_Q31= io.in.bits.Pctrl.isLs_Q31
+    val isRs_XLEN = io.in.bits.Pctrl.isRs_XLEN
+    val isSRAIWU= io.in.bits.Pctrl.isSRAIWU
+    val isFSRW  = io.in.bits.Pctrl.isFSRW
+    val isWext  = io.in.bits.Pctrl.isWext
+    val isShifter = io.in.bits.Pctrl.isShifter
 
     val Round       =((func(6,3) === "b0110".U &&(func(1) === 0.U || func(1,0) === "b11".U)
                     ||func(6,3) === "b0111".U && (func(2,1) === 0.U && func24.asBool || func(2,1) === 2.U && func23.asBool)) && funct3 === 0.U
@@ -622,40 +499,39 @@ class PALU extends NutCoreModule with HasInstrType{
     val ShiftSigned = (isLR_16 || isLR_8 || isLR_32 || isLR_Q31 || isLs_Q31 ||isLs_32 && (func(6,3) === 6.U || func(6,3) === 8.U) || (isLs_16 || isLs_8) && (func(6,3) === "b0110".U || func === "b0111010".U && func24.asBool || func === "b0111110".U && func23.asBool))
     val Arithmetic  = (isRs_16 || isRs_8 || isRs_32) && func(0) === 0.U  || isLR_16 || isLR_8 || isLR_32 || isLR_Q31 || isRs_XLEN || isSRAIWU
 
-    val isClip_16 = func === "b1000010".U & funct3 === 0.U
-    val isClip_8  = func === "b1000110".U & funct3 === 0.U
-    val isclip_32 = func(6,4) === "b111".U & func(2,0) === "b010".U & funct3 === 0.U
-    val isClip = isClip_16 | isClip_8 | isclip_32
+    val isClip_16 = io.in.bits.Pctrl.isClip_16
+    val isClip_8  = io.in.bits.Pctrl.isClip_8
+    val isclip_32 = io.in.bits.Pctrl.isclip_32
+    val isClip = io.in.bits.Pctrl.isClip
 
-    val isSat_16  = func === "b1010110".U && src2(4,0) === "b10001".U && funct3 === 0.U
-    val isSat_8   = func === "b1010110".U && src2(4,0) === "b10000".U && funct3 === 0.U
-    val isSat_32  = func === "b1010110".U && src2(4,0) === "b10010".U && funct3 === 0.U
-    val isSat_W   = func === "b1010110".U && src2(4,0) === "b10100".U && funct3 === 0.U
-    val isSat     = isSat_16 | isSat_8 | isSat_32 | isSat_W
+    val isSat_16  = io.in.bits.Pctrl.isSat_16
+    val isSat_8   = io.in.bits.Pctrl.isSat_8
+    val isSat_32  = io.in.bits.Pctrl.isSat_32
+    val isSat_W   = io.in.bits.Pctrl.isSat_W
+    val isSat     = io.in.bits.Pctrl.isSat
 
-    val isCnt_16  = func === "b1010111".U && src2(4,1) === "b0100".U && funct3 === 0.U
-    val isCnt_8   = func === "b1010111".U && src2(4,1) === "b0000".U && funct3 === 0.U
-    val isCnt_32  = func === "b1010111".U && src2(4,1) === "b1100".U && funct3 === 0.U
-    val isCnt     = isCnt_16 | isCnt_8 | isCnt_32
+    val isCnt_16  = io.in.bits.Pctrl.isCnt_16
+    val isCnt_8   = io.in.bits.Pctrl.isCnt_8
+    val isCnt_32  = io.in.bits.Pctrl.isCnt_32
+    val isCnt     = io.in.bits.Pctrl.isCnt
 
-    val isSwap_16 = func(6,5) === 0.U && func (2,0) === "b111".U && funct3 === 1.U
-    val isSwap_8  = func === "b1010110".U && (src2(4,0) === "b11000".U && funct3 === 0.U && io.in.bits.cf.instrType === InstrPI || src2(5,0) === "b001000".U && funct3 === "b101".U && io.in.bits.cf.instrType === InstrPB)
-    val isSwap    = isSwap_16 | isSwap_8
+    val isSwap_16 = io.in.bits.Pctrl.isSwap_16
+    val isSwap_8  = io.in.bits.Pctrl.isSwap_8
+    val isSwap    = io.in.bits.Pctrl.isSwap
 
-    val isUnpack  = func === "b1010110".U && (src2(4,3) === "b01".U || src2(4,0) === "b10011".U || src2(4,0) === "b10111".U) && funct3 === 0.U
+    val isUnpack  = io.in.bits.Pctrl.isUnpack
 
-    val isBitrev  = (func(6,3) === "b1110".U && (func(2,0) === "b011".U || func(2,1) === "b10".U) && funct3 === 0.U
-                   || func === "b0110101".U && funct3 === "b101".U && io.in.bits.cf.instr(6,0) === "b0010011".U && src2(4,0) === "b11111".U)
+    val isBitrev  = io.in.bits.Pctrl.isBitrev
 
-    val isCmix    = io.in.bits.cf.instr(14,12) === "b001".U && io.in.bits.cf.instr(6,0) === "b0110011".U && io.in.bits.cf.instr(26,25) === "b11".U
+    val isCmix    = io.in.bits.Pctrl.isCmix
 
-    val isInsertb = func === "b1010110".U && io.in.bits.cf.instr(24,23) === "b00".U && funct3 === "b000".U
+    val isInsertb = io.in.bits.Pctrl.isInsertb
 
-    val isPackbb  = func === "b0000100".U && funct3 === "b100".U && io.in.bits.cf.instr(6,0) === "b0110011".U
-    val isPackbt  = func === "b0001111".U && funct3 === "b010".U
-    val isPacktb  = func === "b0011111".U && funct3 === "b010".U
-    val isPacktt  = func === "b0100100".U && funct3 === "b100".U && io.in.bits.cf.instr(6,0) === "b0110011".U
-    val isPack    = isPackbb | isPackbt | isPacktb | isPacktt
+    val isPackbb  = io.in.bits.Pctrl.isPackbb
+    val isPackbt  = io.in.bits.Pctrl.isPackbt
+    val isPacktb  = io.in.bits.Pctrl.isPacktb
+    val isPacktt  = io.in.bits.Pctrl.isPacktt
+    val isPack    = io.in.bits.Pctrl.isPack
 
     def shifter(width: Int, src1:UInt, src2:UInt, Round:Bool, ShiftSigned:Bool,Righshift:Bool,Arithmetic:Bool) = {
         var l = List(0.U)
@@ -858,32 +734,20 @@ class PALU extends NutCoreModule with HasInstrType{
         shifterRes := tmp2(XLEN-1,0).asUInt
         shifterOV  := tmp2(XLEN).asBool
         Debug("[PALU] isLR_do_rightshift %x tmp %x realSrc2 %x tmp2 %x \n",isLR_do_rightshift,tmp,realSrc2,tmp2)
-    }.elsewhen(isRs_32 | isLs_32 | isLR_32 | isLs_Q31 | isLR_Q31){
+    }.elsewhen(isRs_32 | isLs_32 | isLR_32 | isLs_Q31 | isLR_Q31 | isSRAIWU){
         val tmp = WireInit(0.U(64.W))
             tmp:= Mux(isLR_Q31 | isLR_32,SetSrc2(64,src2,true.B),SetSrc2(32,src2,false.B))
         val realSrc2 = Mux(isLR_Q31 | isLR_32,tmp(log2Up(64)-1,0),tmp(log2Up(32)-1,0))
         val isLR_do_rightshift = tmp(log2Up(64))
-        val tmp2 = shifter(32,Mux(isLR_Q31 | isLs_Q31,ZeroExt(src1(31,0),XLEN),src1),realSrc2,Round,ShiftSigned,isRs_32||(isLR_32 || isLR_Q31) && isLR_do_rightshift.asBool,Arithmetic)
-        shifterRes := Mux(isLs_Q31 | isLR_Q31,SignExt(tmp2(31,0),XLEN),tmp2(XLEN-1,0).asUInt)
+        val tmp2 = shifter(32,Mux(isLR_Q31 | isLs_Q31,ZeroExt(src1(31,0),XLEN),src1),realSrc2,Round,ShiftSigned,isSRAIWU||isRs_32||(isLR_32 || isLR_Q31) && isLR_do_rightshift.asBool,Arithmetic)
+        shifterRes := Mux(isLs_Q31 | isLR_Q31 | isSRAIWU,SignExt(tmp2(31,0),XLEN),tmp2(XLEN-1,0).asUInt)
         shifterOV  := tmp2(XLEN).asBool
         Debug("[PALU] isLs_Q31 %x isLR_Q31 %x isLR_do_rightshift %x tmp %x realSrc2 %x \n",isLs_Q31,isLR_Q31,isLR_do_rightshift,tmp,realSrc2)
-    }.elsewhen(isRs_XLEN){
+    }.elsewhen(isRs_XLEN | isFSRW | isWext){
         val tmp = SetSrc2(XLEN,src2,false.B)
-        val realSrc2 = tmp(log2Up(XLEN)-1,0)
-        val tmp2 = shifter(XLEN,src1,realSrc2,Round,ShiftSigned,true.B,Arithmetic)
-        shifterRes := tmp2(XLEN-1,0).asUInt
-        shifterOV  := tmp2(XLEN).asBool
-    }.elsewhen(isSRAIWU){
-        val tmp = SetSrc2(32,src2,false.B)
-        val realSrc2 = tmp(log2Up(32)-1,0)
-        val tmp2 = shifter(32,src1,realSrc2,Round,ShiftSigned,true.B,Arithmetic)
-        shifterRes := SignExt(tmp2(32-1,0).asUInt,64)
-        shifterOV  := tmp2(XLEN).asBool
-    }.elsewhen(isFSRW | isWext){
-        val tmp = SetSrc2(64,src2,false.B)
-        val realSrc2 = tmp(log2Up(32)-1,0)
-        val tmp2 = shifter(64,Mux(isFSRW,Cat(src3(31,0),src1(31,0)),src1),realSrc2,false.B,false.B,true.B,false.B)
-        shifterRes := SignExt(tmp2(32-1,0).asUInt,64)
+        val realSrc2 = Mux(isRs_XLEN,tmp(log2Up(XLEN)-1,0),tmp(log2Up(32)-1,0))
+        val tmp2 = shifter(XLEN,Mux(isFSRW,Mux(tmp(log2Up(32)).asBool,Cat(src1(31,0),src3(31,0)),Cat(src3(31,0),src1(31,0))),src1),realSrc2,Mux(isRs_XLEN,Round,false.B),Mux(isRs_XLEN,ShiftSigned,false.B),true.B,Mux(isRs_XLEN,Arithmetic,false.B))
+        shifterRes := Mux(isRs_XLEN,tmp2(XLEN-1,0).asUInt,SignExt(tmp2(32-1,0).asUInt,64))
         shifterOV  := tmp2(XLEN).asBool
     }
     val clipRes = WireInit(src1)
@@ -912,15 +776,10 @@ class PALU extends NutCoreModule with HasInstrType{
         val tmp = saturator(8,src1)
         satRes := tmp(XLEN-1,0)
         satOV  := tmp(XLEN)
-    }.elsewhen(isSat_32){
-        val tmp = saturator(32,src1)
-        satRes := tmp(XLEN-1,0)
+    }.elsewhen(isSat_32 | isSat_W){
+        val tmp = saturator(32,Mux(isSat_W,ZeroExt(src1(31,0),XLEN),src1))
+        satRes := Mux(isSat_W,SignExt(tmp(31,0),XLEN),tmp(XLEN-1,0))
         satOV  := tmp(XLEN)
-    }.elsewhen(isSat_W){
-        val tmp = saturator(32,ZeroExt(src1(31,0),XLEN))
-        satRes := SignExt(tmp(31,0),XLEN)
-        satOV  := tmp(XLEN)
-        Debug("[PALU]satw satOV %x\n",satOV)
     }
 
     val unpackRes = WireInit(src1)
