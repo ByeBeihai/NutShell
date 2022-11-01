@@ -357,11 +357,13 @@ class SIMDU(hasBru: Boolean = false,NO1: Boolean = true) extends NutCoreModule w
   def notafter(ptr1:UInt,ptr2:UInt,flag1:UInt,flag2:UInt):Bool= (ptr1 <= ptr2) && (flag1 === flag2) || (ptr1 > ptr2) && (flag1 =/= flag2)
   val PALU = Module(new PALU)
   val PMDU = Module(new PMDU)
+  val PIDU = Module(new PIDU)
 
   io.in.ready := !valid || io.FirstStageFire
 
   val OutputIsPALU = Mux(PALU.io.out.valid ,Mux(PMDU.io.out.valid,notafter(PALU.io.out.bits.DecodeOut.InstNo,PMDU.io.out.bits.DecodeOut.InstNo,PALU.io.out.bits.DecodeOut.InstFlag,PMDU.io.out.bits.DecodeOut.InstFlag),true.B),false.B)
 
+  //in and out signals
   io.out.bits := Mux(OutputIsPALU,PALU.io.out.bits.result,PMDU.io.out.bits.result)
   io.DecodeOut := Mux(OutputIsPALU,PALU.io.out.bits.DecodeOut,PMDU.io.out.bits.DecodeOut)
   io.out.valid := Mux(OutputIsPALU,PALU.io.out.valid,PMDU.io.out.valid)
@@ -369,30 +371,42 @@ class SIMDU(hasBru: Boolean = false,NO1: Boolean = true) extends NutCoreModule w
   PMDU.io.out.ready := Mux(OutputIsPALU,false.B,io.out.ready)
   io.FirstStageFire := valid && ((PALU.io.in.ready && (io.DecodeIn.cf.instrType === InstrP || io.DecodeIn.cf.instrType === InstrPB || io.DecodeIn.cf.instrType === InstrPI)) || (PMDU.io.in.ready && io.DecodeIn.cf.instrType === InstrPM || PMDU.io.in.ready && io.DecodeIn.cf.instrType === InstrPRD))
 
-  val PALU_bits_next = Wire(new DecodeIO)
-  val PALU_bits      = RegInit(0.U.asTypeOf(new DecodeIO))
+  //connect PIDU
+  PIDU.io.DecodeIn := io.DecodeIn
+
+  //connect PALU
+  val PALU_bits_next = Wire(new Bundle{val DecodeIn = new DecodeIO;val Pctrl = new PIDUIO})
+  val PALU_bits      = RegInit(0.U.asTypeOf(new Bundle{val DecodeIn = new DecodeIO;val Pctrl = new PIDUIO}))
   PALU_bits_next := PALU_bits
   val PALU_valid = RegInit(0.U.asTypeOf(Bool()))
   val PALU_valid_next = Wire(Bool())
   PALU_valid_next:= PALU_valid
   when(PALU.io.out.fire()){PALU_valid_next := false.B}
-  when(valid && PALU.io.in.ready && (io.DecodeIn.cf.instrType === InstrP || io.DecodeIn.cf.instrType === InstrPB|| io.DecodeIn.cf.instrType === InstrPI)){PALU_valid_next := true.B
-                                  PALU_bits_next  := io.DecodeIn}
+  when(valid && PALU.io.in.ready && (io.DecodeIn.cf.instrType === InstrP || io.DecodeIn.cf.instrType === InstrPB|| io.DecodeIn.cf.instrType === InstrPI)){
+                                  PALU_valid_next := true.B
+                                  PALU_bits_next.DecodeIn := io.DecodeIn
+                                  PALU_bits_next.Pctrl    := PIDU.io.Pctrl
+                                }
   when(io.flush){PALU_valid_next := false.B}
   PALU_valid := PALU_valid_next
   PALU_bits  := PALU_bits_next
   PALU.io.in.valid := PALU_valid
   PALU.io.in.bits  := PALU_bits
 
-  val PMDU_bits_next = Wire(new DecodeIO)
-  val PMDU_bits      = RegInit(0.U.asTypeOf(new DecodeIO))
+
+  //connect PMDU
+  val PMDU_bits_next = Wire(new Bundle{val DecodeIn = new DecodeIO;val Pctrl = new PIDUIO})
+  val PMDU_bits      = RegInit(0.U.asTypeOf(new Bundle{val DecodeIn = new DecodeIO;val Pctrl = new PIDUIO}))
   PMDU_bits_next := PMDU_bits
   val PMDU_valid = RegInit(0.U.asTypeOf(Bool()))
   val PMDU_valid_next = Wire(Bool())
   PMDU_valid_next:= PMDU_valid
   when(PMDU.io.FirstStageFire){PMDU_valid_next := false.B}
-  when(valid && PMDU.io.in.ready && (io.DecodeIn.cf.instrType === InstrPM || PMDU.io.in.ready && io.DecodeIn.cf.instrType === InstrPRD)){PMDU_valid_next := true.B
-                                                                          PMDU_bits_next  := io.DecodeIn}
+  when(valid && PMDU.io.in.ready && (io.DecodeIn.cf.instrType === InstrPM || PMDU.io.in.ready && io.DecodeIn.cf.instrType === InstrPRD)){
+                                                                          PMDU_valid_next := true.B
+                                                                          PMDU_bits_next.DecodeIn := io.DecodeIn
+                                                                          PMDU_bits_next.Pctrl    := PIDU.io.Pctrl
+                                                                        }
   when(io.flush){PMDU_valid_next := false.B}
   PMDU_valid := PMDU_valid_next
   PMDU_bits  := PMDU_bits_next

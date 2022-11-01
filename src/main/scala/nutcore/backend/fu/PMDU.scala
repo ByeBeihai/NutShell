@@ -588,11 +588,11 @@ class PMDU extends NutCoreModule {
     val io = IO(new PMDUIO)
 
     val valid = io.in.valid
-    val src1  = io.in.bits.data.src1
-    val src2  = io.in.bits.data.src2
-    val src3  = io.in.bits.data.src3
-    val func  = io.in.bits.ctrl.fuOpType
-    val funct3= io.in.bits.ctrl.funct3
+    val src1  = io.in.bits.DecodeIn.data.src1
+    val src2  = io.in.bits.DecodeIn.data.src2
+    val src3  = io.in.bits.DecodeIn.data.src3
+    val func  = io.in.bits.DecodeIn.ctrl.fuOpType
+    val funct3= io.in.bits.DecodeIn.ctrl.funct3
 
     def isMul_16(func:UInt,funct3:UInt)   = {func(2) === 0.U && funct3 === 0.U}
     def isMul_8 (func:UInt,funct3:UInt)   = {func(2) === 1.U && funct3 === 0.U && func(6,3) =/= "b1100".U}
@@ -1017,14 +1017,14 @@ class PMDU extends NutCoreModule {
     MulAdd9_1.io.out.ready := io.out.ready
     MulAdd9_2.io.out.ready := io.out.ready
     MulAdd9_3.io.out.ready := io.out.ready
-    MulAdd17_0.io.in.bits.DecodeIn := io.in.bits
-    MulAdd17_1.io.in.bits.DecodeIn := io.in.bits
-    MulAdd33_0.io.in.bits.DecodeIn := io.in.bits
-    MulAdd65_0.io.in.bits.DecodeIn := io.in.bits
-    MulAdd9_0.io.in.bits.DecodeIn  := io.in.bits
-    MulAdd9_1.io.in.bits.DecodeIn  := io.in.bits
-    MulAdd9_2.io.in.bits.DecodeIn  := io.in.bits
-    MulAdd9_3.io.in.bits.DecodeIn  := io.in.bits
+    MulAdd17_0.io.in.bits.DecodeIn := io.in.bits.DecodeIn
+    MulAdd17_1.io.in.bits.DecodeIn := io.in.bits.DecodeIn
+    MulAdd33_0.io.in.bits.DecodeIn := io.in.bits.DecodeIn
+    MulAdd65_0.io.in.bits.DecodeIn := io.in.bits.DecodeIn
+    MulAdd9_0.io.in.bits.DecodeIn  := io.in.bits.DecodeIn
+    MulAdd9_1.io.in.bits.DecodeIn  := io.in.bits.DecodeIn
+    MulAdd9_2.io.in.bits.DecodeIn  := io.in.bits.DecodeIn
+    MulAdd9_3.io.in.bits.DecodeIn  := io.in.bits.DecodeIn
     MulAdd17_0.io.flush := io.flush
     MulAdd17_1.io.flush := io.flush
     MulAdd33_0.io.flush := io.flush
@@ -1541,7 +1541,7 @@ class PMDU extends NutCoreModule {
     
 
 
-    Debug("[PMDU] in_valid %x out_valid %x inPC %x func_in %x outPC %x func_out %x \n",io.in.valid,io.out.valid,io.in.bits.cf.pc,func,io.out.bits.DecodeOut.cf.pc,io.out.bits.DecodeOut.ctrl.fuOpType)
+    Debug("[PMDU] in_valid %x out_valid %x inPC %x func_in %x outPC %x func_out %x \n",io.in.valid,io.out.valid,io.in.bits.DecodeIn.cf.pc,func,io.out.bits.DecodeOut.cf.pc,io.out.bits.DecodeOut.ctrl.fuOpType)
     Debug("[PMDU] OV %x in_mul16 %x in_mul8 %x in_msw3232 %x in_msw3216 %x in_s1632 %x in3264 %x\n",io.out.bits.DecodeOut.pext.OV,isMul_16(func,funct3),isMul_8(func,funct3),isMSW_3232(func,funct3),isMSW_3216(func,funct3),isS1632(func,funct3),is3264(func,funct3))
     Debug("[PMDU] out_mul16 %x out_mul8 %x out_msw3232 %x out_msw3232 %x out_s1632 %x out3264 %x\n",isMul_16(func_out,funct3_out),isMul_8(func_out,funct3_out),isMSW_3232(func_out,funct3_out),isMSW_3216(func_out,funct3_out),isS1632(func_out,funct3_out),is3264(func_out,funct3_out))
     //Debug("[PMDU] Madd90 src1 %x src2 %x src3 %x out %x \n",MulAdd9_0.io.in.bits.srcs(0),MulAdd9_0.io.in.bits.srcs(1),MulAdd9_0.io.in.bits.srcs(2),MulAdd9_0.io.out.bits.result)
