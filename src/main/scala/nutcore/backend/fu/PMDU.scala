@@ -59,11 +59,13 @@ class MulAddIO(val len: Int = 65) extends NutCoreBundle {
     val in = Flipped(DecoupledIO(new Bundle{
         val DecodeIn = new DecodeIO
         val srcs     = Vec(3, Output(UInt(len.W)))
+        val Pctrl = new PIDUIO
     }))
     val out = Decoupled(new Bundle{
         val result = Output(UInt((2*len).W))
         val DecodeOut = new DecodeIO
         val OV     = Output(Bool())
+        val Pctrl = new PIDUIO
     })
     //val sub = Input(Bool()) //mul-sub
     val flush = Input(Bool()) 
@@ -79,7 +81,7 @@ class MulAdd65(len: Int = 65) extends NutCoreModule {
     val valid = io.in.valid
     val X = io.in.bits.srcs(0)
     val Y = io.in.bits.srcs(1)
-    val Z = io.in.bits.srcs(2)
+    //val Z = io.in.bits.srcs(2)
     // X * Y + Z. X,Y,Z is both 65-bits, pre-processed by out-module
     // -(X * Y) + Z
     
@@ -90,35 +92,41 @@ class MulAdd65(len: Int = 65) extends NutCoreModule {
     val s1Fire = Wire(Bool())
     val s2Fire = Wire(Bool())
     val s3Fire = Wire(Bool())
-    val s4Fire = Wire(Bool())
+    //val s4Fire = Wire(Bool())
     val s1_valid = io.in.valid
     val s2_valid = RegEnable(false.B, init = false.B, s2Fire || io.flush)
     val s3_valid = RegEnable(false.B, init = false.B, s3Fire || io.flush)
-    val s4_valid = RegEnable(false.B, init = false.B, s4Fire || io.flush)
+    //val s4_valid = RegEnable(false.B, init = false.B, s4Fire || io.flush)
     val s2_decodein = RegEnable(0.U.asTypeOf(new DecodeIO),init = 0.U.asTypeOf(new DecodeIO),s2Fire)
     val s3_decodein = RegEnable(0.U.asTypeOf(new DecodeIO),init = 0.U.asTypeOf(new DecodeIO),s3Fire)
-    val s4_decodein = RegEnable(0.U.asTypeOf(new DecodeIO),init = 0.U.asTypeOf(new DecodeIO),s4Fire)
+    val s2_Pctrl = RegEnable(0.U.asTypeOf(new PIDUIO),init = 0.U.asTypeOf(new PIDUIO),s2Fire)
+    val s3_Pctrl = RegEnable(0.U.asTypeOf(new PIDUIO),init = 0.U.asTypeOf(new PIDUIO),s3Fire)
+    //val s4_decodein = RegEnable(0.U.asTypeOf(new DecodeIO),init = 0.U.asTypeOf(new DecodeIO),s4Fire)
     val subS3 = Reg(Bool()) // for mul-sub, get into s4Stage
     when (s1Fire) { 
         s2_valid := true.B 
         s2_decodein := io.in.bits.DecodeIn
+        s2_Pctrl := io.in.bits.Pctrl
     }
     when (s2Fire) { 
         s3_valid := true.B
         s3_decodein := s2_decodein
+        s3_Pctrl := s2_Pctrl
     }
+    /*
     when (s3Fire && subS3) { 
         s4_valid := true.B 
         s4_decodein :=s3_decodein
     }
+    */
     val s1_ready = !s1_valid || s1Fire
     val s2_ready = !s2_valid || s2Fire
     val s3_ready = !s3_valid || s3Fire
-    val s4_ready = !s4_valid || s4Fire
+    //val s4_ready = !s4_valid || s4Fire
     s1Fire := s1_valid && s2_ready
     s2Fire := s2_valid && s3_ready
-    s3Fire := Mux(s3_valid && !subS3, s3_valid && io.out.ready, s3_valid && s4_ready)
-    s4Fire := s4_valid && io.out.ready
+    s3Fire := s3_valid && io.out.ready //Mux(s3_valid && !subS3, s3_valid && io.out.ready, s3_valid && s4_ready)
+    //s4Fire := s4_valid && io.out.ready
     
     // first stage
     val lenOdd = len % 2 == 1
@@ -150,16 +158,16 @@ class MulAdd65(len: Int = 65) extends NutCoreModule {
     
     // second stage
     val booth = RegEnable(boothWire, s1Fire)
-    val Z_reg = RegEnable(Z, s1Fire)
-    val subS2 = RegEnable(false.B, s1Fire)
-    val Z_add = Mux(subS2, ~Z_reg, Z_reg)
+    //val Z_reg = RegEnable(Z, s1Fire)
+    //val subS2 = RegEnable(false.B, s1Fire)
+    //val Z_add = Mux(subS2, ~Z_reg, Z_reg)
     
     val last_booth = booth(NBooth-1)(Len+1, 0)
     
     // 33+1 => 32 + 2 => 16 + 2    => 8 + 2 =>
     // first layer, use 42-compressor
-    val boothZ = Cat(0.U(1.W), ~Z_add(64), Z_add(64,0)) // 2+65 = 67
-    val (s0_0, c0_0) = CP42(EXT(boothZ,4,0),    EXT(booth(0),2,0),  EXT(booth(1),2,0),  EXT(booth(2),0,2)) //72
+    val boothZ = Cat(0.U(1.W), 1.U(1.W), 0.U(65.W))//Cat(0.U(1.W), ~Z_add(64), Z_add(64,0)) // 2+65 = 67
+    val (s0_0, c0_0) = CP42(EXT(boothZ,4,0),EXT(booth(0),2,0),  EXT(booth(1),2,0),  EXT(booth(2),0,2)) //72
     val (s0_1, c0_1) = CP42(EXT(booth(3),6,0),  EXT(booth(4),4,2),  EXT(booth(5),2,4),  EXT(booth(6),0,6)) //76
     val (s0_2, c0_2) = CP42(EXT(booth(7),6,0),  EXT(booth(8),4,2),  EXT(booth(9),2,4),  EXT(booth(10),0,6))
     val (s0_3, c0_3) = CP42(EXT(booth(11),6,0), EXT(booth(12),4,2), EXT(booth(13),2,4), EXT(booth(14),0,6))
@@ -193,17 +201,18 @@ class MulAdd65(len: Int = 65) extends NutCoreModule {
     // third stage
     val add1 = RegEnable(Cat(add1_4, add1_3, add1_2, add1_1, add1_0), s2Fire)
     val add2 = RegEnable(Cat(add2_4, add2_3, add2_2, add2_1, add2_0), s2Fire)
-    when(s2Fire) { subS3 := subS2 } // assign subS3 here
-    val res = add1 + add2 + subS3
+    //when(s2Fire) { subS3 := subS2 } // assign subS3 here
+    val res = add1 + add2 //+ subS3
     
     // fourth stage
-    val resS4 = RegEnable(res(len-1, 0), s3Fire)
-    val resSub = ~resS4 + 1.U
+    //val resS4 = RegEnable(res(len-1, 0), s3Fire)
+    //val resSub = ~resS4 + 1.U
     
     io.in.ready := s1_ready
-    io.out.bits.result := Mux(s3_valid && !subS3, res(2*len-1,0), ZeroExt(resSub, 2*len))
-    io.out.bits.DecodeOut := Mux(s3_valid && !subS3, s3_decodein, s4_decodein)
-    io.out.valid := Mux(s3_valid && !subS3, s3_valid, s4_valid)
+    io.out.bits.result := res(2*len-1,0) //Mux(s3_valid && !subS3, res(2*len-1,0), ZeroExt(resSub, 2*len))
+    io.out.bits.DecodeOut := s3_decodein //Mux(s3_valid && !subS3, s3_decodein, s4_decodein)
+    io.out.bits.Pctrl := s3_Pctrl //Mux(s3_valid && !subS3, s3_Pctrl, s4_Pctrl)
+    io.out.valid := s3_valid //Mux(s3_valid && !subS3, s3_valid, s4_valid)
     io.out.bits.OV := false.B
     io.FirstStageFire := s1Fire
 }
@@ -217,7 +226,7 @@ class MulAdd33(len: Int = 33) extends NutCoreModule {
     val valid = io.in.valid
     val X = io.in.bits.srcs(0)
     val Y = io.in.bits.srcs(1)
-    val Z = io.in.bits.srcs(2)
+    //val Z = io.in.bits.srcs(2)
     // X * Y + Z. X,Y,Z is both 65-bits, pre-processed by out-module
     // -(X * Y) + Z
     
@@ -228,14 +237,14 @@ class MulAdd33(len: Int = 33) extends NutCoreModule {
     val s1Fire = Wire(Bool())
     val s2Fire = Wire(Bool())
     val s3Fire = Wire(Bool())
-    val s4Fire = Wire(Bool())
+    //val s4Fire = Wire(Bool())
     val s1_valid = io.in.valid
     val s2_valid = RegEnable(false.B, init = false.B, s2Fire || io.flush)
     val s3_valid = RegEnable(false.B, init = false.B, s3Fire || io.flush)
-    val s4_valid = RegEnable(false.B, init = false.B, s4Fire || io.flush)
+    //val s4_valid = RegEnable(false.B, init = false.B, s4Fire || io.flush)
     val s2_decodein = RegEnable(0.U.asTypeOf(new DecodeIO),init = 0.U.asTypeOf(new DecodeIO),s2Fire)
     val s3_decodein = RegEnable(0.U.asTypeOf(new DecodeIO),init = 0.U.asTypeOf(new DecodeIO),s3Fire)
-    val s4_decodein = RegEnable(0.U.asTypeOf(new DecodeIO),init = 0.U.asTypeOf(new DecodeIO),s4Fire)
+    //val s4_decodein = RegEnable(0.U.asTypeOf(new DecodeIO),init = 0.U.asTypeOf(new DecodeIO),s4Fire)
     val subS3 = Reg(Bool()) // for mul-sub, get into s4Stage
     when (s1Fire) { 
         s2_valid := true.B 
@@ -245,18 +254,20 @@ class MulAdd33(len: Int = 33) extends NutCoreModule {
         s3_valid := true.B
         s3_decodein := s2_decodein
     }
+    /*
     when (s3Fire && subS3) { 
         s4_valid := true.B 
         s4_decodein :=s3_decodein
     }
+    */
     val s1_ready = !s1_valid || s1Fire
     val s2_ready = !s2_valid || s2Fire
     val s3_ready = !s3_valid || s3Fire
-    val s4_ready = !s4_valid || s4Fire
+    //val s4_ready = !s4_valid || s4Fire
     s1Fire := s1_valid && s2_ready
     s2Fire := s2_valid && s3_ready
-    s3Fire := Mux(s3_valid && !subS3, s3_valid && io.out.ready, s3_valid && s4_ready)
-    s4Fire := s4_valid && io.out.ready
+    s3Fire := s3_valid && io.out.ready //Mux(s3_valid && !subS3, s3_valid && io.out.ready, s3_valid && s4_ready)
+    //s4Fire := s4_valid && io.out.ready
     
     // First Stage
     val lenOdd = len % 2 == 1
@@ -288,9 +299,9 @@ class MulAdd33(len: Int = 33) extends NutCoreModule {
     
     // second stage
     val booth = RegEnable(boothWire, s1Fire)
-    val Z_reg = RegEnable(Z, s1Fire)
-    val subS2 = RegEnable(false.B, s1Fire)
-    val Z_add = Mux(subS2, ~Z_reg, Z_reg)
+    //val Z_reg = RegEnable(Z, s1Fire)
+    //val subS2 = RegEnable(false.B, s1Fire)
+    //val Z_add = Mux(subS2, ~Z_reg, Z_reg)
     
     val last_booth = booth(NBooth-1)(Len+1, 0)
     
@@ -300,7 +311,7 @@ class MulAdd33(len: Int = 33) extends NutCoreModule {
     // => 4 + 2 (or 3 + 3)
     // => 4
     // => 2
-    val boothZ = Cat(0.U(1.W), ~Z_add(32), Z_add(32,0)) // 2+len=35
+    val boothZ = Cat(0.U(1.W), 1.U(1.W), 0.U(33.W)) //Cat(0.U(1.W), ~Z_add(32), Z_add(32,0)) // 2+len=35
     val (s0_0, c0_0) = CP42(EXT(boothZ,4,0),    EXT(booth(0),2,0),  EXT(booth(1),2,0),  EXT(booth(2),0,2)) //40
     val (s0_1, c0_1) = CP42(EXT(booth(3),6,0),  EXT(booth(4),4,2),  EXT(booth(5),2,4),  EXT(booth(6),0,6)) //44
     val (s0_2, c0_2) = CP42(EXT(booth(7),6,0),  EXT(booth(8),4,2),  EXT(booth(9),2,4),  EXT(booth(10),0,6))
@@ -326,17 +337,18 @@ class MulAdd33(len: Int = 33) extends NutCoreModule {
     // 4 + 8 + 16 + 38 => 66
     val add1 = RegEnable(Cat(add1_3, add1_2, add1_1, add1_0), s2Fire)
     val add2 = RegEnable(Cat(add2_3, add2_2, add2_1, add2_0), s2Fire)
-    when(s2Fire) { subS3 := subS2 } // assign subS3 here
-    val res = add1 + add2 + subS3
+    //when(s2Fire) { subS3 := subS2 } // assign subS3 here
+    val res = add1 + add2 //+ subS3
     
     // fourth stage
-    val resS4 = RegEnable(res(len-1, 0), s3Fire)
-    val resSub = ~resS4 + 1.U
+    //val resS4 = RegEnable(res(len-1, 0), s3Fire)
+    //val resSub = ~resS4 + 1.U
     
     io.in.ready := s1_ready
-    io.out.bits.result := Mux(s3_valid && !subS3, res(2*len-1,0), ZeroExt(resSub, 2*len))
-    io.out.bits.DecodeOut := Mux(s3_valid && !subS3, s3_decodein, s4_decodein)
-    io.out.valid := Mux(s3_valid && !subS3, s3_valid, s4_valid)
+    io.out.bits.result := res(2*len-1,0)//Mux(s3_valid && !subS3, res(2*len-1,0), ZeroExt(resSub, 2*len))
+    io.out.bits.DecodeOut := s3_decodein//Mux(s3_valid && !subS3, s3_decodein, s4_decodein)
+    io.out.bits.Pctrl := DontCare
+    io.out.valid := s3_valid//Mux(s3_valid && !subS3, s3_valid, s4_valid)
     io.out.bits.OV := false.B
     io.FirstStageFire := s1Fire
 }
@@ -350,7 +362,7 @@ class MulAdd17(len: Int = 17) extends NutCoreModule {
     val valid = io.in.valid
     val X = io.in.bits.srcs(0)
     val Y = io.in.bits.srcs(1)
-    val Z = io.in.bits.srcs(2)
+    //val Z = io.in.bits.srcs(2)
     // X * Y + Z. X,Y,Z is both 65-bits, pre-processed by out-module
     // -(X * Y) + Z
     
@@ -361,14 +373,14 @@ class MulAdd17(len: Int = 17) extends NutCoreModule {
     val s1Fire = Wire(Bool())
     val s2Fire = Wire(Bool())
     val s3Fire = Wire(Bool())
-    val s4Fire = Wire(Bool())
+    //val s4Fire = Wire(Bool())
     val s1_valid = io.in.valid
     val s2_valid = RegEnable(false.B, init = false.B, s2Fire || io.flush)
     val s3_valid = RegEnable(false.B, init = false.B, s3Fire || io.flush)
-    val s4_valid = RegEnable(false.B, init = false.B, s4Fire || io.flush)
+    //val s4_valid = RegEnable(false.B, init = false.B, s4Fire || io.flush)
     val s2_decodein = RegEnable(0.U.asTypeOf(new DecodeIO),init = 0.U.asTypeOf(new DecodeIO),s2Fire)
     val s3_decodein = RegEnable(0.U.asTypeOf(new DecodeIO),init = 0.U.asTypeOf(new DecodeIO),s3Fire)
-    val s4_decodein = RegEnable(0.U.asTypeOf(new DecodeIO),init = 0.U.asTypeOf(new DecodeIO),s4Fire)
+    //val s4_decodein = RegEnable(0.U.asTypeOf(new DecodeIO),init = 0.U.asTypeOf(new DecodeIO),s4Fire)
     val subS3 = Reg(Bool()) // for mul-sub, get into s4Stage
     when (s1Fire) { 
         s2_valid := true.B 
@@ -378,18 +390,20 @@ class MulAdd17(len: Int = 17) extends NutCoreModule {
         s3_valid := true.B
         s3_decodein := s2_decodein
     }
+    /*
     when (s3Fire && subS3) { 
         s4_valid := true.B 
         s4_decodein :=s3_decodein
     }
+    */
     val s1_ready = !s1_valid || s1Fire
     val s2_ready = !s2_valid || s2Fire
     val s3_ready = !s3_valid || s3Fire
-    val s4_ready = !s4_valid || s4Fire
+    //val s4_ready = !s4_valid || s4Fire
     s1Fire := s1_valid && s2_ready
     s2Fire := s2_valid && s3_ready
-    s3Fire := Mux(s3_valid && !subS3, s3_valid && io.out.ready, s3_valid && s4_ready)
-    s4Fire := s4_valid && io.out.ready
+    s3Fire := s3_valid && io.out.ready//Mux(s3_valid && !subS3, s3_valid && io.out.ready, s3_valid && s4_ready)
+    //s4Fire := s4_valid && io.out.ready
     
     // First Stage
     val lenOdd = len % 2 == 1
@@ -421,15 +435,15 @@ class MulAdd17(len: Int = 17) extends NutCoreModule {
     
     // Second Stage
     val booth = RegEnable(boothWire, s1Fire)
-    val Z_reg = RegEnable(Z, s1Fire)
-    val subS2 = RegEnable(false.B, s1Fire)
-    val Z_add = Mux(subS2, ~Z_reg, Z_reg)
+    //val Z_reg = RegEnable(Z, s1Fire)
+    //val subS2 = RegEnable(false.B, s1Fire)
+    //val Z_add = Mux(subS2, ~Z_reg, Z_reg)
     
     val last_booth = booth(NBooth-1)(Len+1, 0)
     
     // 9 + 1 => 4 + 4 + 2 => 4 + 2 => 4 => 2
     // first layer, use 42-compressor
-    val boothZ = Cat(0.U(1.W), ~Z_add(16), Z_add(16,0)) // 2+17=19
+    val boothZ = Cat(0.U(1.W), 1.U(1.W), 0.U(17.W))//Cat(0.U(1.W), ~Z_add(16), Z_add(16,0)) // 2+17=19
     val (s0_0, c0_0) = CP42(EXT(boothZ,4,0), EXT(booth(0),2,0), EXT(booth(1),2,0), EXT(booth(2),0,2)) //24
     val (s0_1, c0_1) = CP42(EXT(booth(3),6,0), EXT(booth(4),4,2), EXT(booth(5),2,4), EXT(booth(6),0,6)) //28
     val add1_0 = s0_0(3,0)
@@ -447,17 +461,18 @@ class MulAdd17(len: Int = 17) extends NutCoreModule {
     // 4 + 8 + 22 => 34
     val add1 = RegEnable(Cat(add1_2, add1_1, add1_0), s2Fire)
     val add2 = RegEnable(Cat(add2_2, add2_1, add2_0), s2Fire)
-    when(s2Fire) { subS3 := subS2 } // assign subS3 here
-    val res = add1 + add2 + subS3
+    //when(s2Fire) { subS3 := subS2 } // assign subS3 here
+    val res = add1 + add2 //+ subS3
     
     // fourth stage
-    val resS4 = RegEnable(res(len-1, 0), s3Fire)
-    val resSub = ~resS4 + 1.U
+    //val resS4 = RegEnable(res(len-1, 0), s3Fire)
+    //val resSub = ~resS4 + 1.U
     
     io.in.ready := s1_ready
-    io.out.bits.result := Mux(s3_valid && !subS3, res(2*len-1,0), ZeroExt(resSub, 2*len))
-    io.out.bits.DecodeOut := Mux(s3_valid && !subS3, s3_decodein, s4_decodein)
-    io.out.valid := Mux(s3_valid && !subS3, s3_valid, s4_valid)
+    io.out.bits.result := res(2*len-1,0) //Mux(s3_valid && !subS3, res(2*len-1,0), ZeroExt(resSub, 2*len))
+    io.out.bits.DecodeOut := s3_decodein //Mux(s3_valid && !subS3, s3_decodein, s4_decodein)
+    io.out.bits.Pctrl := DontCare
+    io.out.valid := s3_valid //Mux(s3_valid && !subS3, s3_valid, s4_valid)
     io.out.bits.OV := false.B
     io.FirstStageFire := s1Fire
 }
@@ -471,7 +486,7 @@ class MulAdd9(len: Int = 9) extends NutCoreModule {
     val valid = io.in.valid
     val X = io.in.bits.srcs(0)
     val Y = io.in.bits.srcs(1)
-    val Z = io.in.bits.srcs(2)
+    //val Z = io.in.bits.srcs(2)
     // X * Y + Z. X,Y,Z is both 65-bits, pre-processed by out-module
     // -(X * Y) + Z
     
@@ -482,14 +497,14 @@ class MulAdd9(len: Int = 9) extends NutCoreModule {
     val s1Fire = Wire(Bool())
     val s2Fire = Wire(Bool())
     val s3Fire = Wire(Bool())
-    val s4Fire = Wire(Bool())
+    //val s4Fire = Wire(Bool())
     val s1_valid = io.in.valid
     val s2_valid = RegEnable(false.B, init = false.B, s2Fire || io.flush)
     val s3_valid = RegEnable(false.B, init = false.B, s3Fire || io.flush)
-    val s4_valid = RegEnable(false.B, init = false.B, s4Fire || io.flush)
+    //val s4_valid = RegEnable(false.B, init = false.B, s4Fire || io.flush)
     val s2_decodein = RegEnable(0.U.asTypeOf(new DecodeIO),init = 0.U.asTypeOf(new DecodeIO),s2Fire)
     val s3_decodein = RegEnable(0.U.asTypeOf(new DecodeIO),init = 0.U.asTypeOf(new DecodeIO),s3Fire)
-    val s4_decodein = RegEnable(0.U.asTypeOf(new DecodeIO),init = 0.U.asTypeOf(new DecodeIO),s4Fire)
+    //val s4_decodein = RegEnable(0.U.asTypeOf(new DecodeIO),init = 0.U.asTypeOf(new DecodeIO),s4Fire)
     val subS3 = Reg(Bool()) // for mul-sub, get into s4Stage
     when (s1Fire) { 
         s2_valid := true.B 
@@ -499,18 +514,20 @@ class MulAdd9(len: Int = 9) extends NutCoreModule {
         s3_valid := true.B
         s3_decodein := s2_decodein
     }
+    /*
     when (s3Fire && subS3) { 
         s4_valid := true.B 
         s4_decodein :=s3_decodein
     }
+    */
     val s1_ready = !s1_valid || s1Fire
     val s2_ready = !s2_valid || s2Fire
     val s3_ready = !s3_valid || s3Fire
-    val s4_ready = !s4_valid || s4Fire
+    //val s4_ready = !s4_valid || s4Fire
     s1Fire := s1_valid && s2_ready
     s2Fire := s2_valid && s3_ready
-    s3Fire := Mux(s3_valid && !subS3, s3_valid && io.out.ready, s3_valid && s4_ready)
-    s4Fire := s4_valid && io.out.ready
+    s3Fire := s3_valid && io.out.ready //Mux(s3_valid && !subS3, s3_valid && io.out.ready, s3_valid && s4_ready)
+    //s4Fire := s4_valid && io.out.ready
     
     // First Stage
     val lenOdd = len % 2 == 1
@@ -542,15 +559,15 @@ class MulAdd9(len: Int = 9) extends NutCoreModule {
     
     // Second Stage
     val booth = RegEnable(boothWire, s1Fire)
-    val Z_reg = RegEnable(Z, s1Fire)
-    val subS2 = RegEnable(false.B, s1Fire)
-    val Z_add = Mux(subS2, ~Z_reg, Z_reg)
+    //val Z_reg = RegEnable(Z, s1Fire)
+    //val subS2 = RegEnable(false.B, s1Fire)
+    //val Z_add = Mux(subS2, ~Z_reg, Z_reg)
     
     val last_booth = booth(NBooth-1)(Len+1, 0)
     
     // 5+1 => 4 + 2 => 4 => 2
     // first layer, use 42-compressor
-    val boothZ = Cat(0.U(1.W), ~Z_add(8), Z_add(8,0)) // 2+9 = 11
+    val boothZ = Cat(0.U(1.W), 1.U(1.W), 0.U(9.W)) //Cat(0.U(1.W), ~Z_add(8), Z_add(8,0)) // 2+9 = 11
     val (s0_0, c0_0) = CP42(EXT(boothZ,4,0), EXT(booth(0),2,0), EXT(booth(1),2,0), EXT(booth(2),0,2)) //16
     val add1_0 = s0_0(3,0)
     val add2_0 = c0_0(3,0)
@@ -562,18 +579,19 @@ class MulAdd9(len: Int = 9) extends NutCoreModule {
     // Third Stage
     val add1 = RegEnable(Cat(add1_1, add1_0), s2Fire)
     val add2 = RegEnable(Cat(add2_1, add2_0), s2Fire)
-    when(s2Fire) { subS3 := subS2 } // assign subS3 here
-    val res = add1 + add2 + subS3
+    //when(s2Fire) { subS3 := subS2 } // assign subS3 here
+    val res = add1 + add2 //+ subS3
     
     // fourth stage
-    val resS4 = RegEnable(res(len-1, 0), s3Fire)
-    val resSub = ~resS4 + 1.U
+    //val resS4 = RegEnable(res(len-1, 0), s3Fire)
+    //val resSub = ~resS4 + 1.U
     
     // io
     io.in.ready := s1_ready
-    io.out.bits.result := Mux(s3_valid && !subS3, res(2*len-1,0), ZeroExt(resSub, 2*len))
-    io.out.bits.DecodeOut := Mux(s3_valid && !subS3, s3_decodein, s4_decodein)
-    io.out.valid := Mux(s3_valid && !subS3, s3_valid, s4_valid)
+    io.out.bits.result := res(2*len-1,0) //Mux(s3_valid && !subS3, res(2*len-1,0), ZeroExt(resSub, 2*len))
+    io.out.bits.DecodeOut := s3_decodein //Mux(s3_valid && !subS3, s3_decodein, s4_decodein)
+    io.out.bits.Pctrl := DontCare
+    io.out.valid := s3_valid //Mux(s3_valid && !subS3, s3_valid, s4_valid)
     io.out.bits.OV := false.B
     io.FirstStageFire := s1Fire
 }
@@ -582,6 +600,7 @@ class MulAdd9(len: Int = 9) extends NutCoreModule {
 class PMDUIO extends PALUIO {
     val flush = Input(Bool())
     val FirstStageFire = Output(Bool())
+    
 }
 
 class PMDU extends NutCoreModule {
@@ -603,9 +622,9 @@ class PMDU extends NutCoreModule {
     def is832(func:UInt,funct3:UInt)      = {func(6,3) === "b1100".U && func(2,0) =/= "b111".U && funct3 === 0.U}
     def is3264(func:UInt,funct3:UInt)     = {func(6,5) === "b10".U && func(2,1) === "b01".U && funct3 === "b001".U}
     def is1664(func:UInt,funct3:UInt)     = {func(6,5) === "b10".U && func(2,0) =/= "b111".U && funct3 === "b001".U}
-    def isQ15(func:UInt,funct3:UInt)      = {func(6,5) === "b00".U && func(2,0) === "b110".U && funct3 === "b001".U}
-    def isQ31_type0(func:UInt,funct3:UInt)= {func(6,5) === "b00".U && func(2,0) === "b101".U && funct3 === "b001".U}
-    def isQ31_type1(func:UInt,funct3:UInt)= {func(6,5) === "b11".U && func(2,0) === "b001".U && func(4,3) =/= "b00".U && funct3 === "b001".U}
+    def isQ15orQ31(func:UInt,funct3:UInt)      = {(func(6,5) === "b00".U && (func(2,0) === "b110".U || func(2,0) === "b101".U) || func(6,5) === "b11".U && func(2,0) === "b001".U && func(4,3) =/= "b00".U) && funct3 === "b001".U}
+    //def isQ31_type0(func:UInt,funct3:UInt)= {func(6,5) === "b00".U && func(2,0) === "b101".U && funct3 === "b001".U}
+    //def isQ31_type1(func:UInt,funct3:UInt)= {func(6,5) === "b11".U && func(2,0) === "b001".U && func(4,3) =/= "b00".U && funct3 === "b001".U}
     def isC31(func:UInt,funct3:UInt)      = {(func(6,4) === "b111".U && func(2,0) === "b000".U || func(6,3) === "b1100".U && func(2,1) === "b01".U) && funct3 === "b001".U}
     def isQ15_64ONLY(func:UInt,funct3:UInt)={func(6,5) === "b11".U && func(4,3)=/="b00".U && func(2) === "b1".U && func(1,0) =/= "b11".U && funct3 === "b001".U}
     def isQ63_64ONLY(func:UInt,funct3:UInt)={func(6,5) === "b01".U && func(4,3)=/="b00".U && func(2,0) === "b101".U && funct3 === "b010".U}
@@ -659,7 +678,7 @@ class PMDU extends NutCoreModule {
     }
 
     if(XLEN == 64){
-        when(isMul_16(func,funct3)){
+        when(io.in.bits.Pctrl.isMul_16){
             val width = 16
             val realSrc2 = SrcSetter(16,src2,Xsrc(func))
             when(Saturating(func)){
@@ -683,7 +702,7 @@ class PMDU extends NutCoreModule {
                 MulAdd17_0.io.in.bits.srcs(2) := extender(SrcSigned(func),src3(0*width+width-1,0*width),17)
                 MulAdd65_0.io.in.bits.srcs(2) := extender(SrcSigned(func),src3(1*width+width-1,1*width),65)
             }
-        }.elsewhen(isMul_8(func,funct3)){
+        }.elsewhen(io.in.bits.Pctrl.isMul_8){
             val width = 8
             val realSrc2 = SrcSetter(8,src2,Xsrc(func))
             when(Saturating(func)){
@@ -726,7 +745,7 @@ class PMDU extends NutCoreModule {
                 MulAdd65_0.io.in.bits.srcs(2) := extender(SrcSigned(func),src3(3*width+width-1,3*width),65)
                 Debug("[PMDU] MulAdd65_0 src1 %x  src2 %x src3 %x\n",MulAdd65_0.io.in.bits.srcs(0),MulAdd65_0.io.in.bits.srcs(1),MulAdd65_0.io.in.bits.srcs(2))
             }
-        }.elsewhen(isMSW_3232(func,funct3)){
+        }.elsewhen(io.in.bits.Pctrl.isMSW_3232){
             val width = 32
             MulAdd33_0.io.in.bits.srcs(0) := SignExt(src1(0*width+width-1,0*width),33)
             MulAdd33_0.io.in.bits.srcs(1) := SignExt(src2(0*width+width-1,0*width),33)
@@ -734,7 +753,7 @@ class PMDU extends NutCoreModule {
             MulAdd65_0.io.in.bits.srcs(0) := SignExt(src1(1*width+width-1,1*width),65)
             MulAdd65_0.io.in.bits.srcs(1) := SignExt(src2(1*width+width-1,1*width),65)
             MulAdd65_0.io.in.bits.srcs(2) := SignExt(0.U,65)
-        }.elsewhen(isMSW_3216(func,funct3)){
+        }.elsewhen(io.in.bits.Pctrl.isMSW_3216){
             val width = 32
             val src2_use_top = func(6,4) === "b011".U || func(6,4) === "b101".U || func(6,4) === "b111".U
             MulAdd33_0.io.in.bits.srcs(0) := SignExt(src1(0*width+width-1,0*width),33)
@@ -743,7 +762,7 @@ class PMDU extends NutCoreModule {
             MulAdd65_0.io.in.bits.srcs(0) := SignExt(src1(1*width+width-1,1*width),65)
             MulAdd65_0.io.in.bits.srcs(1) := SignExt(Mux(src2_use_top,src2(1*width+width-1,1*width+width/2),src2(1*width+width/2-1,1*width)),65)
             MulAdd65_0.io.in.bits.srcs(2) := SignExt(0.U,65)
-        }.elsewhen(isS1632(func,funct3)){
+        }.elsewhen(io.in.bits.Pctrl.isS1632){
             val twopairs = func(6,3) < 3.U || func(2,0) === "b101".U && func(6,5) === "b01".U && func(4,3) =/= "b00".U
             when(twopairs){
                 val bb = func(6,3) === "b0000".U || func(6,3) === "b0101".U
@@ -775,14 +794,14 @@ class PMDU extends NutCoreModule {
                 MulAdd65_0.io.in.bits.srcs(1) := SignExt(src2_clip4,65)
                 MulAdd65_0.io.in.bits.srcs(2) := SignExt(0.U,65)
             }
-        }.elsewhen(isS1664(func,funct3)){
+        }.elsewhen(io.in.bits.Pctrl.isS1664){
             MulAdd33_0.io.in.bits.srcs(0) := SignExt(src2(15,0),33)
             MulAdd33_0.io.in.bits.srcs(1) := SignExt(src2(31,16),33)
             MulAdd33_0.io.in.bits.srcs(2) := SignExt(0.U,33)
             MulAdd65_0.io.in.bits.srcs(0) := SignExt(src2(47,32),65)
             MulAdd65_0.io.in.bits.srcs(1) := SignExt(src2(63,48),65)
             MulAdd65_0.io.in.bits.srcs(2) := SignExt(0.U,65)
-        }.elsewhen(is832(func,funct3)){
+        }.elsewhen(io.in.bits.Pctrl.is832){
             val width = 8
             val isunsigned = func(2,0) === "b110".U
             val issigned   = func(2,0) === "b100".U
@@ -810,7 +829,7 @@ class PMDU extends NutCoreModule {
             MulAdd17_1.io.in.bits.srcs(2) := 0.U
             MulAdd33_0.io.in.bits.srcs(2) := 0.U
             MulAdd65_0.io.in.bits.srcs(2) := 0.U
-        }.elsewhen(is3264(func,funct3)){
+        }.elsewhen(io.in.bits.Pctrl.is3264){
             val width = 32
             val issigned   = !func(4).asBool
             MulAdd33_0.io.in.bits.srcs(0) := extender(issigned,src1(0*width+width-1,0*width),33)
@@ -819,7 +838,7 @@ class PMDU extends NutCoreModule {
             MulAdd65_0.io.in.bits.srcs(1) := extender(issigned,src2(1*width+width-1,1*width),65)
             MulAdd33_0.io.in.bits.srcs(2) := 0.U
             MulAdd65_0.io.in.bits.srcs(2) := 0.U
-        }.elsewhen(is1664(func,funct3)){
+        }.elsewhen(io.in.bits.Pctrl.is1664){
             val twopairs = func(2,0) === "b100".U
             when(twopairs){
                 val bb = func(4,3) === "b00".U 
@@ -851,35 +870,20 @@ class PMDU extends NutCoreModule {
                 MulAdd65_0.io.in.bits.srcs(1) := SignExt(src2_clip4,65)
                 MulAdd65_0.io.in.bits.srcs(2) := SignExt(0.U,65)
             }
-        }.elsewhen(isQ15(func,funct3)){
-            val bb = func(4,3) === "b00".U 
-            val bt = func(4,3) === "b01".U 
+        }.elsewhen(io.in.bits.Pctrl.isQ15orQ31){
+            val isQ31_type1 = func(2,0) === "b001".U
+            val bb = Mux(isQ31_type1,func(4,3) === "b01".U,func(4,3) === "b00".U)
+            val bt = Mux(isQ31_type1,func(4,3) === "b10".U,func(4,3) === "b01".U)
             val src1_clip1 = Mux(bb,src1(15,0),Mux(bt,src1(15,0),src1(31,16)))
             val src2_clip1 = Mux(bb,src2(15,0),src2(31,16))
             MulAdd65_0.io.in.bits.srcs(0) := SignExt(src1_clip1,65)
             MulAdd65_0.io.in.bits.srcs(1) := SignExt(src2_clip1,65)
             MulAdd65_0.io.in.bits.srcs(2) := SignExt(0.U,65)
-        }.elsewhen(isQ31_type0(func,funct3)){
-            val bb = func(4,3) === "b00".U 
-            val bt = func(4,3) === "b01".U 
-            val src1_clip1 = Mux(bb,src1(15,0),Mux(bt,src1(15,0),src1(31,16)))
-            val src2_clip1 = Mux(bb,src2(15,0),src2(31,16))
-            MulAdd65_0.io.in.bits.srcs(0) := SignExt(src1_clip1,65)
-            MulAdd65_0.io.in.bits.srcs(1) := SignExt(src2_clip1,65)
-            MulAdd65_0.io.in.bits.srcs(2) := SignExt(0.U,65)
-        }.elsewhen(isQ31_type1(func,funct3)){
-            val bb = func(4,3) === "b01".U 
-            val bt = func(4,3) === "b10".U 
-            val src1_clip1 = Mux(bb,src1(15,0),Mux(bt,src1(15,0),src1(31,16)))
-            val src2_clip1 = Mux(bb,src2(15,0),src2(31,16))
-            MulAdd65_0.io.in.bits.srcs(0) := SignExt(src1_clip1,65)
-            MulAdd65_0.io.in.bits.srcs(1) := SignExt(src2_clip1,65)
-            MulAdd65_0.io.in.bits.srcs(2) := SignExt(0.U,65)
-        }.elsewhen(isC31(func,funct3)){
+        }.elsewhen(io.in.bits.Pctrl.isC31){
             MulAdd65_0.io.in.bits.srcs(0) := extender(func(6,3)=/="b1111".U,src1(31,0),65)
             MulAdd65_0.io.in.bits.srcs(1) := extender(func(6,3)=/="b1111".U,src2(31,0),65)
             MulAdd65_0.io.in.bits.srcs(2) := SignExt(0.U,65)
-        }.elsewhen(isQ15_64ONLY(func,funct3)){
+        }.elsewhen(io.in.bits.Pctrl.isQ15_64ONLY){
             val bb = func(4,3) === "b01".U 
             val bt = func(4,3) === "b10".U 
             val src1_clip1 = Mux(bb,src1(15,0),Mux(bt,src1(15,0),src1(31,16)))
@@ -892,14 +896,14 @@ class PMDU extends NutCoreModule {
             MulAdd65_0.io.in.bits.srcs(0) := SignExt(src1_clip2,65)
             MulAdd65_0.io.in.bits.srcs(1) := SignExt(src2_clip2,65)
             MulAdd65_0.io.in.bits.srcs(2) := SignExt(0.U,65)
-        }.elsewhen(isMul_32_64ONLY(func,funct3)){
+        }.elsewhen(io.in.bits.Pctrl.isMul_32_64ONLY){
             val bt = func(4,3) === "b01".U 
             val src1_clip = Mux(bt,src1(31,0),src1(63,32))
             val src2_clip = src2(63,32)
             MulAdd65_0.io.in.bits.srcs(0) := SignExt(src1_clip,65)
             MulAdd65_0.io.in.bits.srcs(1) := SignExt(src2_clip,65)
             MulAdd65_0.io.in.bits.srcs(2) := SignExt(0.U,65)
-        }.elsewhen(isQ63_64ONLY(func,funct3)){
+        }.elsewhen(io.in.bits.Pctrl.isQ63_64ONLY){
             val bb = func(4,3) === "b01".U 
             val bt = func(4,3) === "b10".U 
             val src1_clip = Mux(bb,src1(31,0),Mux(bt,src1(31,0),src1(63,32)))
@@ -907,7 +911,7 @@ class PMDU extends NutCoreModule {
             MulAdd65_0.io.in.bits.srcs(0) := SignExt(src1_clip,65)
             MulAdd65_0.io.in.bits.srcs(1) := SignExt(src2_clip,65)
             MulAdd65_0.io.in.bits.srcs(2) := SignExt(0.U,65)
-        }.elsewhen(isPMA_64ONLY(func,funct3)){
+        }.elsewhen(io.in.bits.Pctrl.isPMA_64ONLY){
             val cross = func(2,0) === "b101".U || func(2,0) === "b111".U || func(6,3) === "b0111".U
             val src1_clip1 = src1(31,0)
             val src1_clip2 = src1(63,32)
@@ -922,18 +926,18 @@ class PMDU extends NutCoreModule {
             Debug("[PMDUisPMA64] cross %x src1_clip1 %x src1_clip2 %x src2_clip1 %x src2_clip2 %x\n",cross,src1_clip1,src1_clip2,src2_clip1,src2_clip2)
         }
     }else if(XLEN == 32){
-        when(isMSW_3232(func,funct3)){
+        when(io.in.bits.Pctrl.isMSW_3232){
             val width = 32
             MulAdd65_0.io.in.bits.srcs(0) := SignExt(src1(0*width+width-1,0*width),65)
             MulAdd65_0.io.in.bits.srcs(1) := SignExt(src2(0*width+width-1,0*width),65)
             MulAdd65_0.io.in.bits.srcs(2) := SignExt(0.U,65)
-        }.elsewhen(isMSW_3216(func,funct3)){
+        }.elsewhen(io.in.bits.Pctrl.isMSW_3216){
             val width = 32
             val src2_use_top = func(6,4) === "b011".U || func(6,4) === "b101".U || func(6,4) === "b111".U
             MulAdd65_0.io.in.bits.srcs(0) := SignExt(src1(0*width+width-1,0*width),65)
             MulAdd65_0.io.in.bits.srcs(1) := SignExt(Mux(src2_use_top,src2(0*width+width-1,0*width+width/2),src2(0*width+width/2-1,0*width)),65)
             MulAdd65_0.io.in.bits.srcs(2) := SignExt(0.U,65)
-        }.elsewhen(isS1632(func,funct3)){
+        }.elsewhen(io.in.bits.Pctrl.isS1632){
             val twopairs = func(6,3) < 3.U || func(2,0) === "b101".U && func(6,5) === "b01".U && func(4,3) =/= "b00".U
             when(twopairs){
                 val bb = func(6,3) === "b0000".U || func(6,3) === "b0101".U
@@ -954,7 +958,7 @@ class PMDU extends NutCoreModule {
                 MulAdd65_0.io.in.bits.srcs(1) := SignExt(src2_clip2,65)
                 MulAdd65_0.io.in.bits.srcs(2) := SignExt(0.U,65)
             }
-        }.elsewhen(is832(func,funct3)){
+        }.elsewhen(io.in.bits.Pctrl.is832){
             val width = 8
             val isunsigned = func(2,0) === "b110".U
             val issigned   = func(2,0) === "b100".U
@@ -970,31 +974,16 @@ class PMDU extends NutCoreModule {
             MulAdd17_1.io.in.bits.srcs(2) := 0.U
             MulAdd33_0.io.in.bits.srcs(2) := 0.U
             MulAdd65_0.io.in.bits.srcs(2) := 0.U
-        }.elsewhen(isQ15(func,funct3)){
-            val bb = func(4,3) === "b00".U 
-            val bt = func(4,3) === "b01".U 
+        }.elsewhen(io.in.bits.Pctrl.isQ15orQ31){
+            val isQ31_type1 = func(2,0) === "b001".U
+            val bb = Mux(isQ31_type1,func(4,3) === "b01".U,func(4,3) === "b00".U)
+            val bt = Mux(isQ31_type1,func(4,3) === "b10".U,func(4,3) === "b01".U)
             val src1_clip1 = Mux(bb,src1(15,0),Mux(bt,src1(15,0),src1(31,16)))
             val src2_clip1 = Mux(bb,src2(15,0),src2(31,16))
             MulAdd65_0.io.in.bits.srcs(0) := SignExt(src1_clip1,65)
             MulAdd65_0.io.in.bits.srcs(1) := SignExt(src2_clip1,65)
             MulAdd65_0.io.in.bits.srcs(2) := SignExt(0.U,65)
-        }.elsewhen(isQ31_type0(func,funct3)){
-            val bb = func(4,3) === "b00".U 
-            val bt = func(4,3) === "b01".U 
-            val src1_clip1 = Mux(bb,src1(15,0),Mux(bt,src1(15,0),src1(31,16)))
-            val src2_clip1 = Mux(bb,src2(15,0),src2(31,16))
-            MulAdd65_0.io.in.bits.srcs(0) := SignExt(src1_clip1,65)
-            MulAdd65_0.io.in.bits.srcs(1) := SignExt(src2_clip1,65)
-            MulAdd65_0.io.in.bits.srcs(2) := SignExt(0.U,65)
-        }.elsewhen(isQ31_type1(func,funct3)){
-            val bb = func(4,3) === "b01".U 
-            val bt = func(4,3) === "b10".U 
-            val src1_clip1 = Mux(bb,src1(15,0),Mux(bt,src1(15,0),src1(31,16)))
-            val src2_clip1 = Mux(bb,src2(15,0),src2(31,16))
-            MulAdd65_0.io.in.bits.srcs(0) := SignExt(src1_clip1,65)
-            MulAdd65_0.io.in.bits.srcs(1) := SignExt(src2_clip1,65)
-            MulAdd65_0.io.in.bits.srcs(2) := SignExt(0.U,65)
-        }.elsewhen(isC31(func,funct3)){
+        }.elsewhen(io.in.bits.Pctrl.isC31){
             MulAdd65_0.io.in.bits.srcs(0) := extender(func(6,3)=/="b1111".U,src1(31,0),65)
             MulAdd65_0.io.in.bits.srcs(1) := extender(func(6,3)=/="b1111".U,src2(31,0),65)
             MulAdd65_0.io.in.bits.srcs(2) := SignExt(0.U,65)
@@ -1025,6 +1014,14 @@ class PMDU extends NutCoreModule {
     MulAdd9_1.io.in.bits.DecodeIn  := io.in.bits.DecodeIn
     MulAdd9_2.io.in.bits.DecodeIn  := io.in.bits.DecodeIn
     MulAdd9_3.io.in.bits.DecodeIn  := io.in.bits.DecodeIn
+    MulAdd17_0.io.in.bits.Pctrl := io.in.bits.Pctrl
+    MulAdd17_1.io.in.bits.Pctrl := io.in.bits.Pctrl
+    MulAdd33_0.io.in.bits.Pctrl := io.in.bits.Pctrl
+    MulAdd65_0.io.in.bits.Pctrl := io.in.bits.Pctrl
+    MulAdd9_0.io.in.bits.Pctrl  := io.in.bits.Pctrl
+    MulAdd9_1.io.in.bits.Pctrl  := io.in.bits.Pctrl
+    MulAdd9_2.io.in.bits.Pctrl  := io.in.bits.Pctrl
+    MulAdd9_3.io.in.bits.Pctrl  := io.in.bits.Pctrl
     MulAdd17_0.io.flush := io.flush
     MulAdd17_1.io.flush := io.flush
     MulAdd33_0.io.flush := io.flush
@@ -1048,20 +1045,28 @@ class PMDU extends NutCoreModule {
     val src2_out = io.out.bits.DecodeOut.data.src2
     val src3_out = io.out.bits.DecodeOut.data.src3
 
-    val tmp34 = Wire(Vec(2,UInt(34.W)))
     val adder34_0= WireInit(0.U.asTypeOf(Vec(2,UInt(34.W))))
     val adder34_1= WireInit(0.U.asTypeOf(Vec(2,UInt(34.W))))
     val adder34_2= WireInit(0.U.asTypeOf(Vec(2,UInt(34.W))))
-    (0 to 1).map(i => tmp34(i) := adder34_0(i)+adder34_1(i)+adder34_2(i)) 
+    val adder34_3= WireInit(0.U.asTypeOf(Vec(2,UInt(34.W))))
+    val adder34_4= WireInit(0.U.asTypeOf(Vec(2,UInt(34.W))))
 
-    val tmp68 = Wire(UInt(68.W))
-    val adder68_0= WireInit(0.U(68.W))
-    val adder68_1= WireInit(0.U(68.W))
-    val adder68_2= WireInit(0.U(68.W))
-    tmp68 := adder68_0 + adder68_1 + adder68_2
+    val tmp68 = Wire(UInt(70.W))
+    val adder68_0= WireInit(0.U(70.W))
+    val adder68_1= WireInit(0.U(70.W))
+    val adder68_2= WireInit(0.U(70.W))
+    val adder68_3= WireInit(0.U(70.W))
+    val adder68_4= WireInit(0.U(70.W))
+    tmp68 := adder68_0 + adder68_1 + adder68_2 + adder68_3 + adder68_4
+
+    adder68_0 := Cat(adder34_0(1),0.U(2.W),adder34_0(0))
+    adder68_1 := Cat(adder34_1(1),0.U(2.W),adder34_1(0))
+    adder68_2 := Cat(adder34_2(1),0.U(2.W),adder34_2(0))
+    adder68_3 := Cat(adder34_3(1),0.U(2.W),adder34_3(0))
+    adder68_4 := Cat(adder34_4(1),0.U(2.W),adder34_4(0))
 
     if(XLEN == 64){
-        when(isMul_16(func_out,funct3_out)){
+        when(MulAdd65_0.io.out.bits.Pctrl.isMul_16){
             val src1_out = io.out.bits.DecodeOut.data.src1
             val src2_out = SrcSetter(16,io.out.bits.DecodeOut.data.src2,Xsrc(func_out))
             when(Saturating(func_out)){
@@ -1105,7 +1110,7 @@ class PMDU extends NutCoreModule {
                     l.dropRight(1).reduce(Cat(_,_))
                 }
             }
-        }.elsewhen(isMul_8(func_out,funct3_out)){
+        }.elsewhen(MulAdd65_0.io.out.bits.Pctrl.isMul_8){
             val src1_out = io.out.bits.DecodeOut.data.src1
             val src2_out = SrcSetter(8,io.out.bits.DecodeOut.data.src2,Xsrc(func_out))
             when(Saturating(func_out)){
@@ -1162,7 +1167,7 @@ class PMDU extends NutCoreModule {
                     l.dropRight(1).reduce(Cat(_,_))
                 }
             }
-        }.elsewhen(isQ15_64ONLY(func_out,funct3_out)){
+        }.elsewhen(MulAdd65_0.io.out.bits.Pctrl.isQ15_64ONLY){
             io.out.bits.result :={
                 val bb = func_out(4,3) === "b01".U 
                 val bt = func_out(4,3) === "b10".U 
@@ -1194,24 +1199,25 @@ class PMDU extends NutCoreModule {
                     adder34_0(i) := adder0
                     adder34_1(i) := adder1
                     adder34_2(i) := 0.U
-                    val res = WireInit(tmp34(i)(31,0))
+                    val res = WireInit(tmp68(i*36+33,i*36)(31,0))
                     when(func_out(2,0) === "b100".U){
-                        when((Fill(33,tmp34(i)(32))^tmp34(i))(32,31) =/= 0.U){
+                        when((Fill(33,tmp68(i*36+33,i*36)(32))^tmp68(i*36+33,i*36))(32,31) =/= 0.U){
                             io.out.bits.DecodeOut.pext.OV := true.B
-                            when(tmp34(i)(32).asBool){
+                            when(tmp68(i*36+33,i*36)(32).asBool){
                                 res:= Cat(1.U,Fill(31,0.U))
                             }.otherwise{
                                 res := Cat(0.U,Fill(31,1.U))
                             }
                         }
                     }
+                    //Debug("[PMDUisQ1564ONLY] adder34_0 %x adder34_1 %x adder34_2 %x res %x tmp68%x \n",adder34_0(i),adder34_1(i),adder34_2(i),res,tmp68)
                     l = List.concat(List(res),l)
                 }
                 l.dropRight(1).reduce(Cat(_,_))
             }
-        }.elsewhen(isMul_32_64ONLY(func_out,funct3_out)){
+        }.elsewhen(MulAdd65_0.io.out.bits.Pctrl.isMul_32_64ONLY){
             io.out.bits.result := MulAdd65_0.io.out.bits.result(63,0)
-        }.elsewhen(isQ63_64ONLY(func_out,funct3_out)){
+        }.elsewhen(MulAdd65_0.io.out.bits.Pctrl.isQ63_64ONLY){
             io.out.bits.result := {
                 adder68_0 := SignExt(src3_out,65)
                 adder68_1 := SignExt(MulAdd65_0.io.out.bits.result(63,0),65)
@@ -1227,15 +1233,16 @@ class PMDU extends NutCoreModule {
                 }
                 res
             }
-        }.elsewhen(isPMA_64ONLY(func_out,funct3_out)){
+        }.elsewhen(MulAdd65_0.io.out.bits.Pctrl.isPMA_64ONLY){
             io.out.bits.result := {
                 val usesrc3 = !(func_out(2,0)==="b100".U || func_out === "b0011101".U)
                 val mul1sub = func_out(6,3) === "b0101".U || func_out(6,3) === "b0111".U || func_out(6,1) === "b010011".U
                 val mul2sub = func_out(6,3) === "b0110".U || func_out(6,1) === "b010011".U
                 val saturating = !(func_out(6,5) === "b01".U && func_out(2,0) === "b100".U)
                 adder68_0 := Mux(usesrc3,SignExt(src3_out,66),0.U)
-                adder68_1 := (Fill(66,mul1sub)^SignExt(MulAdd33_0.io.out.bits.result(63,0),66)) + mul1sub.asUInt
-                adder68_2 := (Fill(66,mul2sub)^SignExt(MulAdd65_0.io.out.bits.result(63,0),66)) + mul2sub.asUInt
+                adder68_1 := (Fill(66,mul1sub)^SignExt(MulAdd33_0.io.out.bits.result(63,0),66))
+                adder68_2 := (Fill(66,mul2sub)^SignExt(MulAdd65_0.io.out.bits.result(63,0),66)) 
+                adder68_3 := (mul1sub.asUInt +& mul2sub.asUInt)
                 val res = WireInit(tmp68(63,0))
                 when(saturating){
                     when((Fill(66,tmp68(65))^tmp68)(65,63)=/=0.U){
@@ -1253,7 +1260,7 @@ class PMDU extends NutCoreModule {
             }
         }
     }
-    when(isMSW_3232(func_out,funct3_out)){
+    when(MulAdd65_0.io.out.bits.Pctrl.isMSW_3232){
         io.out.bits.result := {
             var l = List(0.U)
             for(i <- 0 until XLEN/32){
@@ -1266,12 +1273,12 @@ class PMDU extends NutCoreModule {
                 adder34_1(i) := (Fill(33,sub.asUInt)^SignExt(round,33))
                 adder34_2(i) := sub.asBool
                 //val tmp   = SignExt(src3_out(i * 32 + 32 -1, i * 32),33) + (Fill(33,sub.asUInt)^SignExt(round,33))+sub.asBool
-                val res   = WireInit(tmp34(i)(31,0))
-                Debug("[PMDU] sub %x add %x sat %x round %x tmp %x res%x \n",sub,add,sat,round,tmp34(i)(31,0),res)
+                val res   = WireInit(tmp68(i*36+33,i*36)(31,0))
+                Debug("[PMDU] sub %x add %x sat %x round %x tmp %x res%x \n",sub,add,sat,round,tmp68(i*36+33,i*36)(31,0),res)
                 when(add || sub){
-                    when((Fill(33,tmp34(i)(32))^tmp34(i))(32,31) =/= 0.U){
+                    when((Fill(33,tmp68(i*36+33,i*36)(32))^tmp68(i*36+33,i*36))(32,31) =/= 0.U){
                         io.out.bits.DecodeOut.pext.OV := true.B
-                        when(tmp34(i)(32).asBool){
+                        when(tmp68(i*36+33,i*36)(32).asBool){
                             res := Cat(1.U,Fill(31,0.U))
                         }.otherwise{
                             res := Cat(0.U,Fill(31,1.U))
@@ -1287,7 +1294,7 @@ class PMDU extends NutCoreModule {
             }
             l.dropRight(1).reduce(Cat(_,_))
         }
-    }.elsewhen(isMSW_3216(func_out,funct3_out)){
+    }.elsewhen(MulAdd65_0.io.out.bits.Pctrl.isMSW_3216){
         io.out.bits.result := {
             var l = List(0.U)
             for(i <- 0 until XLEN/32){
@@ -1307,13 +1314,13 @@ class PMDU extends NutCoreModule {
                 adder34_1(i) := SignExt(round,33)
                 adder34_2(i) := 0.U
                 //val tmp   = SignExt(src3_out(i * 32 + 32 -1, i * 32),33) + SignExt(round,33)
-                val res   = WireInit(tmp34(i)(31,0))
-                Debug("[PMDU] add %x sat %x round0 %x round %x tmp %x res %x src2_clip %x\n",add,sat,round0,round,tmp34(i),res,src2_clip)
+                val res   = WireInit(tmp68(i*36+33,i*36)(31,0))
+                Debug("[PMDU] add %x sat %x round0 %x round %x tmp %x res %x src2_clip %x\n",add,sat,round0,round,tmp68(i*36+33,i*36),res,src2_clip)
                 
                 when(add){
-                    when((Fill(33,tmp34(i)(32))^tmp34(i))(32,31) =/= 0.U){
+                    when((Fill(33,tmp68(i*36+33,i*36)(32))^tmp68(i*36+33,i*36))(32,31) =/= 0.U){
                         io.out.bits.DecodeOut.pext.OV := true.B
-                        when(tmp34(i)(32).asBool){
+                        when(tmp68(i*36+33,i*36)(32).asBool){
                             res := Cat(1.U,Fill(31,0.U))
                         }.otherwise{
                             res := Cat(0.U,Fill(31,1.U))
@@ -1324,7 +1331,7 @@ class PMDU extends NutCoreModule {
             }
             l.dropRight(1).reduce(Cat(_,_))
         }
-    }.elsewhen(isS1632(func_out,funct3_out)){
+    }.elsewhen(MulAdd65_0.io.out.bits.Pctrl.isS1632){
         val twopairs = func_out(6,3) < 3.U || func_out(2,0) === "b101".U && func_out(6,5) === "b01".U && func_out(4,3) =/= "b00".U
         val submul1 = func_out === "b0110100".U || func_out === "b0110110".U || func_out(6,1) === "b010011".U
         val submul2 =(func_out(6,3) === "b0101".U || func_out(6,3) === "b0111".U) && (func_out(2,0) === "b100".U || func_out(2,0) === "b110".U)  || func_out(6,1) === "b010011".U
@@ -1345,18 +1352,19 @@ class PMDU extends NutCoreModule {
                         Mux(twopairs,0.U(32.W),MulAdd33_0.io.out.bits.result(31,0))
                        }}
                 adder34_0(i) := SignExt(src3_out(i * 32 + 32 -1, i * 32),34)
-                adder34_1(i) := ((Fill(34,submul1.asUInt)^SignExt(mul1,34)) + submul1.asUInt)
-                adder34_2(i) := ((Fill(34,submul2.asUInt)^SignExt(mul2,34)) + submul2.asUInt)
+                adder34_1(i) := (Fill(34,submul1.asUInt)^SignExt(mul1,34))
+                adder34_2(i) := Fill(34,submul2.asUInt)^SignExt(mul2,34)
+                adder34_3(i) := (submul1.asUInt +& submul2.asUInt)
                 //val tmp = SignExt(src3_out(i * 32 + 32 -1, i * 32),34) + ((Fill(34,submul1.asUInt)^SignExt(mul1,34)) + submul1.asUInt) + ((Fill(34,submul2.asUInt)^SignExt(mul2,34)) + submul2.asUInt)
-                res := tmp34(i)(31,0)
+                res := tmp68(i*36+33,i*36)(31,0)
                 when(checkmode1 && src1_out(i * 32 + 32 -1, i * 32) === Cat(Cat(1.U,Fill(15,0.U)),Cat(1.U,Fill(15,0.U))) && src2_out(i * 32 + 32 -1, i * 32) === Cat(Cat(1.U,Fill(15,0.U)),Cat(1.U,Fill(15,0.U)))){
                     res := Cat(0.U,Fill(31,1.U))
                     io.out.bits.DecodeOut.pext.OV := true.B
                 }
                 when(checkmode2){
-                    when((Fill(34,tmp34(i)(33))^tmp34(i))(33,31) =/= 0.U){
+                    when((Fill(34,tmp68(i*36+33,i*36)(33))^tmp68(i*36+33,i*36))(33,31) =/= 0.U){
                         io.out.bits.DecodeOut.pext.OV := true.B
-                        when(tmp34(i)(33).asBool){
+                        when(tmp68(i*36+33,i*36)(33).asBool){
                             res := Cat(1.U,Fill(31,0.U))
                         }.otherwise{
                             res := Cat(0.U,Fill(31,1.U))
@@ -1364,17 +1372,17 @@ class PMDU extends NutCoreModule {
                     }
                 }
                 l = List.concat(List(res),l)
-                Debug("[PMDUis1632] mul1 %x res %x tmp %x src3 %x \n",mul1,res,tmp34(i),src3_out(i * 32 + 32 -1, i * 32))
+                Debug("[PMDUis1632] mul1 %x res %x tmp %x src3 %x \n",mul1,res,tmp68(i*36+33,i*36),src3_out(i * 32 + 32 -1, i * 32))
             }
             l.dropRight(1).reduce(Cat(_,_))
         }
         Debug("[PMDUis1632] twopairs %x submul1 %x submul2 %x checkmode1 %x checkmode2 %x\n",twopairs,submul1,submul2,checkmode1,checkmode2)
-    }.elsewhen(isS1664(func_out,funct3_out)){
+    }.elsewhen(MulAdd65_0.io.out.bits.Pctrl.isS1664){
         adder68_0 := src1_out
         adder68_1 := SignExt(MulAdd65_0.io.out.bits.result(31,0),64)
         adder68_2 := SignExt(MulAdd33_0.io.out.bits.result(31,0),64)
         io.out.bits.result := tmp68(63,0)
-    }.elsewhen(is832(func_out,funct3_out)){
+    }.elsewhen(MulAdd65_0.io.out.bits.Pctrl.is832){
         val isunsigned = func_out(2,0) === "b110".U
         io.out.bits.result := {
             var l = List(0.U)
@@ -1402,15 +1410,17 @@ class PMDU extends NutCoreModule {
                     add3 := extender(!isunsigned,MulAdd65_0.io.out.bits.result(16,0),32)
                 }
                 adder34_0(i) := src3_out(32*i+32-1,32*i)
-                adder34_1(i) := add0 + add1
-                adder34_2(i) := add2 + add3
-                val res = tmp34(i)(31,0)
+                adder34_1(i) := add0 
+                adder34_2(i) := add1
+                adder34_3(i) := add2 
+                adder34_4(i) := add3
+                val res = tmp68(i*36+33,i*36)(31,0)
                 l = List.concat(List(res),l)
                 Debug("[PMDU] add0 %x add1 %x add2 %x add3 %x src3_out %x res %x \n",add0,add1,add2,add3,src3_out(32*i+32-1,32*i),res)
             }
             l.dropRight(1).reduce(Cat(_,_))
         }
-    }.elsewhen(is3264(func_out,funct3_out)){
+    }.elsewhen(MulAdd65_0.io.out.bits.Pctrl.is3264){
         val issigned = !func_out(4).asBool
         val issub    =  func_out(0).asBool
         val saturating = func_out(3).asBool
@@ -1420,8 +1430,9 @@ class PMDU extends NutCoreModule {
             add0 := extender(issigned,MulAdd33_0.io.out.bits.result(64,0),66)
             add1 := extender(issigned,MulAdd65_0.io.out.bits.result(64,0),66)
             adder68_0 :=  extender(issigned,src3_out(63,0),66)
-            adder68_1 := (Fill(66,issub)^add0)+issub.asUInt
-            adder68_2 := (Fill(66,issub)^add1)+issub.asUInt
+            adder68_1 := (Fill(66,issub)^add0)
+            adder68_2 := (Fill(66,issub)^add1)
+            adder68_3 := Cat(issub.asUInt,0.U(1.W))
             val res = WireInit(tmp68(63,0))
             when(saturating){
                 when(issigned){
@@ -1446,7 +1457,7 @@ class PMDU extends NutCoreModule {
             Debug("[PMDU] add0 %x add1 %x src3_out %x res %x issigned %x issub %x saturating %x\n",add0,add1,src3_out,res,issigned,issub,saturating)
             res
         }
-    }.elsewhen(is1664(func_out,funct3_out)){
+    }.elsewhen(MulAdd65_0.io.out.bits.Pctrl.is1664){
         val twopairs = func_out(2,0) === "b100".U
         val submul1 = func_out === "b1000101".U || func_out === "b1010101".U || func_out === "b1010110".U || func_out === "b1011110".U
         val submul2 = func_out === "b1001101".U || func_out === "b1010110".U || func_out === "b1011110".U
@@ -1457,8 +1468,10 @@ class PMDU extends NutCoreModule {
             mul3:= Mux(twopairs,0.U,MulAdd33_0.io.out.bits.result(31,0))
             mul4:= Mux(twopairs,0.U,MulAdd65_0.io.out.bits.result(31,0))
             adder68_0 := src3_out(63,0)
-            adder68_1 := ((Fill(64,submul1.asUInt)^SignExt(mul1,64)) + submul1.asUInt) + ((Fill(64,submul2.asUInt)^SignExt(mul2,64)) + submul2.asUInt)
-            adder68_2 := ((Fill(64,submul1.asUInt)^SignExt(mul3,64)) + submul1.asUInt) + ((Fill(64,submul2.asUInt)^SignExt(mul4,64)) + submul2.asUInt)
+            adder68_1 := (Fill(64,submul1.asUInt)^SignExt(mul1,64)) + (Cat(submul1.asUInt,0.U(1.W)) +& Cat(submul2.asUInt,0.U(1.W)))
+            adder68_2 := (Fill(64,submul1.asUInt)^SignExt(mul3,64))
+            adder68_3 := (Fill(64,submul2.asUInt)^SignExt(mul2,64))
+            adder68_4 := (Fill(64,submul2.asUInt)^SignExt(mul4,64))
             //val tmp = SignExt(src3_out(i * 32 + 32 -1, i * 32),34) + ((Fill(34,submul1.asUInt)^SignExt(mul1,34)) + submul1.asUInt) + ((Fill(34,submul2.asUInt)^SignExt(mul2,34)) + submul2.asUInt)
             res := tmp68(63,0)
             
@@ -1467,69 +1480,41 @@ class PMDU extends NutCoreModule {
             res
         }
         Debug("[PMDUis1632] twopairs %x submul1 %x submul2 %x\n",twopairs,submul1,submul2)
-    }.elsewhen(isQ15(func_out,funct3_out)){
+    }.elsewhen(MulAdd65_0.io.out.bits.Pctrl.isQ15orQ31){
         io.out.bits.result := {
-            val bb = func_out(4,3) === "b00".U 
-            val bt = func_out(4,3) === "b01".U 
+            val isQ31_type1 = func_out(2,0) === "b001".U
+            val isQ31_type0 = func_out(2,0) === "b101".U
+            val isQ15       = func_out(2,0) === "b110".U
+            val bb = Mux(isQ31_type1,func_out(4,3) === "b01".U,func_out(4,3) === "b00".U)
+            val bt = Mux(isQ31_type1,func_out(4,3) === "b10".U,func_out(4,3) === "b01".U)
             val src1_clip1 = Mux(bb,src1_out(15,0),Mux(bt,src1_out(15,0),src1_out(31,16)))
             val src2_clip1 = Mux(bb,src2_out(15,0),src2_out(31,16))
             val tmp = MulAdd65_0.io.out.bits.result(31,0)
-            val res = Wire(UInt(XLEN.W))
+            val add1= Wire(UInt(XLEN.W))
+            val res = WireInit(add1)
             when(src1_clip1 === "h8000".U && src2_clip1=== "h8000".U){
                 io.out.bits.DecodeOut.pext.OV := true.B
-                res := ZeroExt("h00007fff".U,XLEN)
+                add1 := Mux(isQ15,ZeroExt("h00007fff".U,XLEN),ZeroExt("h7fffffff".U,XLEN))
             }.otherwise{
-                res := SignExt((tmp.asSInt >> 15).asUInt,XLEN)
-            }
-            res
-        }
-    }.elsewhen(isQ31_type0(func_out,funct3_out)){
-        io.out.bits.result := {
-            val bb = func_out(4,3) === "b00".U 
-            val bt = func_out(4,3) === "b01".U 
-            val src1_clip1 = Mux(bb,src1_out(15,0),Mux(bt,src1_out(15,0),src1_out(31,16)))
-            val src2_clip1 = Mux(bb,src2_out(15,0),src2_out(31,16))
-            val tmp = MulAdd65_0.io.out.bits.result(31,0)
-            val res = Wire(UInt(XLEN.W))
-            when(src1_clip1 === "h8000".U && src2_clip1=== "h8000".U){
-                io.out.bits.DecodeOut.pext.OV := true.B
-                res := ZeroExt("h7fffffff".U,XLEN)
-            }.otherwise{
-                res := SignExt(tmp << 1,XLEN)
-            }
-            res
-        }
-    }.elsewhen(isQ31_type1(func_out,funct3_out)){
-        io.out.bits.result := {
-            val bb = func_out(4,3) === "b01".U 
-            val bt = func_out(4,3) === "b10".U 
-            val src1_clip1 = Mux(bb,src1_out(15,0),Mux(bt,src1_out(15,0),src1_out(31,16)))
-            val src2_clip1 = Mux(bb,src2_out(15,0),src2_out(31,16))
-            val tmp = MulAdd65_0.io.out.bits.result(31,0)
-            val res = Wire(UInt(XLEN.W))
-            val add1= Wire(UInt(32.W))
-            when(src1_clip1 === "h8000".U && src2_clip1=== "h8000".U){
-                io.out.bits.DecodeOut.pext.OV := true.B
-                add1 := ZeroExt("h7fffffff".U,32)
-            }.otherwise{
-                add1 := SignExt(tmp << 1,32)
+                add1 := Mux(isQ15,SignExt((tmp.asSInt >> 15).asUInt,XLEN),SignExt(tmp << 1,XLEN))
             }
             adder68_0 := SignExt(src3_out(31,0),33)
             adder68_1 := SignExt(add1(31,0),33)
-            adder68_2 := 0.U
-            res := SignExt(tmp68(31,0),XLEN)
-            when((Fill(33,tmp68(32))^tmp68)(32,31) =/= 0.U){
-                io.out.bits.DecodeOut.pext.OV := true.B
-                when(tmp68(32).asBool){
-                    res := SignExt(Cat(1.U,Fill(31,0.U)),XLEN)
-                }.otherwise{
-                    res := SignExt(Cat(0.U,Fill(31,1.U)),XLEN)
+            //adder68_2 := 0.U
+            when(isQ31_type1){
+                res := SignExt(tmp68(31,0),XLEN)
+                when((Fill(33,tmp68(32))^tmp68)(32,31) =/= 0.U){
+                    io.out.bits.DecodeOut.pext.OV := true.B
+                    when(tmp68(32).asBool){
+                        res := SignExt(Cat(1.U,Fill(31,0.U)),XLEN)
+                    }.otherwise{
+                        res := SignExt(Cat(0.U,Fill(31,1.U)),XLEN)
+                    }
                 }
             }
-            Debug("[PMDUQ31T1]bb %x bt %x src1_clip1 %x src2_clip1 %x adder68_0 %x adder68_1 %x tmp68 %x res %x\n",bb,bt,src1_clip1,src2_clip1,adder68_0,adder68_1,tmp68,res)
             res
         }
-    }.elsewhen(isC31(func_out,funct3_out)){
+    }.elsewhen(MulAdd65_0.io.out.bits.Pctrl.isC31){
         io.out.bits.result :={
             val tmp = MulAdd65_0.io.out.bits.result(63,0)
             adder68_0 := Mux(func_out(4).asBool,0.U,src3_out(31,0))

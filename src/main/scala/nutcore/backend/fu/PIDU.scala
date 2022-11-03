@@ -85,6 +85,21 @@ class PIDUIO extends NutCoreBundle {
     val isPacktb = Output(Bool())
     val isPacktt = Output(Bool())
     val isPack   = Output(Bool())
+    val isMul_16 = Output(Bool())
+    val isMul_8  = Output(Bool())
+    val isMSW_3232 = Output(Bool())
+    val isMSW_3216 = Output(Bool())
+    val isS1632  = Output(Bool())
+    val isS1664  = Output(Bool())
+    val is832    = Output(Bool())
+    val is3264   = Output(Bool())
+    val is1664   = Output(Bool())
+    val isQ15orQ31 = Output(Bool())
+    val isC31    = Output(Bool())
+    val isQ15_64ONLY = Output(Bool())
+    val isQ63_64ONLY = Output(Bool())
+    val isMul_32_64ONLY = Output(Bool())
+    val isPMA_64ONLY = Output(Bool())
 }
 class PIDU() extends NutCoreModule with HasInstrType{
     val io = IO(new Bundle{
@@ -193,4 +208,20 @@ class PIDU() extends NutCoreModule with HasInstrType{
     io.Pctrl.isPacktb  := func === "b0011111".U && funct3 === "b010".U
     io.Pctrl.isPacktt  := func === "b0100100".U && funct3 === "b100".U && io.DecodeIn.cf.instr(6,0) === "b0110011".U
     io.Pctrl.isPack    := io.Pctrl.isPackbb | io.Pctrl.isPackbt | io.Pctrl.isPacktb | io.Pctrl.isPacktt
+
+    io.Pctrl.isMul_16 := {func(2) === 0.U && funct3 === 0.U}
+    io.Pctrl.isMul_8  := {func(2) === 1.U && funct3 === 0.U && func(6,3) =/= "b1100".U}
+    io.Pctrl.isMSW_3232 := {func(6,5) === "b01".U && func(2,1) === "b00".U && funct3 === 1.U}
+    io.Pctrl.isMSW_3216 := {(func(6,5) === "b01".U && func(2,1) === "b01".U || func(6) === "b1".U && func(2,0) === "b111".U) && funct3 === 1.U}
+    io.Pctrl.isS1632  := {(!func(6).asBool && (func(2,0) === "b100".U || func(2,0) === "b101".U && func(6,3) > 2.U || func(2,0) === "b110".U && func(5).asBool || func === "b0100111".U)) && funct3 === 1.U}
+    io.Pctrl.isS1664  := {func === "b0101111".U && funct3 === 1.U}
+    io.Pctrl.is832    := {func(6,3) === "b1100".U && func(2,0) =/= "b111".U && funct3 === 0.U}
+    io.Pctrl.is3264   := {func(6,5) === "b10".U && func(2,1) === "b01".U && funct3 === "b001".U}
+    io.Pctrl.is1664   := {func(6,5) === "b10".U && func(2,0) =/= "b111".U && funct3 === "b001".U}
+    io.Pctrl.isQ15orQ31 := {(func(6,5) === "b00".U && (func(2,0) === "b110".U || func(2,0) === "b101".U) || func(6,5) === "b11".U && func(2,0) === "b001".U && func(4,3) =/= "b00".U) && funct3 === "b001".U}
+    io.Pctrl.isC31    := {(func(6,4) === "b111".U && func(2,0) === "b000".U || func(6,3) === "b1100".U && func(2,1) === "b01".U) && funct3 === "b001".U}
+    io.Pctrl.isQ15_64ONLY := {func(6,5) === "b11".U && func(4,3)=/="b00".U && func(2) === "b1".U && func(1,0) =/= "b11".U && funct3 === "b001".U}
+    io.Pctrl.isQ63_64ONLY := {func(6,5) === "b01".U && func(4,3)=/="b00".U && func(2,0) === "b101".U && funct3 === "b010".U}
+    io.Pctrl.isMul_32_64ONLY := {(func(6,3) === "b0010".U || func(6,3) === "b0001".U) && func(2,0) === "b100".U && funct3 === "b010".U}
+    io.Pctrl.isPMA_64ONLY := {(func(6,3)==="b0011".U && func(2,1) === "b10".U || func(6,3)==="b0100".U && func(2).asBool || (func(2,0) === "b100".U || func(2,0) === "b110".U) && func(6,5)==="b01".U && func(4,3)=/="b00".U) && funct3 === "b010".U}
 }
