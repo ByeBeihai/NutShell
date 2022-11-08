@@ -78,7 +78,7 @@ class SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   csr.io.instrValid := io.in(WhoTakeCsr).valid && !io.flush
   csr.io.isBackendException := false.B
   for(i <- 0 to Issue_Num-1){
-    io.out(i).bits.intrNO := csr.io.intrNO
+    io.out(i).bits.intrNO := DontCare
   }
   csr.io.isBackendException := false.B
   csr.io.out.ready := true.B
@@ -278,17 +278,17 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
                               }
                               raw.reduce(_||_)
                             }
-  val csr = Module(new CSR)
+  val csr = Module(new new_SIMD_CSR)
   val csrOut = csr.access(valid = io.in(csridx).valid, src1 = src1(csridx), src2 = src2(csridx), func = fuOpType(csridx))
   csr.io.cfIn := Mux(io.in(csridx).valid, io.in(csridx).bits.cf,io.in(lsuidx).bits.cf)
   csr.io.cfIn.exceptionVec(loadAddrMisaligned) := lsu.io.loadAddrMisaligned && !BeforeCSRhasRedirect
   csr.io.cfIn.exceptionVec(storeAddrMisaligned) := lsu.io.storeAddrMisaligned && !BeforeCSRhasRedirect
   csr.io.instrValid := (io.in(csridx).valid || lsu.io.loadAddrMisaligned || lsu.io.storeAddrMisaligned) && !BeforeCSRhasRedirect //need to know what does it mean
-  csr.io.isBackendException := false.B
+  //csr.io.isBackendException := false.B
   for(i <- 0 to FuType.num-1){
-    io.out(i).bits.intrNO := csr.io.intrNO
+    io.out(i).bits.intrNO := DontCare
   }
-  csr.io.isBackendException := false.B
+  //csr.io.isBackendException := false.B
   csr.io.out.ready := true.B
   csr.io.imemMMU <> io.memMMU.imem
   csr.io.dmemMMU <> io.memMMU.dmem
