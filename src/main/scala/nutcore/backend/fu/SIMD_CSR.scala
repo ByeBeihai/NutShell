@@ -665,87 +665,6 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   val perfCntsLoMapping = (0 until nrPerfCnts).map { case i => MaskedRegMap(0xb00 + i, perfCnts(i)) }
   val perfCntsHiMapping = (0 until nrPerfCnts).map { case i => MaskedRegMap(0xb80 + i, perfCnts(i)(63, 32)) }
 
-  // CSR reg map
-  val mapping = Map(
-
-    // User Trap Setup
-    // MaskedRegMap(Ustatus, ustatus), 
-    // MaskedRegMap(Uie, uie, 0.U, MaskedRegMap.Unwritable),
-    // MaskedRegMap(Utvec, utvec),
-    
-    // User Trap Handling
-    // MaskedRegMap(Uscratch, uscratch),
-    // MaskedRegMap(Uepc, uepc),
-    // MaskedRegMap(Ucause, ucause),
-    // MaskedRegMap(Utval, utval),
-    // MaskedRegMap(Uip, uip),
-
-    // User Floating-Point CSRs (not implemented)
-    // MaskedRegMap(Fflags, fflags),
-    // MaskedRegMap(Frm, frm),
-    // MaskedRegMap(Fcsr, fcsr),
-
-    // User Counter/Timers
-    // MaskedRegMap(Cycle, cycle),
-    // MaskedRegMap(Time, time),
-    // MaskedRegMap(Instret, instret),
-    
-    // Supervisor Trap Setup
-    MaskedRegMap(Sstatus, mstatus, sstatusWmask, mstatusUpdateSideEffect, sstatusRmask),
-
-    // MaskedRegMap(Sedeleg, Sedeleg),
-    // MaskedRegMap(Sideleg, Sideleg),
-    MaskedRegMap(Sie, mie, sieMask, MaskedRegMap.NoSideEffect, sieMask),
-    MaskedRegMap(Stvec, stvec),
-    MaskedRegMap(Scounteren, scounteren),
-
-    // Supervisor Trap Handling
-    MaskedRegMap(Sscratch, sscratch),
-    MaskedRegMap(Sepc, sepc),
-    MaskedRegMap(Scause, scause),
-    MaskedRegMap(Stval, stval),
-    MaskedRegMap(Sip, mip.asUInt, sipMask, MaskedRegMap.Unwritable, sipMask),
-
-    // Supervisor Protection and Translation
-    MaskedRegMap(Satp, satp),
-
-    // Machine Information Registers 
-    MaskedRegMap(Mvendorid, mvendorid, 0.U, MaskedRegMap.Unwritable), 
-    MaskedRegMap(Marchid, marchid, 0.U, MaskedRegMap.Unwritable), 
-    MaskedRegMap(Mimpid, mimpid, 0.U, MaskedRegMap.Unwritable), 
-    MaskedRegMap(Mhartid, mhartid, 0.U, MaskedRegMap.Unwritable), 
-
-    // Machine Trap Setup
-    // MaskedRegMap(Mstatus, mstatus, "hffffffffffffffee".U, (x=>{printf("mstatus write: %x time: %d\n", x, GTimer()); x})),
-    MaskedRegMap(Mstatus, mstatus, "hffffffffffffffff".U, mstatusUpdateSideEffect),
-    MaskedRegMap(Misa, misa), // now MXL, EXT is not changeable
-    MaskedRegMap(Medeleg, medeleg, "hbbff".U),
-    MaskedRegMap(Mideleg, mideleg, "h222".U),
-    MaskedRegMap(Mie, mie),
-    MaskedRegMap(Mtvec, mtvec),
-    MaskedRegMap(Mcounteren, mcounteren), 
-
-    // Machine Trap Handling
-    MaskedRegMap(Mscratch, mscratch),
-    MaskedRegMap(Mepc, mepc),
-    MaskedRegMap(Mcause, mcause),
-    MaskedRegMap(Mtval, mtval),
-    MaskedRegMap(Mip, mip.asUInt, 0.U, MaskedRegMap.Unwritable),
-
-    // Machine Memory Protection
-    MaskedRegMap(Pmpcfg0, pmpcfg0),
-    MaskedRegMap(Pmpcfg1, pmpcfg1),
-    MaskedRegMap(Pmpcfg2, pmpcfg2),
-    MaskedRegMap(Pmpcfg3, pmpcfg3),
-    MaskedRegMap(PmpaddrBase + 0, pmpaddr0,"h3ffffffff".U),
-    MaskedRegMap(PmpaddrBase + 1, pmpaddr1,"h3fffffc00".U),
-    MaskedRegMap(PmpaddrBase + 2, pmpaddr2,"h3fffffc00".U),
-    MaskedRegMap(PmpaddrBase + 3, pmpaddr3,"h3fffffc00".U),
-
-    MaskedRegMap(VXSAT,vxsat,1.U,MaskedRegMap.NoSideEffect,1.U)
-
-  ) //++ perfCntsLoMapping //++ (if (XLEN == 32) perfCntsHiMapping else Nil)
-
   val addr = src2(11, 0)
   val rdata = Wire(UInt(XLEN.W))
   val csri = ZeroExt(io.cfIn.instr(19,15), XLEN) //unsigned imm for csri. [TODO]
@@ -768,18 +687,118 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   val isIllegalWrite = wen && (addr(11, 10) === "b11".U) && !justRead  // Write a read-only CSR register
   val isIllegalAccess = isIllegalMode || isIllegalWrite
 
-  MaskedRegMap.generate(mapping, addr, rdata, wen && !isIllegalAccess, wdata)
-  val isIllegalAddr = MaskedRegMap.isIllegalAddr(mapping, addr)
+  val RegWen = wen && !isIllegalAccess
+  val isIllegalAddr = WireInit(false.B)
+  when(addr === Sstatus.U){
+    rdata := mstatus & sstatusRmask
+    val tmp = (mstatus & ~sstatusWmask) | (wdata & sstatusWmask) 
+    when(RegWen){mstatus := Cat(tmp.asTypeOf(new MstatusStruct).fs === "b11".U, tmp(XLEN-2,0))}
+  }.elsewhen(addr === Sie.U){
+    rdata := mstatus & sieMask
+    when(RegWen){mie := (mie & ~sieMask)|(wdata & sieMask)}
+  }.elsewhen(addr === Stvec.U){
+    rdata := stvec
+    when(RegWen){stvec := wdata}
+  }.elsewhen(addr === Scounteren.U){
+    rdata := scounteren
+    when(RegWen){scounteren := wdata}
+  }.elsewhen(addr === Sscratch.U){
+    rdata := sscratch
+    when(RegWen){sscratch := wdata}
+  }.elsewhen(addr === Sepc.U){
+    rdata := sepc
+    when(RegWen){sepc := wdata}
+  }.elsewhen(addr === Scause.U){
+    rdata := scause
+    when(RegWen){scause := wdata}
+  }.elsewhen(addr === Stval.U){
+    rdata := stval
+    when(RegWen){stval := wdata}
+  }.elsewhen(addr === Satp.U){
+    rdata := satp
+    when(RegWen){satp := wdata}
+  }.elsewhen(addr === Mstatus.U){
+    rdata := mstatus
+    val tmp = wdata
+    when(RegWen){mstatus := Cat(tmp.asTypeOf(new MstatusStruct).fs === "b11".U, tmp(XLEN-2,0))}
+  }.elsewhen(addr === Misa.U){
+    rdata := misa
+  }.elsewhen(addr === Medeleg.U){
+    rdata := medeleg
+    val medelegMask = "hbbff".U
+    when(RegWen){medeleg := (wdata & medelegMask) | (medeleg & ~medelegMask)}
+  }.elsewhen(addr === Mideleg.U){
+    rdata := mideleg
+    val midelegMask = "h222".U
+    when(RegWen){mideleg := (wdata & midelegMask) | (mideleg & ~midelegMask)}
+  }.elsewhen(addr === Mie.U){
+    rdata := mie
+    when(RegWen){mie := wdata}
+  }.elsewhen(addr === Mtvec.U){
+    rdata := mtvec
+    when(RegWen){mtvec := wdata}
+  }.elsewhen(addr === Mcounteren.U){
+    rdata := mcounteren
+    when(RegWen){mcounteren := wdata}
+  }.elsewhen(addr === Mvendorid.U || addr === Marchid.U || addr === Mimpid.U || addr === Mhartid.U){
+    rdata := 0.U
+  }.elsewhen(addr === Mscratch.U){
+    rdata := mscratch
+    when(RegWen){mscratch := wdata}
+  }.elsewhen(addr === Mepc.U){
+    rdata := mepc
+    when(RegWen){mepc := wdata}
+  }.elsewhen(addr === Mcause.U){
+    rdata := mcause
+    when(RegWen){mcause := wdata}
+  }.elsewhen(addr === Mtval.U){
+    rdata := mtval
+    when(RegWen){mtval := wdata}
+  }.elsewhen(addr === Pmpcfg0.U){
+    rdata := pmpcfg0
+    when(RegWen){pmpcfg0 := wdata}
+  }.elsewhen(addr === Pmpcfg1.U){
+    rdata := pmpcfg1
+    when(RegWen){pmpcfg1 := wdata}
+  }.elsewhen(addr === Pmpcfg2.U){
+    rdata := pmpcfg2
+    when(RegWen){pmpcfg2 := wdata}
+  }.elsewhen(addr === Pmpcfg3.U){
+    rdata := pmpcfg3
+    when(RegWen){pmpcfg3 := wdata}
+  }.elsewhen(addr === (PmpaddrBase + 0).U){
+    rdata := pmpaddr0
+    val pmpaddr0Mask = "h3ffffffff".U
+    when(RegWen){pmpaddr0 := (wdata & pmpaddr0Mask) | (pmpaddr0 & ~pmpaddr0Mask)}
+  }.elsewhen(addr === (PmpaddrBase + 1).U){
+    rdata := pmpaddr1
+    val pmpaddr1Mask = "h3fffffc00".U
+    when(RegWen){pmpaddr1 := (wdata & pmpaddr1Mask) | (pmpaddr1 & ~pmpaddr1Mask)}
+  }.elsewhen(addr === (PmpaddrBase + 2).U){
+    rdata := pmpaddr2
+    val pmpaddr2Mask = "h3fffffc00".U
+    when(RegWen){pmpaddr2 := (wdata & pmpaddr2Mask) | (pmpaddr2 & ~pmpaddr2Mask)}
+  }.elsewhen(addr === (PmpaddrBase + 3).U){
+    rdata := pmpaddr3
+    val pmpaddr3Mask = "h3fffffc00".U
+    when(RegWen){pmpaddr3 := (wdata & pmpaddr3Mask) | (pmpaddr3 & ~pmpaddr3Mask)}
+  }.elsewhen(addr === VXSAT.U){
+    rdata := vxsat & 1.U
+    when(RegWen){vxsat := (wdata & 1.U)}
+  }.elsewhen(addr === Sip.U){
+    rdata := mip.asUInt
+    when(RegWen){mipReg := (wdata & sipMask) | (mipReg & ~sipMask)}
+  }.elsewhen(addr === Mip.U){
+    rdata := 0.U
+    when(RegWen){mipReg:= (wdata & mipFixMask) | (mipReg & ~mipFixMask)}
+  }.otherwise{
+    rdata := 0.U
+    isIllegalAddr:= true.B
+  }
+  
   val resetSatp = addr === Satp.U && wen // write to satp will cause the pipeline be flushed
   io.out.bits := rdata
 
-  // Fix Mip/Sip write
-  val fixMapping = Map(
-    MaskedRegMap(Mip, mipReg.asUInt, mipFixMask),
-    MaskedRegMap(Sip, mipReg.asUInt, sipMask, MaskedRegMap.NoSideEffect, sipMask)
-  )
-  val rdataDummy = Wire(UInt(XLEN.W))
-  MaskedRegMap.generate(fixMapping, addr, rdataDummy, wen && !isIllegalAccess, wdata)
 
   //p-ext
   val OVWEN = WireInit(false.B)
