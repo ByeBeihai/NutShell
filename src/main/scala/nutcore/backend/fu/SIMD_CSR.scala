@@ -304,13 +304,13 @@ class SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with SIMD_Ha
   io.imemMMU.status_mxr := DontCare
   io.dmemMMU.status_mxr := mstatusStruct.mxr.asBool
 
-  val hasInstrPageFault = Wire(Bool())
-  val hasLoadPageFault = Wire(Bool())
-  val hasStorePageFault = Wire(Bool())
-  val hasStoreAddrMisaligned = Wire(Bool())
-  val hasLoadAddrMisaligned = Wire(Bool())
+  val hasInstrPageFault = io.cfIn.exceptionVec(instrPageFault) && valid
+  val hasLoadPageFault = io.dmemMMU.loadPF
+  val hasStorePageFault = io.dmemMMU.storePF
+  val hasStoreAddrMisaligned = io.cfIn.exceptionVec(storeAddrMisaligned)
+  val hasLoadAddrMisaligned = io.cfIn.exceptionVec(loadAddrMisaligned)
 
-  val dmemPagefaultAddr = Wire(UInt(VAddrBits.W))
+  val dmemPagefaultAddr = io.dmemMMU.addr
   val dmemAddrMisalignedAddr = Wire(UInt(VAddrBits.W))
   val lsuAddr = WireInit(0.U(64.W))
   BoringUtils.addSink(lsuAddr, "LSUADDR")
@@ -515,8 +515,6 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     val s = Output(Bool())
     val u = Output(Bool())
   }
-
-  val csrNotImplemented = RegInit(UInt(XLEN.W), 0.U)
    
   class MstatusStruct extends Bundle {
     val sd = Output(UInt(1.W))
@@ -567,8 +565,6 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   val mipFixMask = "h77f".U
   val mip = (mipWire.asUInt | mipReg).asTypeOf(new Interrupt)
 
-  def getMisaMxl(mxl: Int): UInt = {mxl.U << (XLEN-2)}
-  def getMisaExt(ext: Char): UInt = {1.U << (ext.toInt - 'a'.toInt)} 
   var extList = List('a', 's', 'i', 'u')
   if(HasMExtension){ extList = extList :+ 'm'}
   if(HasCExtension){ extList = extList :+ 'c'}
@@ -582,33 +578,7 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   val mimpid = RegInit(UInt(XLEN.W), 0.U) // provides a unique encoding of the version of the processor implementation
   val mhartid = RegInit(UInt(XLEN.W), 0.U) // the hardware thread running the code
   val mstatus = RegInit(UInt(XLEN.W), "h00001800".U)
-  // val mstatus = RegInit(UInt(XLEN.W), "h8000c0100".U)
-  // mstatus Value Table
-  // | sd   |
-  // | pad1 |
-  // | sxl  | hardlinked to 10, use 00 to pass xv6 test  
-  // | uxl  | hardlinked to 00
-  // | pad0 |
-  // | tsr  |
-  // | tw   |
-  // | tvm  |
-  // | mxr  |
-  // | sum  |
-  // | mprv |
-  // | xs   | 00 |
-  // | fs   | 00 |
-  // | mpp  | 00 |
-  // | hpp  | 00 |
-  // | spp  | 0 |
-  // | pie  | 0000 |
-  // | ie   | 0000 | uie hardlinked to 0, as N ext is not implemented
   val mstatusStruct = mstatus.asTypeOf(new MstatusStruct)
-  def mstatusUpdateSideEffect(mstatus: UInt): UInt = {
-    val mstatusOld = WireInit(mstatus.asTypeOf(new MstatusStruct))
-    val mstatusNew = Cat(mstatusOld.fs === "b11".U, mstatus(XLEN-2, 0))
-    mstatusNew
-  }
-
   val medeleg = RegInit(UInt(XLEN.W), 0.U)
   val mideleg = RegInit(UInt(XLEN.W), 0.U)
   val mscratch = RegInit(UInt(XLEN.W), 0.U)
@@ -628,19 +598,10 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
 
   // val sstatus = RegInit(UInt(XLEN.W), "h00000000".U)
   val sstatusWmask = "hc6122".U
-  // Sstatus Write Mask
-  // -------------------------------------------------------
-  //    19           9   5     2
-  // 0  1100 0000 0001 0010 0010
-  // 0  c    0    1    2    2
-  // -------------------------------------------------------
   val sstatusRmask = sstatusWmask | "h8000000300018000".U
-  // Sstatus Read Mask = (SSTATUS_WMASK | (0xf << 13) | (1ull << 63) | (3ull << 32))
   val stvec = RegInit(UInt(XLEN.W), 0.U)
-  // val sie = RegInit(0.U(XLEN.W))
   val sieMask = "h222".U & mideleg
   val sipMask  = "h222".U & mideleg
-  // val satp = RegInit(UInt(XLEN.W), "h8000000000087fbe".U)
   val satp = RegInit(UInt(XLEN.W), 0.U)
   val sepc = RegInit(UInt(XLEN.W), 0.U)
   val scause = RegInit(UInt(XLEN.W), 0.U)
@@ -648,22 +609,15 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   val sscratch = RegInit(UInt(XLEN.W), 0.U)
   val scounteren = RegInit(UInt(XLEN.W), 0.U)
 
-  if (Settings.get("HasDTLB")) {
-    BoringUtils.addSource(satp, "CSRSATP")
-  }
+  //ret target
+  val retTarget = WireInit(0.U(VAddrBits-1, 0))
+  val trapTarget = WireInit(0.U(VAddrBits-1, 0))
 
   // User-Level CSRs
   val uepc = Reg(UInt(XLEN.W))
 
   // Hart Priviledge Mode
   val priviledgeMode = RegInit(UInt(2.W), ModeM)
-
-  // perfcnt
-  val hasPerfCnt = EnablePerfCnt && !p.FPGAPlatform
-  val nrPerfCnts = if (hasPerfCnt) 0x80 else 0x3
-  val perfCnts = List.fill(nrPerfCnts)(RegInit(0.U(64.W)))
-  val perfCntsLoMapping = (0 until nrPerfCnts).map { case i => MaskedRegMap(0xb00 + i, perfCnts(i)) }
-  val perfCntsHiMapping = (0 until nrPerfCnts).map { case i => MaskedRegMap(0xb80 + i, perfCnts(i)(63, 32)) }
 
   val addr = src2(11, 0)
   val rdata = Wire(UInt(XLEN.W))
@@ -795,10 +749,6 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     rdata := 0.U
     isIllegalAddr:= true.B
   }
-  
-  val resetSatp = addr === Satp.U && wen // write to satp will cause the pipeline be flushed
-  io.out.bits := rdata
-
 
   //p-ext
   val OVWEN = WireInit(false.B)
@@ -806,60 +756,18 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   when(OVWEN){vxsat := 1.U}
 
   // CSR inst decode
-  val ret = Wire(Bool())
-  val isEbreak = addr === privEbreak && func === CSROpType.jmp //&& !io.isBackendException
-  val isEcall = addr === privEcall && func === CSROpType.jmp //&& !io.isBackendException
-  val isMret = addr === privMret   && func === CSROpType.jmp //&& !io.isBackendException
-  val isSret = addr === privSret   && func === CSROpType.jmp //&& !io.isBackendException
-  val isUret = addr === privUret   && func === CSROpType.jmp //&& !io.isBackendException
+  val isJump  = func === CSROpType.jmp
+  val isEbreak= addr === privEbreak && isJump //&& !io.isBackendException
+  val isEcall = addr === privEcall  && isJump //&& !io.isBackendException
+  val isMret  = addr === privMret   && isJump //&& !io.isBackendException
+  val isSret  = addr === privSret   && isJump //&& !io.isBackendException
+  val isUret  = addr === privUret   && isJump //&& !io.isBackendException
+  val isIllegalSret = isSret && mstatusStruct.tsr.asBool
 
   Debug(wen, "csr write: pc %x addr %x rdata %x wdata %x func %x\n", io.cfIn.pc, addr, rdata, wdata, func)
   Debug(wen, "[MST] time %d pc %x mstatus %x mideleg %x medeleg %x mode %x\n", GTimer(), io.cfIn.pc, mstatus, mideleg , medeleg, priviledgeMode)
   Debug("[CSR] mip %x mipreg %x mipwire %x \n", mip.asUInt,mipReg.asUInt,mipWire.asUInt)
   
-
-  //TODO: Havn't test if io.dmemMMU.priviledgeMode is correct yet
-  io.imemMMU.priviledgeMode := priviledgeMode
-  io.dmemMMU.priviledgeMode := Mux(mstatusStruct.mprv.asBool, mstatusStruct.mpp, priviledgeMode)
-  io.imemMMU.status_sum := mstatusStruct.sum.asBool
-  io.dmemMMU.status_sum := mstatusStruct.sum.asBool
-  io.imemMMU.status_mxr := DontCare
-  io.dmemMMU.status_mxr := mstatusStruct.mxr.asBool
-
-  val hasInstrPageFault = Wire(Bool())
-  val hasLoadPageFault = Wire(Bool())
-  val hasStorePageFault = Wire(Bool())
-  val hasStoreAddrMisaligned = Wire(Bool())
-  val hasLoadAddrMisaligned = Wire(Bool())
-
-  val dmemPagefaultAddr = Wire(UInt(VAddrBits.W))
-  val dmemAddrMisalignedAddr = Wire(UInt(VAddrBits.W))
-  val lsuAddr = WireInit(0.U(64.W))
-  BoringUtils.addSink(lsuAddr, "LSUADDR")
-  hasInstrPageFault := io.cfIn.exceptionVec(instrPageFault) && valid
-  hasLoadPageFault := io.dmemMMU.loadPF
-  hasStorePageFault := io.dmemMMU.storePF
-  hasStoreAddrMisaligned := io.cfIn.exceptionVec(storeAddrMisaligned)
-  hasLoadAddrMisaligned := io.cfIn.exceptionVec(loadAddrMisaligned)
-  dmemPagefaultAddr := io.dmemMMU.addr
-  dmemAddrMisalignedAddr := lsuAddr
-  
-
-  when(hasInstrPageFault || hasLoadPageFault || hasStorePageFault){
-    val tval = Mux(hasInstrPageFault, Mux(io.cfIn.crossPageIPFFix, SignExt((io.cfIn.pc + 2.U)(VAddrBits-1,0), XLEN), SignExt(io.cfIn.pc(VAddrBits-1,0), XLEN)), SignExt(dmemPagefaultAddr, XLEN))
-    when(priviledgeMode === ModeM){
-      mtval := tval
-    }.otherwise{
-      stval := tval
-    }
-    Debug("[PF] %d: ipf %b tval %x := addr %x pc %x priviledgeMode %x\n", GTimer(), hasInstrPageFault, tval, SignExt(dmemPagefaultAddr, XLEN), io.cfIn.pc, priviledgeMode)
-  }
-
-  when(hasLoadAddrMisaligned || hasStoreAddrMisaligned)
-  {
-    mtval := SignExt(dmemAddrMisalignedAddr, XLEN)
-    Debug("[ML] %d: addr %x pc %x priviledgeMode %x\n", GTimer(), SignExt(dmemAddrMisalignedAddr, XLEN), io.cfIn.pc, priviledgeMode)
-  }
   // Exception and Intr
 
   // interrupts
@@ -879,85 +787,56 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   val mipRaiseIntr = WireInit(mip)
   mipRaiseIntr.e.s := mip.e.s | seip
 
-  val ideleg =  (mideleg & mipRaiseIntr.asUInt)
-  def priviledgedEnableDetect(x: Bool): Bool = Mux(x, ((priviledgeMode === ModeS) && mstatusStruct.ie.s) || (priviledgeMode < ModeS),
-                                   ((priviledgeMode === ModeM) && mstatusStruct.ie.m) || (priviledgeMode < ModeM))
-
   val intrVecEnable = Wire(Vec(12, Bool()))
-  intrVecEnable.zip(ideleg.asBools).map{case(x,y) => x := priviledgedEnableDetect(y)}
+  (0 to 12-1).map(i => intrVecEnable(i) := Mux(mideleg(i), ((priviledgeMode === ModeS) && mstatusStruct.ie.s) || (priviledgeMode < ModeS),((priviledgeMode === ModeM) && mstatusStruct.ie.m) || (priviledgeMode < ModeM)))
   val intrVec = mie(11,0) & mipRaiseIntr.asUInt & intrVecEnable.asUInt
-  BoringUtils.addSource(intrVec, "intrVecIDU")
-  // val intrNO = PriorityEncoder(intrVec)
   
-  val intrNO = IntPriority.foldRight(0.U)((i: Int, sum: UInt) => Mux(io.cfIn.intrVec(i), i.U, sum))
-  // val intrNO = PriorityEncoder(io.cfIn.intrVec)
+  val intrNO = IntPriority.map(i => i.U).reduceLeft((x,y)=>Mux(io.cfIn.intrVec(x),x,y))
   val raiseIntr = io.cfIn.intrVec.asUInt.orR
 
   // exceptions
+  val hasInstrPageFault = io.cfIn.exceptionVec(instrPageFault) && valid
+  val hasLoadPageFault = io.dmemMMU.loadPF
+  val hasStorePageFault = io.dmemMMU.storePF
+  val hasStoreAddrMisaligned = io.cfIn.exceptionVec(storeAddrMisaligned)
+  val hasLoadAddrMisaligned = io.cfIn.exceptionVec(loadAddrMisaligned)
 
-  // TODO: merge iduExceptionVec, csrExceptionVec as raiseExceptionVec
-  val csrExceptionVec = Wire(Vec(16, Bool()))
-  csrExceptionVec.map(_ := false.B)
+  val csrExceptionVec = WireInit(io.cfIn.exceptionVec)
   csrExceptionVec(breakPoint) := io.in.valid && isEbreak
   csrExceptionVec(ecallM) := priviledgeMode === ModeM && io.in.valid && isEcall
   csrExceptionVec(ecallS) := priviledgeMode === ModeS && io.in.valid && isEcall
   csrExceptionVec(ecallU) := priviledgeMode === ModeU && io.in.valid && isEcall
-  csrExceptionVec(illegalInstr) := (isIllegalAddr || isIllegalAccess) && wen //&& !io.isBackendException // Trigger an illegal instr exception when unimplemented csr is being read/written or not having enough priviledge
+  csrExceptionVec(illegalInstr) := (isIllegalAddr || isIllegalAccess) && wen || isIllegalSret //&& !io.isBackendException // Trigger an illegal instr exception when unimplemented csr is being read/written or not having enough priviledge
   csrExceptionVec(loadPageFault) := hasLoadPageFault
   csrExceptionVec(storePageFault) := hasStorePageFault
-  val iduExceptionVec = io.cfIn.exceptionVec
-  val raiseExceptionVec = csrExceptionVec.asUInt() | iduExceptionVec.asUInt()
-  val raiseException = raiseExceptionVec.orR
-  val exceptionNO = ExcPriority.foldRight(0.U)((i: Int, sum: UInt) => Mux(raiseExceptionVec(i), i.U, sum))
-  io.wenFix := raiseException
-
-  val causeNO = (raiseIntr << (XLEN-1)) | Mux(raiseIntr, intrNO, exceptionNO)
-  //io.intrNO := Mux(raiseIntr, causeNO, 0.U)
-
+  val raiseException = csrExceptionVec.asUInt.orR
+  val exceptionNO = ExcPriority.map(i => i.U).reduceLeft((x,y)=>Mux(csrExceptionVec(x),x,y))
   val raiseExceptionIntr = (raiseException || raiseIntr) && io.instrValid
-  val retTarget = Wire(UInt(VAddrBits.W))
-  val trapTarget = Wire(UInt(VAddrBits.W))
-  io.redirect.valid := (valid && func === CSROpType.jmp) || raiseExceptionIntr || resetSatp
-  io.redirect.rtype := 0.U
-  io.redirect.target := Mux(resetSatp, io.cfIn.pc + 4.U, Mux(raiseExceptionIntr, trapTarget, retTarget))
+  val resetSatp = addr === Satp.U && wen
+  val causeNO = Cat(raiseIntr,Fill(XLEN-1,0.U)) | Mux(raiseIntr, intrNO, exceptionNO)
 
-  Debug(raiseExceptionIntr, "excin %b excgen %b", csrExceptionVec.asUInt(), iduExceptionVec.asUInt())
-  Debug(raiseExceptionIntr, "int/exc: pc %x int (%d):%x exc: (%d):%x\n",io.cfIn.pc, intrNO, io.cfIn.intrVec.asUInt, exceptionNO, raiseExceptionVec.asUInt)
-  Debug(raiseExceptionIntr, "[MST] time %d pc %x mstatus %x mideleg %x medeleg %x mode %x\n", GTimer(), io.cfIn.pc, mstatus, mideleg , medeleg, priviledgeMode)
+  Debug(raiseExceptionIntr, "excin %b excgen %b", io.cfIn.exceptionVec.asUInt,csrExceptionVec.asUInt())
+  Debug(raiseExceptionIntr, "int/exc: pc %x int (%d):%x exc: (%d):%x\n",io.cfIn.pc, intrNO, io.cfIn.intrVec.asUInt, exceptionNO, csrExceptionVec.asUInt)
+  Debug("[MST] time %d pc %x mstatus %x mideleg %x medeleg %x mode %x\n", GTimer(), io.cfIn.pc, mstatus, mideleg , medeleg, priviledgeMode)
   Debug(io.redirect.valid, "redirect to %x\n", io.redirect.target)
   Debug(resetSatp, "satp reset\n")
 
-  // Branch control
-
-  val deleg = Mux(raiseIntr, mideleg , medeleg)
-  // val delegS = ((deleg & (1 << (causeNO & 0xf))) != 0) && (priviledgeMode < ModeM);
-  val delegS = (deleg(causeNO(3,0))) && (priviledgeMode < ModeM)
-  val tvalWen = !(hasInstrPageFault || hasLoadPageFault || hasStorePageFault || hasLoadAddrMisaligned || hasStoreAddrMisaligned) || raiseIntr // in nutcore-riscv64, no exception will come together with PF
-
-  ret := isMret || isSret || isUret
-  trapTarget := Mux(delegS, stvec, mtvec)(VAddrBits-1, 0)
-  retTarget := DontCare
   // TODO redirect target
-  // val illegalEret = TODO
 
   when (valid && isMret) {
-    val mstatusOld = WireInit(mstatus.asTypeOf(new MstatusStruct))
     val mstatusNew = WireInit(mstatus.asTypeOf(new MstatusStruct))
-    // mstatusNew.mpp.m := ModeU //TODO: add mode U
-    mstatusNew.ie.m := mstatusOld.pie.m
-    priviledgeMode := mstatusOld.mpp
+    mstatusNew.ie.m := mstatusStruct.pie.m
+    priviledgeMode := mstatusStruct.mpp
     mstatusNew.pie.m := true.B
     mstatusNew.mpp := ModeU
     mstatus := mstatusNew.asUInt
     retTarget := mepc(VAddrBits-1, 0)
   }
 
-  when (valid && isSret) {
-    val mstatusOld = WireInit(mstatus.asTypeOf(new MstatusStruct))
+  when (valid && isSret && !isIllegalSret) {
     val mstatusNew = WireInit(mstatus.asTypeOf(new MstatusStruct))
-    // mstatusNew.mpp.m := ModeU //TODO: add mode U
-    mstatusNew.ie.s := mstatusOld.pie.s
-    priviledgeMode := Cat(0.U(1.W), mstatusOld.spp)
+    mstatusNew.ie.s := mstatusStruct.pie.s
+    priviledgeMode := Cat(0.U(1.W), mstatusStruct.spp)
     mstatusNew.pie.s := true.B
     mstatusNew.spp := ModeU
     mstatus := mstatusNew.asUInt
@@ -965,52 +844,82 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   }
 
   when (valid && isUret) {
-    val mstatusOld = WireInit(mstatus.asTypeOf(new MstatusStruct))
     val mstatusNew = WireInit(mstatus.asTypeOf(new MstatusStruct))
-    // mstatusNew.mpp.m := ModeU //TODO: add mode U
-    mstatusNew.ie.u := mstatusOld.pie.u
+    mstatusNew.ie.u := mstatusStruct.pie.u
     priviledgeMode := ModeU
     mstatusNew.pie.u := true.B
     mstatus := mstatusNew.asUInt
     retTarget := uepc(VAddrBits-1, 0)
   }
 
+  val delegS = (Mux(raiseIntr, mideleg , medeleg)(causeNO(3,0))) && (priviledgeMode < ModeM)
   when (raiseExceptionIntr) {
-    val mstatusOld = WireInit(mstatus.asTypeOf(new MstatusStruct))
-    val mstatusNew = WireInit(mstatus.asTypeOf(new MstatusStruct))
+    val isPageFault= hasInstrPageFault || hasLoadPageFault || hasStorePageFault
+    val isMissAlign= hasLoadAddrMisaligned || hasStoreAddrMisaligned
 
+    val dmemPagefaultAddr = io.dmemMMU.addr
+    val dmemAddrMisalignedAddr = Wire(UInt(VAddrBits.W))
+    val lsuAddr = WireInit(0.U(64.W))
+    BoringUtils.addSink(lsuAddr, "LSUADDR")
+    dmemAddrMisalignedAddr := lsuAddr
+
+    val new_tval = Mux(isMissAlign,SignExt(dmemAddrMisalignedAddr, XLEN),
+                      Mux(hasInstrPageFault, Mux(io.cfIn.crossPageIPFFix, SignExt((io.cfIn.pc + 2.U)(VAddrBits-1,0), XLEN), SignExt(io.cfIn.pc(VAddrBits-1,0), XLEN)), SignExt(dmemPagefaultAddr, XLEN)))
+    val mstatusNew = WireInit(mstatus.asTypeOf(new MstatusStruct))
     when (delegS) {
       scause := causeNO
       sepc := SignExt(io.cfIn.pc, XLEN)
       mstatusNew.spp := priviledgeMode
-      mstatusNew.pie.s := mstatusOld.ie.s
+      mstatusNew.pie.s := mstatus.asTypeOf(new MstatusStruct).ie.s
       mstatusNew.ie.s := false.B
       priviledgeMode := ModeS
-      when(tvalWen){stval := 0.U} // TODO: should not use =/=
-      // printf("[*] mstatusNew.spp %x\n", mstatusNew.spp)
-      // trapTarget := stvec(VAddrBits-1. 0)
+      when(isPageFault | isMissAlign){
+        stval := new_tval
+      }.otherwise{
+        stval := 0.U
+      }
+      trapTarget := stvec(VAddrBits-1,0)
     }.otherwise {
       mcause := causeNO
       mepc := SignExt(io.cfIn.pc, XLEN)
       mstatusNew.mpp := priviledgeMode
-      mstatusNew.pie.m := mstatusOld.ie.m
+      mstatusNew.pie.m := mstatus.asTypeOf(new MstatusStruct).ie.m
       mstatusNew.ie.m := false.B
       priviledgeMode := ModeM
-      when(tvalWen){mtval := 0.U} // TODO: should not use =/=
-      // trapTarget := mtvec(VAddrBits-1. 0)
+      when(isPageFault | isMissAlign){
+        mtval := new_tval
+      }.otherwise{
+        mtval := 0.U
+      }
+      trapTarget := mtvec(VAddrBits-1,0)
     }
-    // mstatusNew.pie.m := LookupTree(priviledgeMode, List(
-    //   ModeM -> mstatusOld.ie.m,
-    //   ModeH -> mstatusOld.ie.h, //ERROR
-    //   ModeS -> mstatusOld.ie.s,
-    //   ModeU -> mstatusOld.ie.u
-    // ))
-
     mstatus := mstatusNew.asUInt
   }
 
+  //connect tlb
+  if (Settings.get("HasDTLB")) {
+    BoringUtils.addSource(satp, "CSRSATP")
+  }
+
+  //connect idu
+  BoringUtils.addSource(intrVec, "intrVecIDU")
+
+  //connect mmu
+  io.imemMMU.priviledgeMode := priviledgeMode
+  io.dmemMMU.priviledgeMode := Mux(mstatusStruct.mprv.asBool, mstatusStruct.mpp, priviledgeMode)
+  io.imemMMU.status_sum := mstatusStruct.sum.asBool
+  io.dmemMMU.status_sum := mstatusStruct.sum.asBool
+  io.imemMMU.status_mxr := DontCare
+  io.dmemMMU.status_mxr := mstatusStruct.mxr.asBool
+
+  //connect exu
   io.in.ready := true.B
   io.out.valid := valid
+  io.out.bits := rdata
+  io.wenFix := raiseException
+  io.redirect.valid := (valid && isJump) || raiseExceptionIntr || resetSatp
+  io.redirect.rtype := 0.U
+  io.redirect.target := Mux(resetSatp, io.cfIn.pc + 4.U, Mux(raiseExceptionIntr, trapTarget, retTarget))
 
   if (!p.FPGAPlatform) {
 
@@ -1046,6 +955,5 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     difftestArchEvent.io.exceptionInst := RegNext(RegNext(io.cfIn.instr))
 
   }
-  Debug("[CSR!!!] mtval %x tval %x pf %x misaligned %x tvalwen %x \n",mtval,Mux(hasInstrPageFault, Mux(io.cfIn.crossPageIPFFix, SignExt((io.cfIn.pc + 2.U)(VAddrBits-1,0), XLEN), SignExt(io.cfIn.pc(VAddrBits-1,0), XLEN)), SignExt(dmemPagefaultAddr, XLEN)),hasInstrPageFault || hasLoadPageFault || hasStorePageFault,hasLoadAddrMisaligned || hasStoreAddrMisaligned,tvalWen)
 
 }
