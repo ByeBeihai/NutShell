@@ -788,27 +788,22 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   mipRaiseIntr.e.s := mip.e.s | seip
 
   val intrVecEnable = Wire(Vec(12, Bool()))
-  (0 to 12-1).map(i => intrVecEnable(i) := Mux(mideleg(i), ((priviledgeMode === ModeS) && mstatusStruct.ie.s) || (priviledgeMode < ModeS),((priviledgeMode === ModeM) && mstatusStruct.ie.m) || (priviledgeMode < ModeM)))
+  (0 to 12-1).map(i => intrVecEnable(i) := Mux(priviledgeMode < ModeM, mideleg(i) && (priviledgeMode === ModeS && mstatusStruct.ie.s || priviledgeMode < ModeS)
+                                                                        ,priviledgeMode === ModeM && mstatusStruct.ie.m || priviledgeMode < ModeM))
   val intrVec = mie(11,0) & mipRaiseIntr.asUInt & intrVecEnable.asUInt
   
   val intrNO = IntPriority.map(i => i.U).reduceLeft((x,y)=>Mux(io.cfIn.intrVec(x),x,y))
   val raiseIntr = io.cfIn.intrVec.asUInt.orR
 
   // exceptions
-  val hasInstrPageFault = io.cfIn.exceptionVec(instrPageFault) && valid
-  val hasLoadPageFault = io.dmemMMU.loadPF
-  val hasStorePageFault = io.dmemMMU.storePF
-  val hasStoreAddrMisaligned = io.cfIn.exceptionVec(storeAddrMisaligned)
-  val hasLoadAddrMisaligned = io.cfIn.exceptionVec(loadAddrMisaligned)
-
-  val csrExceptionVec = WireInit(io.cfIn.exceptionVec)
+  val csrExceptionVec = WireInit(io.cfIn.exceptionVec) //merge iduexc lsuexc csruexc to csrExceptionVec
   csrExceptionVec(breakPoint) := io.in.valid && isEbreak
   csrExceptionVec(ecallM) := priviledgeMode === ModeM && io.in.valid && isEcall
   csrExceptionVec(ecallS) := priviledgeMode === ModeS && io.in.valid && isEcall
   csrExceptionVec(ecallU) := priviledgeMode === ModeU && io.in.valid && isEcall
   csrExceptionVec(illegalInstr) := (isIllegalAddr || isIllegalAccess) && wen || isIllegalSret //&& !io.isBackendException // Trigger an illegal instr exception when unimplemented csr is being read/written or not having enough priviledge
-  csrExceptionVec(loadPageFault) := hasLoadPageFault
-  csrExceptionVec(storePageFault) := hasStorePageFault
+  csrExceptionVec(loadPageFault) := io.dmemMMU.loadPF
+  csrExceptionVec(storePageFault) := io.dmemMMU.storePF
   val raiseException = csrExceptionVec.asUInt.orR
   val exceptionNO = ExcPriority.map(i => i.U).reduceLeft((x,y)=>Mux(csrExceptionVec(x),x,y))
   val raiseExceptionIntr = (raiseException || raiseIntr) && io.instrValid
@@ -821,8 +816,7 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   Debug(io.redirect.valid, "redirect to %x\n", io.redirect.target)
   Debug(resetSatp, "satp reset\n")
 
-  // TODO redirect target
-
+  //xRet
   when (valid && isMret) {
     val mstatusNew = WireInit(mstatus.asTypeOf(new MstatusStruct))
     mstatusNew.ie.m := mstatusStruct.pie.m
@@ -852,10 +846,11 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     retTarget := uepc(VAddrBits-1, 0)
   }
 
+  //Exception and Interrupt
   val delegS = (Mux(raiseIntr, mideleg , medeleg)(causeNO(3,0))) && (priviledgeMode < ModeM)
   when (raiseExceptionIntr) {
-    val isPageFault= hasInstrPageFault || hasLoadPageFault || hasStorePageFault
-    val isMissAlign= hasLoadAddrMisaligned || hasStoreAddrMisaligned
+    val isPageFault= csrExceptionVec(instrPageFault) || csrExceptionVec(loadPageFault) || csrExceptionVec(storePageFault)
+    val isMissAlign= csrExceptionVec(loadAddrMisaligned) || csrExceptionVec(storeAddrMisaligned)
 
     val dmemPagefaultAddr = io.dmemMMU.addr
     val dmemAddrMisalignedAddr = Wire(UInt(VAddrBits.W))
@@ -864,7 +859,7 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     dmemAddrMisalignedAddr := lsuAddr
 
     val new_tval = Mux(isMissAlign,SignExt(dmemAddrMisalignedAddr, XLEN),
-                      Mux(hasInstrPageFault, Mux(io.cfIn.crossPageIPFFix, SignExt((io.cfIn.pc + 2.U)(VAddrBits-1,0), XLEN), SignExt(io.cfIn.pc(VAddrBits-1,0), XLEN)), SignExt(dmemPagefaultAddr, XLEN)))
+                      Mux(csrExceptionVec(instrPageFault), Mux(io.cfIn.crossPageIPFFix, SignExt((io.cfIn.pc + 2.U)(VAddrBits-1,0), XLEN), SignExt(io.cfIn.pc(VAddrBits-1,0), XLEN)), SignExt(dmemPagefaultAddr, XLEN)))
     val mstatusNew = WireInit(mstatus.asTypeOf(new MstatusStruct))
     when (delegS) {
       scause := causeNO
