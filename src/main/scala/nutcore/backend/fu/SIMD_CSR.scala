@@ -636,7 +636,7 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
 
   // General CSR wen check
   val wen = (valid && func =/= CSROpType.jmp) && (addr =/= Satp.U || satpLegalMode) //&& !io.isBackendException
-  val isIllegalMode  = priviledgeMode < addr(9, 8)
+  val isIllegalMode  = wen && priviledgeMode < addr(9, 8)
   val justRead = (func === CSROpType.set || func === CSROpType.seti) && src1 === 0.U  // csrrs and csrrsi are exceptions when their src1 is zero
   val isIllegalWrite = wen && (addr(11, 10) === "b11".U) && !justRead  // Write a read-only CSR register
   val isIllegalAccess = isIllegalMode || isIllegalWrite
@@ -747,7 +747,7 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     when(RegWen){mipReg:= (wdata & mipFixMask) | (mipReg & ~mipFixMask)}
   }.otherwise{
     rdata := 0.U
-    isIllegalAddr:= true.B
+    isIllegalAddr:= wen
   }
 
   //p-ext
@@ -801,7 +801,7 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   csrExceptionVec(ecallM) := priviledgeMode === ModeM && io.in.valid && isEcall
   csrExceptionVec(ecallS) := priviledgeMode === ModeS && io.in.valid && isEcall
   csrExceptionVec(ecallU) := priviledgeMode === ModeU && io.in.valid && isEcall
-  csrExceptionVec(illegalInstr) := (isIllegalAddr || isIllegalAccess) && wen || isIllegalSret //&& !io.isBackendException // Trigger an illegal instr exception when unimplemented csr is being read/written or not having enough priviledge
+  csrExceptionVec(illegalInstr) := isIllegalAddr || isIllegalAccess || isIllegalSret //&& !io.isBackendException // Trigger an illegal instr exception when unimplemented csr is being read/written or not having enough priviledge
   csrExceptionVec(loadPageFault) := io.dmemMMU.loadPF
   csrExceptionVec(storePageFault) := io.dmemMMU.storePF
   val raiseException = csrExceptionVec.asUInt.orR
