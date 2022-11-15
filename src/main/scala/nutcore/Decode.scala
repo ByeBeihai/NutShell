@@ -84,7 +84,7 @@ object Instructions extends HasInstrType with HasNutCoreParameter {
     (if (HasMExtension) RVMInstr.table else Nil) ++
     (if (HasCExtension) RVCInstr.table else Nil) ++
     Priviledged.table ++
-    Priviledged.table_s ++
+    //Priviledged.table_s ++
     RVAInstr.table ++
     RVZicsrInstr.table ++ RVZifenceiInstr.table ++
     RVPInstr.table ++

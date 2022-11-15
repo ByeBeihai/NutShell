@@ -33,7 +33,7 @@ object DefaultSettings {
     "HasITLB" -> true,
     "HasDcache" -> true,
     "HasIcache" -> true,
-    "MmodeOnly" -> true,
+    "MmodeOnly" -> false,
     "IsRV32" -> false,
 
     "FPGAPlatform" -> true,

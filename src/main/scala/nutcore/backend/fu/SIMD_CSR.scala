@@ -563,7 +563,6 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   val mipWire = WireInit(0.U.asTypeOf(new Interrupt))
   val mipReg  = RegInit(0.U.asTypeOf(new Interrupt).asUInt)
   val mipFixMask = "h77f".U
-  val mip = (mipWire.asUInt | mipReg).asTypeOf(new Interrupt)
 
   var extList = List('a', 's', 'i', 'u')
   if(HasMExtension){ extList = extList :+ 'm'}
@@ -740,7 +739,7 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     rdata := vxsat & 1.U
     when(RegWen){vxsat := (wdata & 1.U)}
   }.elsewhen(addr === Sip.U){
-    rdata := mip.asUInt
+    rdata := mipWire.asUInt | mipReg
     when(RegWen){mipReg := (wdata & sipMask) | (mipReg & ~sipMask)}
   }.elsewhen(addr === Mip.U){
     rdata := 0.U
@@ -766,34 +765,17 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
 
   Debug(wen, "csr write: pc %x addr %x rdata %x wdata %x func %x\n", io.cfIn.pc, addr, rdata, wdata, func)
   Debug(wen, "[MST] time %d pc %x mstatus %x mideleg %x medeleg %x mode %x\n", GTimer(), io.cfIn.pc, mstatus, mideleg , medeleg, priviledgeMode)
-  Debug("[CSR] mip %x mipreg %x mipwire %x \n", mip.asUInt,mipReg.asUInt,mipWire.asUInt)
   
   // Exception and Intr
-
   // interrupts
-  val mtip = WireInit(false.B)
-  val meip = WireInit(false.B)
-  val msip = WireInit(false.B)
-  BoringUtils.addSink(mtip, "mtip")
-  BoringUtils.addSink(meip, "meip")
-  BoringUtils.addSink(msip, "msip")
-  mipWire.t.m := mtip
-  mipWire.e.m := meip
-  mipWire.s.m := msip
-  
-  // SEIP from PLIC is only used to raise interrupt,
-  // but it is not stored in the CSR
-  val seip = meip    // FIXME: PLIC should generate SEIP different from MEIP
-  val mipRaiseIntr = WireInit(mip)
-  mipRaiseIntr.e.s := mip.e.s | seip
-
   val intrVecEnable = Wire(Vec(12, Bool()))
   (0 to 12-1).map(i => intrVecEnable(i) := Mux(priviledgeMode < ModeM, mideleg(i) && (priviledgeMode === ModeS && mstatusStruct.ie.s || priviledgeMode < ModeS)
-                                                                        ,priviledgeMode === ModeM && mstatusStruct.ie.m || priviledgeMode < ModeM))
-  val intrVec = mie(11,0) & mipRaiseIntr.asUInt & intrVecEnable.asUInt
-  
+                                                                        , !mideleg(i) && mstatusStruct.ie.m))
+  val mipVec  = mipWire.asUInt | mipReg
+  val intrVec = mie(11,0) & mipVec & intrVecEnable.asUInt
   val intrNO = IntPriority.map(i => i.U).reduceLeft((x,y)=>Mux(io.cfIn.intrVec(x),x,y))
   val raiseIntr = io.cfIn.intrVec.asUInt.orR
+  Debug("[CSR] mip %x mipreg %x mipwire %x \n", mipVec,mipReg.asUInt,mipWire.asUInt)
 
   // exceptions
   val csrExceptionVec = WireInit(io.cfIn.exceptionVec) //merge iduexc lsuexc csruexc to csrExceptionVec
@@ -801,11 +783,13 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   csrExceptionVec(ecallM) := priviledgeMode === ModeM && io.in.valid && isEcall
   csrExceptionVec(ecallS) := priviledgeMode === ModeS && io.in.valid && isEcall
   csrExceptionVec(ecallU) := priviledgeMode === ModeU && io.in.valid && isEcall
-  csrExceptionVec(illegalInstr) := isIllegalAddr || isIllegalAccess || isIllegalSret //&& !io.isBackendException // Trigger an illegal instr exception when unimplemented csr is being read/written or not having enough priviledge
+  csrExceptionVec(illegalInstr) := isIllegalAddr || isIllegalAccess || isIllegalSret || io.cfIn.exceptionVec(illegalInstr)//&& !io.isBackendException // Trigger an illegal instr exception when unimplemented csr is being read/written or not having enough priviledge
   csrExceptionVec(loadPageFault) := io.dmemMMU.loadPF
   csrExceptionVec(storePageFault) := io.dmemMMU.storePF
-  val raiseException = csrExceptionVec.asUInt.orR
+  val raiseException = csrExceptionVec.asUInt.orR 
   val exceptionNO = ExcPriority.map(i => i.U).reduceLeft((x,y)=>Mux(csrExceptionVec(x),x,y))
+
+  //merge interrupts and exceptions
   val raiseExceptionIntr = (raiseException || raiseIntr) && io.instrValid
   val resetSatp = addr === Satp.U && wen
   val causeNO = Cat(raiseIntr,Fill(XLEN-1,0.U)) | Mux(raiseIntr, intrNO, exceptionNO)
@@ -895,6 +879,12 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   if (Settings.get("HasDTLB")) {
     BoringUtils.addSource(satp, "CSRSATP")
   }
+
+  //connect clint and pl
+  BoringUtils.addSink(mipWire.t.m, "mtip")
+  BoringUtils.addSink(mipWire.e.m, "meip")
+  BoringUtils.addSink(mipWire.e.s, "meip")
+  BoringUtils.addSink(mipWire.s.m, "msip")
 
   //connect idu
   BoringUtils.addSource(intrVec, "intrVecIDU")
