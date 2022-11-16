@@ -769,7 +769,7 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   // Exception and Intr
   // interrupts
   val intrVecEnable = Wire(Vec(12, Bool()))
-  (0 to 12-1).map(i => intrVecEnable(i) := Mux(priviledgeMode < ModeM, mideleg(i) && (priviledgeMode === ModeS && mstatusStruct.ie.s || priviledgeMode < ModeS)
+  (0 to 12-1).map(i => intrVecEnable(i) := Mux(priviledgeMode < ModeM,  (priviledgeMode === ModeS && mstatusStruct.ie.s) || !mideleg(i) || priviledgeMode < ModeS
                                                                         , !mideleg(i) && mstatusStruct.ie.m))
   val mipVec  = mipWire.asUInt | mipReg
   val intrVec = mie(11,0) & mipVec & intrVecEnable.asUInt
