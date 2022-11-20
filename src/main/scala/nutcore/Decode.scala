@@ -22,6 +22,7 @@ import chisel3.util._
 trait HasInstrType {
   def InstrN  = "b0000".U
   def InstrI  = "b0100".U
+  def InstrIZ = "b1100".U
   def InstrR  = "b0101".U
   def InstrS  = "b0010".U
   def InstrB  = "b0001".U
