@@ -154,7 +154,7 @@ class ALU(hasBru: Boolean = false,NO1: Boolean = true) extends NutCoreModule {
   io.out.valid := valid
 
   val bpuUpdateReq = WireInit(0.U.asTypeOf(new BPUUpdateReq))
-  bpuUpdateReq.valid := valid && isBru
+  bpuUpdateReq.valid := io.out.fire() && isBru
   bpuUpdateReq.pc := io.cfIn.pc
   bpuUpdateReq.isMissPredict := predictWrong
   bpuUpdateReq.actualTarget := target
@@ -164,7 +164,7 @@ class ALU(hasBru: Boolean = false,NO1: Boolean = true) extends NutCoreModule {
   bpuUpdateReq.isRVC := isRVC
 
   if(hasBru && NO1){
-    BoringUtils.addSource(RegNext(bpuUpdateReq), "bpuUpdateReq")
+    BoringUtils.addSource(bpuUpdateReq, "bpuUpdateReq")
   
     val right = valid && isBru && !predictWrong
     val wrong = valid && isBru && predictWrong

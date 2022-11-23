@@ -198,7 +198,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   val aluOut = alu.access(valid = io.in(aluidx).valid, src1 = src1(aluidx), src2 = src2(aluidx), func = fuOpType(aluidx))
   alu.io.cfIn := io.in(aluidx).bits.cf
   alu.io.offset := io.in(aluidx).bits.data.imm
-  alu.io.out.ready := true.B
+  alu.io.out.ready := io.out(aluidx).ready
   Debug("aluidx %x \n",aluidx)
 
 
@@ -208,7 +208,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   val alu1Out = alu1.access(valid = io.in(alu1idx).valid, src1 = src1(alu1idx), src2 = src2(alu1idx), func = fuOpType(alu1idx))
   alu1.io.cfIn := io.in(alu1idx).bits.cf
   alu1.io.offset := io.in(alu1idx).bits.data.imm
-  alu1.io.out.ready := true.B
+  alu1.io.out.ready := io.out(alu1idx).ready
 
   //SIMDU
   val simduidx = FuType.simdu
