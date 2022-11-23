@@ -22,7 +22,6 @@ import chisel3.util._
 trait HasInstrType {
   def InstrN  = "b0000".U
   def InstrI  = "b0100".U
-  def InstrIZ = "b1100".U
   def InstrR  = "b0101".U
   def InstrS  = "b0010".U
   def InstrB  = "b0001".U
@@ -60,17 +59,17 @@ object SrcType {
 }
 
 object FuType extends HasNutCoreConst {
-  def num = 7
+  def num = 8
   def alu = "b000".U
   def lsu = "b001".U
   def mdu = "b010".U
   def csr = "b011".U
-  def alu1= "b100".U
-  def bru = if(IndependentBru) "b100".U
+  def mou = "b100".U
+  def alu1= "b101".U
+  def bru = if(IndependentBru) "b101".U
             else               alu
-  def simdu = "b101".U
-  def simdu1 = "b110".U
-  def mou = "b111".U
+  def simdu = "b110".U
+  def simdu1 = "b111".U
   def apply() = UInt(log2Up(num).W)
 }
 

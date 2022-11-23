@@ -484,7 +484,6 @@ class SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with SIMD_Ha
 
 class new_CSRIO extends FunctionUnitIO {
   val cfIn = Flipped(new CtrlFlowIO)
-  val ctrlIn = Flipped(new CtrlSignalIO)
   val redirect = new RedirectIO
   // for exception check
   val instrValid = Input(Bool())
@@ -499,13 +498,12 @@ class new_CSRIO extends FunctionUnitIO {
 class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val io = IO(new new_CSRIO)
 
-  val (valid, src1, src2, func,isMou) = (io.in.valid, io.in.bits.src1, io.in.bits.src2, io.in.bits.func,io.ctrlIn.isMou)
-  def access(valid: Bool, src1: UInt, src2: UInt, func: UInt,isMou:Bool): UInt = {
+  val (valid, src1, src2, func) = (io.in.valid, io.in.bits.src1, io.in.bits.src2, io.in.bits.func)
+  def access(valid: Bool, src1: UInt, src2: UInt, func: UInt): UInt = {
     this.valid := valid
     this.src1 := src1
     this.src2 := src2
     this.func := func
-    this.isMou:=isMou
     io.out.bits
   }
 
@@ -516,11 +514,6 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     val h = Output(Bool())
     val s = Output(Bool())
     val u = Output(Bool())
-  }
-  class Interrupt extends Bundle {
-    val e = new Priv
-    val t = new Priv
-    val s = new Priv
   }
    
   class MstatusStruct extends Bundle {
@@ -552,6 +545,12 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     val ppn  = UInt(44.W)
   }
 
+  class Interrupt extends Bundle {
+    val e = new Priv
+    val t = new Priv
+    val s = new Priv
+  }
+
   // Machine-Level CSRs
   
   val mtvec = RegInit(UInt(XLEN.W), 0.U)
@@ -567,7 +566,7 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
 
   var extList = List('a', 's', 'i', 'u')
   if(HasMExtension){ extList = extList :+ 'm'}
-  //if(HasCExtension){ extList = extList :+ 'c'}
+  if(HasCExtension){ extList = extList :+ 'c'}
   val misaInitVal = 1.U << 63 | 0x14112d.U //getMisaMxl(2) | extList.foldLeft(0.U)((sum, i) => sum | getMisaExt(i)) //"h8000000000141105".U 
   val misa = RegInit(UInt(XLEN.W), misaInitVal) 
   // MXL = 2          | 0 | EXT = b 00 0000 0100 0001 0001 0000 0101
@@ -592,10 +591,11 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   val pmpaddr2 = RegInit(UInt(XLEN.W), 0.U) 
   val pmpaddr3 = RegInit(UInt(XLEN.W), 0.U) 
 
-  //p-ext CSR
   val vxsat = RegInit(UInt(XLEN.W), 0.U) 
 
   // Superviser-Level CSRs
+
+  // val sstatus = RegInit(UInt(XLEN.W), "h00000000".U)
   val sstatusWmask = "hc6122".U
   val sstatusRmask = sstatusWmask | "h8000000300018000".U
   val stvec = RegInit(UInt(XLEN.W), 0.U)
@@ -618,28 +618,30 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   // Hart Priviledge Mode
   val priviledgeMode = RegInit(UInt(2.W), ModeM)
 
-  val addr = src2(16, 5)
-  val csri = SignExt(src2(4, 0),XLEN) 
+  val addr = src2(11, 0)
   val rdata = Wire(UInt(XLEN.W))
+  val csri = ZeroExt(io.cfIn.instr(19,15), XLEN) //unsigned imm for csri. [TODO]
   val wdata = LookupTree(func, List(
     CSROpType.wrt  -> src1,
     CSROpType.set  -> (rdata | src1),
     CSROpType.clr  -> (rdata & ~src1),
-    CSROpType.wrti -> csri,
+    CSROpType.wrti -> csri,//TODO: csri --> src2
     CSROpType.seti -> (rdata | csri),
     CSROpType.clri -> (rdata & ~csri)
   ))
 
-  // CSR basic read and write
-  val JumpType= func === CSROpType.jmp
-  val wen = valid && !JumpType && !isMou
+  // SATP wen check
+  val satpLegalMode = (wdata.asTypeOf(new SatpStruct).mode === 0.U) || (wdata.asTypeOf(new SatpStruct).mode === 8.U)
+
+  // General CSR wen check
+  val wen = (valid && func =/= CSROpType.jmp) && (addr =/= Satp.U || satpLegalMode) //&& !io.isBackendException
   val isIllegalMode  = wen && priviledgeMode < addr(9, 8)
   val justRead = (func === CSROpType.set || func === CSROpType.seti) && src1 === 0.U  // csrrs and csrrsi are exceptions when their src1 is zero
   val isIllegalWrite = wen && (addr(11, 10) === "b11".U) && !justRead  // Write a read-only CSR register
+  val isIllegalAccess = isIllegalMode || isIllegalWrite
 
-  val RegWen = wen && !isIllegalWrite && !isIllegalMode
+  val RegWen = wen && !isIllegalAccess
   val isIllegalAddr = WireInit(false.B)
-  val resetSatp = WireInit(false.B)
   when(addr === Sstatus.U){
     rdata := mstatus & sstatusRmask
     val tmp = (mstatus & ~sstatusWmask) | (wdata & sstatusWmask) 
@@ -667,10 +669,7 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     when(RegWen){stval := wdata}
   }.elsewhen(addr === Satp.U){
     rdata := satp
-    when(RegWen && (wdata.asTypeOf(new SatpStruct).mode === 0.U || wdata.asTypeOf(new SatpStruct).mode === 8.U)){
-      satp := wdata
-      resetSatp := true.B
-    }
+    when(RegWen){satp := wdata}
   }.elsewhen(addr === Mstatus.U){
     rdata := mstatus
     val tmp = wdata
@@ -755,17 +754,18 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   BoringUtils.addSink(OVWEN,"OVWEN")
   when(OVWEN){vxsat := 1.U}
 
-  // xRet:mret,sret,uret
-  val isMret  = addr === privMret && JumpType 
-  val isSret  = addr === privSret && JumpType 
-  val isUret  = addr === privUret && JumpType 
+  // CSR inst decode
+  val isJump  = func === CSROpType.jmp
+  val isEbreak= addr === privEbreak && isJump //&& !io.isBackendException
+  val isEcall = addr === privEcall  && isJump //&& !io.isBackendException
+  val isMret  = addr === privMret   && isJump //&& !io.isBackendException
+  val isSret  = addr === privSret   && isJump //&& !io.isBackendException
+  val isUret  = addr === privUret   && isJump //&& !io.isBackendException
   val isIllegalSret = isSret && mstatusStruct.tsr.asBool
-  val isRet   = valid && !isMou && (isMret || isSret || isUret) && !isIllegalSret
 
   Debug(wen, "csr write: pc %x addr %x rdata %x wdata %x func %x\n", io.cfIn.pc, addr, rdata, wdata, func)
   Debug(wen, "[MST] time %d pc %x mstatus %x mideleg %x medeleg %x mode %x\n", GTimer(), io.cfIn.pc, mstatus, mideleg , medeleg, priviledgeMode)
   
-
   // Exception and Intr
   // interrupts
   val intrVecEnable = Wire(Vec(12, Bool()))
@@ -779,18 +779,19 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
 
   // exceptions
   val csrExceptionVec = WireInit(io.cfIn.exceptionVec) //merge iduexc lsuexc csruexc to csrExceptionVec
-  csrExceptionVec(breakPoint) := io.in.valid && addr === privEbreak && JumpType
-  csrExceptionVec(ecallM) := priviledgeMode === ModeM && io.in.valid && addr === privEcall && JumpType
-  csrExceptionVec(ecallS) := priviledgeMode === ModeS && io.in.valid && addr === privEcall && JumpType
-  csrExceptionVec(ecallU) := priviledgeMode === ModeU && io.in.valid && addr === privEcall && JumpType
-  csrExceptionVec(illegalInstr) := isIllegalAddr || isIllegalWrite || isIllegalMode || isIllegalSret || io.cfIn.exceptionVec(illegalInstr)//&& !io.isBackendException // Trigger an illegal instr exception when unimplemented csr is being read/written or not having enough priviledge
+  csrExceptionVec(breakPoint) := io.in.valid && isEbreak
+  csrExceptionVec(ecallM) := priviledgeMode === ModeM && io.in.valid && isEcall
+  csrExceptionVec(ecallS) := priviledgeMode === ModeS && io.in.valid && isEcall
+  csrExceptionVec(ecallU) := priviledgeMode === ModeU && io.in.valid && isEcall
+  csrExceptionVec(illegalInstr) := isIllegalAddr || isIllegalAccess || isIllegalSret || io.cfIn.exceptionVec(illegalInstr)//&& !io.isBackendException // Trigger an illegal instr exception when unimplemented csr is being read/written or not having enough priviledge
   csrExceptionVec(loadPageFault) := io.dmemMMU.loadPF
   csrExceptionVec(storePageFault) := io.dmemMMU.storePF
   val raiseException = csrExceptionVec.asUInt.orR 
   val exceptionNO = ExcPriority.map(i => i.U).reduceLeft((x,y)=>Mux(csrExceptionVec(x),x,y))
 
   //merge interrupts and exceptions
-  val raiseExceptionIntr = (raiseException || raiseIntr) && io.instrValid && !isMou
+  val raiseExceptionIntr = (raiseException || raiseIntr) && io.instrValid
+  val resetSatp = addr === Satp.U && wen
   val causeNO = Cat(raiseIntr,Fill(XLEN-1,0.U)) | Mux(raiseIntr, intrNO, exceptionNO)
 
   Debug(raiseExceptionIntr, "excin %b excgen %b", io.cfIn.exceptionVec.asUInt,csrExceptionVec.asUInt())
@@ -799,11 +800,39 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   Debug(io.redirect.valid, "redirect to %x\n", io.redirect.target)
   Debug(resetSatp, "satp reset\n")
 
-  //xRet and exc and intr
-  val mstatusNew = WireInit(mstatus.asTypeOf(new MstatusStruct))
-  val delegS = (Mux(raiseIntr, mideleg , medeleg)(causeNO(3,0))) && (priviledgeMode < ModeM)
+  //xRet
+  when (valid && isMret) {
+    val mstatusNew = WireInit(mstatus.asTypeOf(new MstatusStruct))
+    mstatusNew.ie.m := mstatusStruct.pie.m
+    priviledgeMode := mstatusStruct.mpp
+    mstatusNew.pie.m := true.B
+    mstatusNew.mpp := ModeU
+    mstatus := mstatusNew.asUInt
+    retTarget := mepc(VAddrBits-1, 0)
+  }
 
-  when (raiseExceptionIntr) {//Exception or Interrupt
+  when (valid && isSret && !isIllegalSret) {
+    val mstatusNew = WireInit(mstatus.asTypeOf(new MstatusStruct))
+    mstatusNew.ie.s := mstatusStruct.pie.s
+    priviledgeMode := Cat(0.U(1.W), mstatusStruct.spp)
+    mstatusNew.pie.s := true.B
+    mstatusNew.spp := ModeU
+    mstatus := mstatusNew.asUInt
+    retTarget := sepc(VAddrBits-1, 0)
+  }
+
+  when (valid && isUret) {
+    val mstatusNew = WireInit(mstatus.asTypeOf(new MstatusStruct))
+    mstatusNew.ie.u := mstatusStruct.pie.u
+    priviledgeMode := ModeU
+    mstatusNew.pie.u := true.B
+    mstatus := mstatusNew.asUInt
+    retTarget := uepc(VAddrBits-1, 0)
+  }
+
+  //Exception and Interrupt
+  val delegS = (Mux(raiseIntr, mideleg , medeleg)(causeNO(3,0))) && (priviledgeMode < ModeM)
+  when (raiseExceptionIntr) {
     val isPageFault= csrExceptionVec(instrPageFault) || csrExceptionVec(loadPageFault) || csrExceptionVec(storePageFault)
     val isMissAlign= csrExceptionVec(loadAddrMisaligned) || csrExceptionVec(storeAddrMisaligned)
 
@@ -815,6 +844,7 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
 
     val new_tval = Mux(isMissAlign,SignExt(dmemAddrMisalignedAddr, XLEN),
                       Mux(csrExceptionVec(instrPageFault), Mux(io.cfIn.crossPageIPFFix, SignExt((io.cfIn.pc + 2.U)(VAddrBits-1,0), XLEN), SignExt(io.cfIn.pc(VAddrBits-1,0), XLEN)), SignExt(dmemPagefaultAddr, XLEN)))
+    val mstatusNew = WireInit(mstatus.asTypeOf(new MstatusStruct))
     when (delegS) {
       scause := causeNO
       sepc := SignExt(io.cfIn.pc, XLEN)
@@ -843,29 +873,9 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
       trapTarget := mtvec(VAddrBits-1,0)
     }
     mstatus := mstatusNew.asUInt
-  }.elsewhen(isRet){//xRet
-    when (isMret) {
-      priviledgeMode := mstatusStruct.mpp
-      mstatusNew.ie.m := mstatusStruct.pie.m
-      mstatusNew.pie.m := true.B
-      mstatusNew.mpp := ModeU
-      retTarget := mepc(VAddrBits-1, 0)
-    }.elsewhen (isSret) {
-      priviledgeMode := Cat(0.U(1.W), mstatusStruct.spp)
-      mstatusNew.ie.s := mstatusStruct.pie.s
-      mstatusNew.pie.s := true.B
-      mstatusNew.spp := ModeU
-      retTarget := sepc(VAddrBits-1, 0)
-    }.elsewhen (isUret) {
-      priviledgeMode := ModeU
-      mstatusNew.ie.u := mstatusStruct.pie.u
-      mstatusNew.pie.u := true.B
-      retTarget := uepc(VAddrBits-1, 0)
-    }
-    mstatus := mstatusNew.asUInt
   }
 
-  //connect tlb about satp
+  //connect tlb
   if (Settings.get("HasDTLB")) {
     BoringUtils.addSource(satp, "CSRSATP")
   }
@@ -891,19 +901,10 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   io.in.ready := true.B
   io.out.valid := valid
   io.out.bits := rdata
-  io.wenFix := raiseException && valid
-  io.redirect.valid := (valid && (JumpType || isMou)) || raiseExceptionIntr || resetSatp
+  io.wenFix := raiseException
+  io.redirect.valid := (valid && isJump) || raiseExceptionIntr || resetSatp
   io.redirect.rtype := 0.U
-  io.redirect.target := Mux(resetSatp || isMou, io.cfIn.pc + 4.U, Mux(raiseExceptionIntr, trapTarget, retTarget))
-
-  //mou
-  val flushICache = valid && (func === MOUOpType.fencei) && isMou
-  BoringUtils.addSource(flushICache, "MOUFlushICache")
-  Debug(flushICache, "Flush I$ at %x\n", io.cfIn.pc)
-
-  val flushTLB = valid && (func === MOUOpType.sfence_vma) && isMou
-  BoringUtils.addSource(flushTLB, "MOUFlushTLB")
-  Debug(flushTLB, "Sfence.vma at %x\n", io.cfIn.pc)
+  io.redirect.target := Mux(resetSatp, io.cfIn.pc + 4.U, Mux(raiseExceptionIntr, trapTarget, retTarget))
 
   if (!p.FPGAPlatform) {
 

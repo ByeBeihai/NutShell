@@ -31,16 +31,16 @@ object Priviledged extends HasInstrType {
   def WFI     = BitPat("b0001000_00101_00000_000_00000_1110011") 
 
   val table_s = Array(
-    SRET           -> List(InstrIZ, FuType.csr, CSROpType.jmp),
+    SRET           -> List(InstrI, FuType.csr, CSROpType.jmp),
     SFANCE_VMA     -> List(InstrR, FuType.mou, MOUOpType.sfence_vma)
   )
 
   val table = Array(
-    ECALL          -> List(InstrIZ, FuType.csr, CSROpType.jmp),
-    EBREAK         -> List(InstrIZ, FuType.csr, CSROpType.jmp),
-    MRET           -> List(InstrIZ, FuType.csr, CSROpType.jmp),
+    ECALL          -> List(InstrI, FuType.csr, CSROpType.jmp),
+    EBREAK         -> List(InstrI, FuType.csr, CSROpType.jmp),
+    MRET           -> List(InstrI, FuType.csr, CSROpType.jmp),
     FENCE          -> List(InstrS, FuType.mou, MOUOpType.fence), // nop    InstrS -> !wen
-    WFI            -> List(InstrIZ, FuType.alu, ALUOpType.add) // nop
+    WFI            -> List(InstrI, FuType.alu, ALUOpType.add) // nop
     // FENCE          -> List(InstrB, FuType.mou, MOUOpType.fencei)
   ) ++ (if (!Settings.get("MmodeOnly")) table_s else Nil)
 }
