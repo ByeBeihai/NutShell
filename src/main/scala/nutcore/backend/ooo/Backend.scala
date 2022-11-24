@@ -749,7 +749,8 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
 
 
   def MultiOperatorMatch(futype1:UInt,futype2:UInt,isBru:Bool):Bool = ((futype1 === FuType.alu) && (futype2 ===FuType.alu || futype2 === FuType.alu1) && !isBru
-                                                                    ||(futype1 === FuType.simdu) && (futype2 ===FuType.simdu || futype2 === FuType.simdu1))
+                                                                    ||(futype1 === FuType.simdu) && (futype2 ===FuType.simdu || futype2 === FuType.simdu1)
+                                                                    ||(futype1 === FuType.mou) && (futype2 ===FuType.csr))
   for(i <- 0 to FuType.num-1){
     exu.io.in(i).bits := exu_bits(i)
     exu.io.in(i).valid := exu_valid(i)
@@ -900,11 +901,11 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
     wbu.io.wb.rfSrc3(i):=isu.io.wb.rfSrc3(i)
   }
   def notafter(ptr1:UInt,ptr2:UInt,flag1:UInt,flag2:UInt):Bool= (ptr1 <= ptr2) ^ (flag1 =/= flag2) 
-  val redirct_index = Mux(exu.io.out(FuType.csr).valid || exu.io.out(FuType.mou).valid,
+  val redirct_index = Mux(exu.io.out(FuType.csr).valid,
                           Mux(exu.io.out(FuType.alu).valid,
                               Mux(notafter(exu.io.out(FuType.csr).bits.decode.InstNo,exu.io.out(FuType.alu).bits.decode.InstNo,exu.io.out(FuType.csr).bits.decode.InstFlag,exu.io.out(FuType.alu).bits.decode.InstFlag),FuType.csr,FuType.alu),FuType.csr),FuType.alu)
   val redirect = WireInit(exu.io.out(redirct_index).bits.decode.cf.redirect)
-  redirect.valid := exu.io.out(redirct_index).bits.decode.cf.redirect.valid && exu.io.out(redirct_index).fire() || exu.io.out(FuType.mou).valid
+  redirect.valid := exu.io.out(redirct_index).bits.decode.cf.redirect.valid && exu.io.out(redirct_index).fire()
   io.redirect <> redirect
   // forward
   for(i <- 0 to FuType.num-1){

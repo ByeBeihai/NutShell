@@ -561,7 +561,7 @@ class BPU_SIMD extends NutCoreModule {
       ras.write(sp.value + 1.U, Mux(req.isRVC, req.pc + 2.U, req.pc + 4.U))
       sp.value := sp.value + 1.U
     }
-    .elsewhen (req.fuOpType === ALUOpType.ret && req.pc =/= reqLatch.pc) {
+    .elsewhen (req.fuOpType === ALUOpType.ret) {
       when(sp.value === 0.U) {
       }
       sp.value := Mux(sp.value===0.U, 0.U, sp.value - 1.U) 
@@ -572,7 +572,7 @@ class BPU_SIMD extends NutCoreModule {
   val pcLatchValid = InstValid(pcLatch)
   val target = Wire(Vec(4,UInt(VAddrBits.W)))
   val brinfo = Wire(Vec(4,UInt(3.W)))
-  (0 to 3).map(i => target(i) := Mux(btbRead(i)._type === BTBtype.R, rasTarget, btbRead(i).target))
+  (0 to 3).map(i => target(i) := Mux(btbRead(i)._type === BTBtype.R && sp.value =/= 0.U, rasTarget, btbRead(i).target))
   (0 to 3).map(i => brinfo(i) := btbRead(i).brinfo & Cat(true.B, crosslineJump, Fill(2, io.out.valid))) 
   (0 to 3).map(i => io.brIdx(i) := btbHit(i) && pcLatchValid(i).asBool && Mux(btbRead(i)._type === BTBtype.B, phtTaken(i), true.B) && btbRead(i).valid)
   io.out.target := PriorityMux(io.brIdx, target)
