@@ -28,11 +28,11 @@ object RVZicsrInstr extends HasInstrType {
   def CSRRCI  = BitPat("b????????????_?????_111_?????_1110011")
 
   val table = Array(
-    CSRRW          -> List(InstrI, FuType.csr, CSROpType.wrt),
-    CSRRS          -> List(InstrI, FuType.csr, CSROpType.set),
-    CSRRC          -> List(InstrI, FuType.csr, CSROpType.clr),
-    CSRRWI         -> List(InstrI, FuType.csr, CSROpType.wrti),
-    CSRRSI         -> List(InstrI, FuType.csr, CSROpType.seti),
-    CSRRCI         -> List(InstrI, FuType.csr, CSROpType.clri)
+    CSRRW          -> List(InstrIZ, FuType.csr, CSROpType.wrt),
+    CSRRS          -> List(InstrIZ, FuType.csr, CSROpType.set),
+    CSRRC          -> List(InstrIZ, FuType.csr, CSROpType.clr),
+    CSRRWI         -> List(InstrIZ, FuType.csr, CSROpType.wrti),
+    CSRRSI         -> List(InstrIZ, FuType.csr, CSROpType.seti),
+    CSRRCI         -> List(InstrIZ, FuType.csr, CSROpType.clri)
   )
 }

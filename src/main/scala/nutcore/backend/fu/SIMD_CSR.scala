@@ -620,14 +620,14 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   // Hart Priviledge Mode
   val priviledgeMode = RegInit(UInt(2.W), ModeM)
 
-  val addr = src2(11, 0)
+  val addr = src2(16, 5)
+  val csri = SignExt(src2(4, 0),XLEN) 
   val rdata = Wire(UInt(XLEN.W))
-  val csri = ZeroExt(io.cfIn.instr(19,15), XLEN) //unsigned imm for csri. [TODO]
   val wdata = LookupTree(func, List(
     CSROpType.wrt  -> src1,
     CSROpType.set  -> (rdata | src1),
     CSROpType.clr  -> (rdata & ~src1),
-    CSROpType.wrti -> csri,//TODO: csri --> src2
+    CSROpType.wrti -> csri,
     CSROpType.seti -> (rdata | csri),
     CSROpType.clri -> (rdata & ~csri)
   ))
