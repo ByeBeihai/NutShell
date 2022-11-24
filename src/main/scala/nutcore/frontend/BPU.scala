@@ -561,7 +561,7 @@ class BPU_SIMD extends NutCoreModule {
       ras.write(sp.value + 1.U, Mux(req.isRVC, req.pc + 2.U, req.pc + 4.U))
       sp.value := sp.value + 1.U
     }
-    .elsewhen (req.fuOpType === ALUOpType.ret) {
+    .elsewhen (req.fuOpType === ALUOpType.ret && req.pc =/= reqLatch.pc) {
       when(sp.value === 0.U) {
       }
       sp.value := Mux(sp.value===0.U, 0.U, sp.value - 1.U) 

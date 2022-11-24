@@ -194,7 +194,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
 
   //ALU
   val aluidx = FuType.alu
-  val alu = Module(new ALU(hasBru = true,NO1 = true))
+  val alu = Module(new ALU(hasBru = true,NO1 = false))
   val aluOut = alu.access(valid = io.in(aluidx).valid, src1 = src1(aluidx), src2 = src2(aluidx), func = fuOpType(aluidx))
   alu.io.cfIn := io.in(aluidx).bits.cf
   alu.io.offset := io.in(aluidx).bits.data.imm
@@ -253,20 +253,20 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   mdu.io.out.ready := io.out(mduidx).ready
   mdu.io.flush := io.flush
 
-  //MOU to be done
-  val mouidx = FuType.csr
-  val mou = Module(new MOU)
-  // mou does not write register
-  mou.access(valid = false.B, src1 = src1(mouidx), src2 = src2(mouidx), func = fuOpType(mouidx))
-  mou.io.cfIn := io.in(mouidx).bits.cf
-  mou.io.out.ready := io.out(mouidx).ready
+  //bru
+  val bruidx = FuType.bru
+  val bru = Module(new ALU(hasBru = true,NO1 = true))
+  val bruOut = bru.access(valid = io.in(bruidx).valid, src1 = src1(bruidx), src2 = src2(bruidx), func = fuOpType(bruidx))
+  bru.io.cfIn := io.in(bruidx).bits.cf
+  bru.io.offset := io.in(bruidx).bits.data.imm
+  bru.io.out.ready := io.out(bruidx).ready
 
   //CSRU
   val csridx = FuType.csr
   val csr_bits = Mux(io.in(csridx).valid, io.in(csridx).bits,io.in(lsuidx).bits)
   val BeforeCSRhasRedirect = {val raw = Wire(Vec(FuType.num,Bool())) 
                               for(i <- 0  to FuType.num-1){
-                                if(i == 3){
+                                if(i == FuType.csrint){
                                   raw(i) := false.B
                                 }else{
                                   when(notafter(io.in(i).bits.InstNo,csr_bits.InstNo,io.in(i).bits.InstFlag,csr_bits.InstFlag)&&io.out(i).bits.decode.cf.redirect.valid){
@@ -329,16 +329,16 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   io.out(simduidx).bits.decode.ctrl.rfWen := simdu.io.DecodeOut.ctrl.rfWen && !IcantWrite(simduidx)
   io.out(simdu1idx).bits.decode.ctrl.rfWen:= simdu1.io.DecodeOut.ctrl.rfWen && !IcantWrite(simdu1idx)
 
-  io.out(csridx).bits.decode.cf.redirect <> Mux(csr.io.instrValid,csr.io.redirect,mou.io.redirect)
+  io.out(csridx).bits.decode.cf.redirect <> csr.io.redirect
   io.out(aluidx).bits.decode.cf.redirect <> alu.io.redirect
   io.out(alu1idx).bits.decode.cf.redirect <> alu1.io.redirect
-  //io.out(mouidx).bits.decode.cf.redirect <> mou.io.redirect
+  io.out(bruidx).bits.decode.cf.redirect <> bru.io.redirect
   for(i <- 0 to FuType.num-1){
     io.out(i).valid := MuxLookup(i.U, io.in(i).valid,Array(FuType.alu -> io.in(aluidx).valid,
                                                            FuType.lsu -> lsu.io.out.valid,
                                                            FuType.mdu -> mdu.io.out.valid,
                                                            FuType.csr -> csr.io.instrValid,
-                                                           //FuType.mou -> io.in(mouidx).valid,
+                                                           FuType.bru -> io.in(bruidx).valid,
                                                            FuType.alu1-> io.in(alu1idx).valid,
                                                            FuType.simdu -> simdu.io.out.valid,
                                                            FuType.simdu1 -> simdu1.io.out.valid))
@@ -347,6 +347,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
     io.out(k).bits.commits:= DontCare
   }
   io.out(FuType.alu).bits.commits := aluOut
+  io.out(FuType.bru).bits.commits := bruOut
   io.out(FuType.lsu).bits.commits := lsuOut
   io.out(FuType.csr).bits.commits := csrOut
   io.out(FuType.mdu).bits.commits := mduOut
@@ -366,7 +367,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
     io.forward(i).valid := io.out(i).valid
     io.forward(i).wb.rfWen := io.out(i).bits.decode.ctrl.rfWen //&& !IcantWrite(i)
     io.forward(i).wb.rfDest := io.out(i).bits.decode.ctrl.rfDest
-    io.forward(i).wb.rfData := MuxLookup(fuType(i),aluOut,Array(FuType.alu->aluOut,FuType.alu1->alu1Out,FuType.lsu->lsuOut,FuType.csr->csrOut,FuType.mdu->mduOut,FuType.simdu->simduOut,FuType.simdu1->simdu1Out))
+    io.forward(i).wb.rfData := MuxLookup(fuType(i),aluOut,Array(FuType.alu->aluOut,FuType.alu1->alu1Out,FuType.lsu->lsuOut,FuType.csr->csrOut,FuType.mdu->mduOut,FuType.simdu->simduOut,FuType.simdu1->simdu1Out,FuType.bru->bruOut))
     io.forward(i).fuType := io.out(i).bits.decode.ctrl.fuType
     io.forward(i).InstNo := io.out(i).bits.decode.InstNo
   }
@@ -383,7 +384,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
     BoringUtils.addSource(nutcoretrap, "nutcoretrap")
     val csrops = io.in(csridx).valid === true.B
     BoringUtils.addSource(csrops, "csrops")
-    BoringUtils.addSource(io.in(csridx).valid && io.in.map(i=>i.valid.asUInt).reduce(_+&_) =/= 0.U,"csrnotalone")
+    BoringUtils.addSource(io.in(csridx).valid && io.in.map(i=>i.valid.asUInt).reduce(_+&_) =/= 1.U,"csrnotalone")
     //BoringUtils.addSource(io.in(mouidx).valid && io.in.map(i=>i.valid.asUInt).reduce(_+&_) =/= 1.U,"mounotalone")
 
     val difftest = Module(new DifftestTrapEvent)

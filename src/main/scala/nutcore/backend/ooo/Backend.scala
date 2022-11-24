@@ -902,8 +902,8 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   }
   def notafter(ptr1:UInt,ptr2:UInt,flag1:UInt,flag2:UInt):Bool= (ptr1 <= ptr2) ^ (flag1 =/= flag2) 
   val redirct_index = Mux(exu.io.out(FuType.csr).valid,
-                          Mux(exu.io.out(FuType.alu).valid,
-                              Mux(notafter(exu.io.out(FuType.csr).bits.decode.InstNo,exu.io.out(FuType.alu).bits.decode.InstNo,exu.io.out(FuType.csr).bits.decode.InstFlag,exu.io.out(FuType.alu).bits.decode.InstFlag),FuType.csr,FuType.alu),FuType.csr),FuType.alu)
+                          Mux(exu.io.out(FuType.bru).valid,
+                              Mux(notafter(exu.io.out(FuType.csr).bits.decode.InstNo,exu.io.out(FuType.bru).bits.decode.InstNo,exu.io.out(FuType.csr).bits.decode.InstFlag,exu.io.out(FuType.bru).bits.decode.InstFlag),FuType.csr,FuType.bru),FuType.csr),FuType.bru)
   val redirect = WireInit(exu.io.out(redirct_index).bits.decode.cf.redirect)
   redirect.valid := exu.io.out(redirct_index).bits.decode.cf.redirect.valid && exu.io.out(redirct_index).fire()
   io.redirect <> redirect
