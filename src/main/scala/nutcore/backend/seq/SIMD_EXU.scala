@@ -284,7 +284,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   csr.io.ctrlIn := io.in(csridx).bits.ctrl
   csr.io.cfIn.exceptionVec(loadAddrMisaligned) := lsu.io.loadAddrMisaligned && !BeforeCSRhasRedirect
   csr.io.cfIn.exceptionVec(storeAddrMisaligned) := lsu.io.storeAddrMisaligned && !BeforeCSRhasRedirect
-  csr.io.instrValid := (io.in(csridx).valid || lsu.io.loadAddrMisaligned || lsu.io.storeAddrMisaligned) && !BeforeCSRhasRedirect //need to know what does it mean
+  csr.io.instrValid := (io.in(csridx).valid || (io.memMMU.dmem.loadPF || io.memMMU.dmem.storePF) && io.in(lsuidx).valid  || lsu.io.loadAddrMisaligned || lsu.io.storeAddrMisaligned) && !BeforeCSRhasRedirect //need to know what does it mean
   //csr.io.isBackendException := false.B
   for(i <- 0 to FuType.num-1){
     io.out(i).bits.intrNO := DontCare

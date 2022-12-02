@@ -569,7 +569,7 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   var extList = List('a', 's', 'i', 'u')
   if(HasMExtension){ extList = extList :+ 'm'}
   if(HasCExtension){ extList = extList :+ 'c'}
-  val misaInitVal = 1.U << 63 | 0x14112d.U //getMisaMxl(2) | extList.foldLeft(0.U)((sum, i) => sum | getMisaExt(i)) //"h8000000000141105".U 
+  val misaInitVal = 1.U << 63 | 0x141105.U //getMisaMxl(2) | extList.foldLeft(0.U)((sum, i) => sum | getMisaExt(i)) //"h8000000000141105".U 
   val misa = RegInit(UInt(XLEN.W), misaInitVal) 
   // MXL = 2          | 0 | EXT = b 00 0000 0100 0001 0001 0000 0101
   // (XLEN-1, XLEN-2) |   |(25, 0)  ZY XWVU TSRQ PONM LKJI HGFE DCBA
@@ -647,7 +647,7 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     val tmp = (mstatus & ~sstatusWmask) | (wdata & sstatusWmask) 
     when(RegWen){mstatus := Cat(tmp.asTypeOf(new MstatusStruct).fs === "b11".U, tmp(XLEN-2,0))}
   }.elsewhen(addr === Sie.U){
-    rdata := mstatus & sieMask
+    rdata := mie & sieMask
     when(RegWen){mie := (mie & ~sieMask)|(wdata & sieMask)}
   }.elsewhen(addr === Stvec.U){
     rdata := stvec
