@@ -232,20 +232,6 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   simdu1_firststage_fire := simdu1.io.FirstStageFire
   BoringUtils.addSource(simdu1_firststage_fire, "simdu1_fs_fire")
 
-  //LSU
-  val lsuidx = FuType.lsu
-  val lsu = Module(new multicycle_lsu)
-  lsu.io.DecodeIn := io.in(lsuidx).bits
-  val lsuOut = lsu.access(valid = io.in(lsuidx).valid, src1 = src1(lsuidx), src2 = io.in(lsuidx).bits.data.imm, func = fuOpType(lsuidx))
-  lsu.io.wdata := src2(lsuidx)
-  for(i <- 0 to FuType.num-1){
-    io.out(i).bits.isMMIO := i.U === lsuidx && (lsu.io.isMMIO || (AddressSpace.isMMIO(io.in(lsuidx).bits.cf.pc) && io.out(i).valid))
-  }
-  io.dmem <> lsu.io.dmem
-  lsu.io.out.ready := io.out(lsuidx).ready
-
-  lsu.io.flush := io.flush
-
   //MDU
   val mduidx = FuType.mdu
   val mdu = Module(new MDU)
@@ -261,30 +247,31 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   bru.io.offset := io.in(bruidx).bits.data.imm
   bru.io.out.ready := io.out(bruidx).ready
 
+  //LSU
+  val lsuidx = FuType.lsu
+  val BeforeLSUhasRedirect = notafter(io.in(bruidx).bits.InstNo,io.in(lsuidx).bits.InstNo,io.in(bruidx).bits.InstFlag,io.in(lsuidx).bits.InstFlag)&&io.out(bruidx).bits.decode.cf.redirect.valid
+  val lsu = Module(new multicycle_lsu)
+  lsu.io.DecodeIn := io.in(lsuidx).bits
+  val lsuOut = lsu.access(valid = io.in(lsuidx).valid && !BeforeLSUhasRedirect, src1 = src1(lsuidx), src2 = io.in(lsuidx).bits.data.imm, func = fuOpType(lsuidx))
+  lsu.io.wdata := src2(lsuidx)
+  for(i <- 0 to FuType.num-1){
+    io.out(i).bits.isMMIO := i.U === lsuidx && (lsu.io.isMMIO || (AddressSpace.isMMIO(io.in(lsuidx).bits.cf.pc) && io.out(i).valid))
+  }
+  io.dmem <> lsu.io.dmem
+  lsu.io.out.ready := io.out(lsuidx).ready
+
+  lsu.io.flush := io.flush
+
   //CSRU
   val csridx = FuType.csr
   val csr_bits = Mux(io.in(csridx).valid, io.in(csridx).bits,io.in(lsuidx).bits)
-  val BeforeCSRhasRedirect = {val raw = Wire(Vec(FuType.num,Bool())) 
-                              for(i <- 0  to FuType.num-1){
-                                if(i == FuType.csrint){
-                                  raw(i) := false.B
-                                }else{
-                                  when(notafter(io.in(i).bits.InstNo,csr_bits.InstNo,io.in(i).bits.InstFlag,csr_bits.InstFlag)&&io.out(i).bits.decode.cf.redirect.valid){
-                                    raw(i) := true.B
-                                  }.otherwise{
-                                    raw(i) := false.B
-                                  }
-                                }
-                              }
-                              raw.reduce(_||_)
-                            }
   val csr = Module(new new_SIMD_CSR)
   val csrOut = csr.access(valid = io.in(csridx).valid, src1 = src1(csridx), src2 = src2(csridx), func = fuOpType(csridx),isMou = io.in(csridx).bits.ctrl.isMou)
   csr.io.cfIn := Mux(io.in(csridx).valid, io.in(csridx).bits.cf,io.in(lsuidx).bits.cf)
   csr.io.ctrlIn := io.in(csridx).bits.ctrl
-  csr.io.cfIn.exceptionVec(loadAddrMisaligned) := lsu.io.loadAddrMisaligned && !BeforeCSRhasRedirect
-  csr.io.cfIn.exceptionVec(storeAddrMisaligned) := lsu.io.storeAddrMisaligned && !BeforeCSRhasRedirect
-  csr.io.instrValid := (io.in(csridx).valid || (io.memMMU.dmem.loadPF || io.memMMU.dmem.storePF) && io.in(lsuidx).valid  || lsu.io.loadAddrMisaligned || lsu.io.storeAddrMisaligned) && !BeforeCSRhasRedirect //need to know what does it mean
+  csr.io.cfIn.exceptionVec(loadAddrMisaligned) := lsu.io.loadAddrMisaligned 
+  csr.io.cfIn.exceptionVec(storeAddrMisaligned) := lsu.io.storeAddrMisaligned 
+  csr.io.instrValid := (io.in(csridx).valid || (io.memMMU.dmem.loadPF || io.memMMU.dmem.storePF) && io.in(lsuidx).valid  || lsu.io.loadAddrMisaligned || lsu.io.storeAddrMisaligned) 
   //csr.io.isBackendException := false.B
   for(i <- 0 to FuType.num-1){
     io.out(i).bits.intrNO := DontCare
@@ -402,7 +389,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
         Debug("[SIMD_EXU] issue %x valid %x outvalid %x pc %x futype %x instrno %x outdata %x \n", i.U,io.in(i).valid, io.out(i).valid,io.in(i).bits.cf.pc, io.in(i).bits.ctrl.fuType, io.out(i).bits.decode.InstNo, io.out(i).bits.commits)
       }
       for(i<- 0 to FuType.num-1){
-      Debug("[SIMD_EXU] [Issue: %x ]BeforeCSRhasRedirect %x TakeBranch %x BranchTo %x \n", i.U,BeforeCSRhasRedirect, io.out(i).bits.decode.cf.redirect.valid, io.out(i).bits.decode.cf.redirect.target)
+      Debug("[SIMD_EXU] [Issue: %x ]BeforeLSUhasRedirect %x TakeBranch %x BranchTo %x \n", i.U,BeforeLSUhasRedirect, io.out(i).bits.decode.cf.redirect.valid, io.out(i).bits.decode.cf.redirect.target)
       }
   }
   

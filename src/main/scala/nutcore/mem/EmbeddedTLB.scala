@@ -438,7 +438,7 @@ class SIMD_TLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasTLBI
 
   // tlb exec
   val tlbExec = Module(new SIMD_TLBEXEC)
-  //val tlbEmpty = Module(new EmbeddedTLBEmpty)
+  val tlbEmpty = Module(new EmbeddedTLBEmpty)
   val mdTLB = Module(new EmbeddedTLBMD)
   val mdUpdate = Wire(Bool())
   
@@ -479,8 +479,8 @@ class SIMD_TLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasTLBI
     update := left.valid && right.ready
   }
 
-  //tlbEmpty.io.in <> DontCare
-  //tlbEmpty.io.out.ready := DontCare
+  tlbEmpty.io.in <> DontCare
+  tlbEmpty.io.out.ready := DontCare
   //if(tlbname == "dtlb") {
     //PipelineConnect(tlbExec.io.out, tlbEmpty.io.in, tlbEmpty.io.out.fire(), io.flush)
   //}
@@ -488,12 +488,23 @@ class SIMD_TLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasTLBI
   tlbexec_inbundle.bits := 0.U.asTypeOf(new SIMD_TLBEXEC_INBUNDLE)
   PipelineConnectTLB(tlbexec_inbundle, tlbExec.io.in, mdUpdate, tlbExec.io.isFinish, io.flush, vmEnable)
 
+  val out_req = Wire(Decoupled(new SimpleBusReqBundle(userBits = userBits, addrBits = VAddrBits)))
+  out_req.bits := tlbExec.io.out.bits
+  out_req.valid := false.B
+  out_req.ready := false.B
+
+  if (tlbname == "dtlb") { 
+      PipelineConnect(out_req, tlbEmpty.io.in, tlbEmpty.io.out.fire(), io.flush)
+      io.out.req <> tlbEmpty.io.out
+  }
+
   val s_idle :: s_exec :: Nil = Enum(2)
   val state = RegInit(s_idle)
   when(!vmEnable) {
     tlbexec_inbundle.valid := false.B
     tlbExec.io.out.ready := true.B // let existed request go out
-    //if( tlbname == "dtlb") { tlbEmpty.io.out.ready := true.B }
+    //tlbEmpty.io.in.valid := false.B
+    if( tlbname == "dtlb") { tlbEmpty.io.out.ready := true.B }
     io.out.req.valid := io.in.req.valid
     io.in.req.ready := io.out.req.ready
     io.out.req.bits.addr := io.in.req.bits.addr(PAddrBits-1, 0)
@@ -503,6 +514,8 @@ class SIMD_TLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasTLBI
     io.out.req.bits.wdata := io.in.req.bits.wdata
     io.out.req.bits.user.map(_ := io.in.req.bits.user.getOrElse(0.U))
     when(io.flush){state := s_idle}
+    out_req.valid := false.B
+    out_req.ready := false.B
   }.otherwise {
     //io.out.req <> tlbExec.io.out
     val req = io.in.req.bits
@@ -555,12 +568,15 @@ class SIMD_TLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasTLBI
       storePF := (!hitStore && req.isWrite() && hit) || (!hitLoad && req.isRead() && hit && isAMO)
     }
 
-    io.out.req.bits := io.in.req.bits
-    io.out.req.valid := Mux(state === s_idle,hit && !hitWB && !(io.csrMMU.isPF() || loadPF || storePF),tlbExec.io.out.valid)
-    io.out.req.bits.addr := Mux(state === s_idle,maskPaddr(hitData.ppn, req.addr(PAddrBits-1, 0), hitMask), tlbExec.io.out.bits.addr)
-    io.in.req.ready := io.out.req.fire()
-    tlbExec.io.out.ready := io.out.req.fire()
-    
+    out_req.bits := io.in.req.bits
+    out_req.valid := Mux(state === s_idle,hit && !hitWB && !(io.csrMMU.isPF() || loadPF || storePF),tlbExec.io.out.valid)
+    out_req.bits.addr := Mux(state === s_idle,maskPaddr(hitData.ppn, req.addr(PAddrBits-1, 0), hitMask), tlbExec.io.out.bits.addr)
+    tlbExec.io.out.ready := out_req.fire()
+    io.in.req.ready := out_req.fire()
+
+    if (tlbname == "itlb") {
+       io.out.req <> out_req
+    }
 
     switch (state){
       is(s_idle){
@@ -569,7 +585,7 @@ class SIMD_TLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasTLBI
         }
       }
       is(s_exec){
-        when(io.out.req.fire() || io.flush){
+        when(out_req.fire() || io.flush){
           //tlbExec.io.out.ready := true.B
           state := s_idle
         }
@@ -602,7 +618,7 @@ class SIMD_TLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasTLBI
   if(tlbname == "dtlb") {
     val alreadyOutFinish = RegEnable(true.B, init=false.B, tlbExec.io.out.valid && !tlbExec.io.out.ready)
     when(alreadyOutFinish && tlbExec.io.out.fire()) { alreadyOutFinish := false.B}
-    val tlbFinish = (io.out.req.fire()) || tlbExec.io.pf.isPF()
+    val tlbFinish = (out_req.fire()) || tlbExec.io.pf.isPF()
     if(HasDTLB){
     BoringUtils.addSource(tlbFinish, "DTLBFINISH")
     BoringUtils.addSource(io.csrMMU.isPF(), "DTLBPF")
@@ -615,7 +631,7 @@ class SIMD_TLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasTLBI
   if (tlbname == "itlb") {
     when (tlbExec.io.ipf && vmEnable) {
       tlbExec.io.out.ready := io.cacheEmpty && io.in.resp.ready
-      io.out.req.valid := false.B
+      out_req.valid := false.B
     }
 
     when (tlbExec.io.ipf && vmEnable && io.cacheEmpty) {
@@ -629,10 +645,18 @@ class SIMD_TLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasTLBI
   val a = RegInit(0.U(64.W))
   when(io.out.req.fire() && io.out.req.bits.addr === "h808005d0".U && io.out.isWrite()){a := io.out.req.bits.wdata}
 
+  val c1 = RegInit(false.B)
+  when((io.out.req.bits.addr) === "h81801000".U && io.out.req.fire() && io.out.isWrite()){c1 := true.B}
+  val c = RegInit(0.U(128.W))
+  when(c1){c := c + 1.U}
+  when((io.out.req.bits.addr) === "h81801000".U && io.out.req.fire() && io.out.isWrite()){c := 0.U}
+  Debug("c %x \n",c)
+
   Debug("InReq(%d, %d) InResp(%d, %d) OutReq(%d, %d) OutResp(%d, %d) vmEnable:%d mode:%d a %x \n", io.in.req.valid, io.in.req.ready, io.in.resp.valid, io.in.resp.ready, io.out.req.valid, io.out.req.ready, io.out.resp.valid, io.out.resp.ready, vmEnable, io.csrMMU.priviledgeMode,a)
   Debug("InReq: addr:%x cmd:%d wdata:%x OutReq: addr:%x cmd:%x wdata:%x\n", io.in.req.bits.addr, io.in.req.bits.cmd, io.in.req.bits.wdata, io.out.req.bits.addr, io.out.req.bits.cmd, io.out.req.bits.wdata)
   Debug("OutResp: rdata:%x cmd:%x Inresp: rdata:%x cmd:%x\n", io.out.resp.bits.rdata, io.out.resp.bits.cmd, io.in.resp.bits.rdata, io.in.resp.bits.cmd)
   Debug("satp:%x flush:%d cacheEmpty:%d instrPF:%d loadPF:%d storePF:%d \n", satp, io.flush, io.cacheEmpty, io.ipf, io.csrMMU.loadPF, io.csrMMU.storePF)
+  Debug("tlbempty valid %x ready %x tlbexecoutvalid %x\n",tlbEmpty.io.out.valid,tlbEmpty.io.out.ready,tlbExec.io.out.valid)
 }
 
 class SIMD_TLBEXEC(implicit val tlbConfig: TLBConfig) extends TlbModule{
