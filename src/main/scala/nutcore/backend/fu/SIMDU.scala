@@ -513,7 +513,7 @@ class SIMDU_2way extends NutCoreModule with HasInstrType{
 
   //connect 2 way in
   val match_operator = WireInit(0.U.asTypeOf(Vec(4,Bool())))
-  val firstidx = Mux(notafter(io.DecodeIn(0).InstNo,io.DecodeIn(1).InstNo,io.DecodeIn(0).InstFlag,io.DecodeIn(1).InstFlag),1.U,0.U)
+  val firstidx = Mux(io.in(0).valid,Mux(io.in(1).valid,Mux(notafter(io.DecodeIn(0).InstNo,io.DecodeIn(1).InstNo,io.DecodeIn(0).InstFlag,io.DecodeIn(1).InstFlag),0.U,1.U),0.U),1.U)
   val secondidx = Mux(firstidx === 0.U,1.U,0.U)
   when(io.in(firstidx).valid && (io.DecodeIn(firstidx).cf.instrType === InstrP || io.DecodeIn(firstidx).cf.instrType === InstrPB|| io.DecodeIn(firstidx).cf.instrType === InstrPI)){
     when(PALU0.io.in.ready){
@@ -533,13 +533,13 @@ class SIMDU_2way extends NutCoreModule with HasInstrType{
     when(PMDU0.io.in.ready){
       match_operator(2) := true.B
       PMDU0_valid_next := true.B
-      PMDU0_bits_next.DecodeIn := io.DecodeIn
+      PMDU0_bits_next.DecodeIn := io.DecodeIn(firstidx)
       PMDU0_bits_next.Pctrl    := Mux(firstidx === 0.U,PIDU0.io.Pctrl,PIDU1.io.Pctrl)
       io.FirstStageFire(firstidx) := true.B
     }.elsewhen(PMDU1.io.in.ready){
       match_operator(3) := true.B
       PMDU1_valid_next := true.B
-      PMDU1_bits_next.DecodeIn := io.DecodeIn
+      PMDU1_bits_next.DecodeIn := io.DecodeIn(firstidx)
       PMDU1_bits_next.Pctrl    := Mux(firstidx === 0.U,PIDU0.io.Pctrl,PIDU1.io.Pctrl)
       io.FirstStageFire(firstidx) := true.B
     }
@@ -559,12 +559,12 @@ class SIMDU_2way extends NutCoreModule with HasInstrType{
   }.elsewhen(io.in(secondidx).valid && (io.DecodeIn(secondidx).cf.instrType === InstrPM || io.DecodeIn(secondidx).cf.instrType === InstrPRD)){
     when(PMDU0.io.in.ready && !match_operator(2)){
       PMDU0_valid_next := true.B
-      PMDU0_bits_next.DecodeIn := io.DecodeIn
+      PMDU0_bits_next.DecodeIn := io.DecodeIn(secondidx)
       PMDU0_bits_next.Pctrl    := Mux(secondidx === 0.U,PIDU0.io.Pctrl,PIDU1.io.Pctrl)
       io.FirstStageFire(secondidx) := true.B
     }.elsewhen(PMDU1.io.in.ready && !match_operator(3)){
       PMDU1_valid_next := true.B
-      PMDU1_bits_next.DecodeIn := io.DecodeIn
+      PMDU1_bits_next.DecodeIn := io.DecodeIn(secondidx)
       PMDU1_bits_next.Pctrl    := Mux(secondidx === 0.U,PIDU0.io.Pctrl,PIDU1.io.Pctrl)
       io.FirstStageFire(secondidx) := true.B
     }
@@ -616,43 +616,43 @@ class SIMDU_2way extends NutCoreModule with HasInstrType{
 
   when(king === 0.U){
     io.out(0).bits := PALU0.io.out.bits.result
-    io.DecodeOut(0):= PALU0.io.out.bits
+    io.DecodeOut(0):= PALU0.io.out.bits.DecodeOut
     io.out(0).valid:= PALU0.io.out.valid
     PALU0.io.out.ready := io.out(0).ready
   }.elsewhen(king === 1.U){
     io.out(0).bits := PALU1.io.out.bits.result
-    io.DecodeOut(0):= PALU1.io.out.bits
+    io.DecodeOut(0):= PALU1.io.out.bits.DecodeOut
     io.out(0).valid:= PALU1.io.out.valid
     PALU1.io.out.ready := io.out(0).ready
   }.elsewhen(king === 2.U){
     io.out(0).bits := PMDU0.io.out.bits.result
-    io.DecodeOut(0):= PMDU0.io.out.bits
+    io.DecodeOut(0):= PMDU0.io.out.bits.DecodeOut
     io.out(0).valid:= PMDU0.io.out.valid
     PMDU0.io.out.ready := io.out(0).ready
   }.otherwise{
     io.out(0).bits := PMDU1.io.out.bits.result
-    io.DecodeOut(0):= PMDU1.io.out.bits
+    io.DecodeOut(0):= PMDU1.io.out.bits.DecodeOut
     io.out(0).valid:= PMDU1.io.out.valid
     PMDU1.io.out.ready := io.out(0).ready
   }
   when(queen === 0.U){
     io.out(1).bits := PALU0.io.out.bits.result
-    io.DecodeOut(1):= PALU0.io.out.bits
+    io.DecodeOut(1):= PALU0.io.out.bits.DecodeOut
     io.out(1).valid:= PALU0.io.out.valid
     PALU0.io.out.ready := io.out(1).ready
   }.elsewhen(queen === 1.U){
     io.out(1).bits := PALU1.io.out.bits.result
-    io.DecodeOut(1):= PALU1.io.out.bits
+    io.DecodeOut(1):= PALU1.io.out.bits.DecodeOut
     io.out(1).valid:= PALU1.io.out.valid
     PALU1.io.out.ready := io.out(1).ready
   }.elsewhen(queen === 2.U){
     io.out(1).bits := PMDU0.io.out.bits.result
-    io.DecodeOut(1):= PMDU0.io.out.bits
+    io.DecodeOut(1):= PMDU0.io.out.bits.DecodeOut
     io.out(1).valid:= PMDU0.io.out.valid
     PMDU0.io.out.ready := io.out(1).ready
   }.otherwise{
     io.out(1).bits := PMDU1.io.out.bits.result
-    io.DecodeOut(1):= PMDU1.io.out.bits
+    io.DecodeOut(1):= PMDU1.io.out.bits.DecodeOut
     io.out(1).valid:= PMDU1.io.out.valid
     PMDU1.io.out.ready := io.out(1).ready
   }
