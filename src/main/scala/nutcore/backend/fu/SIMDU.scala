@@ -343,6 +343,8 @@ class SIMDU_IO extends FunctionUnitIO {
   val DecodeOut = new DecodeIO
   val DecodeIn = Flipped(new DecodeIO)
   val FirstStageFire = Output(Bool())
+  val paluready = Output(Bool()) 
+  val pmduready = Output(Bool()) 
 }
 class SIMDU(hasBru: Boolean = false,NO1: Boolean = true) extends NutCoreModule with HasInstrType{
   val io = IO(new SIMDU_IO)
@@ -370,6 +372,8 @@ class SIMDU(hasBru: Boolean = false,NO1: Boolean = true) extends NutCoreModule w
   PALU.io.out.ready := Mux(OutputIsPALU,io.out.ready,false.B)
   PMDU.io.out.ready := Mux(OutputIsPALU,false.B,io.out.ready)
   io.FirstStageFire := valid && ((PALU.io.in.ready && (io.DecodeIn.cf.instrType === InstrP || io.DecodeIn.cf.instrType === InstrPB || io.DecodeIn.cf.instrType === InstrPI)) || (PMDU.io.in.ready && io.DecodeIn.cf.instrType === InstrPM || PMDU.io.in.ready && io.DecodeIn.cf.instrType === InstrPRD))
+  io.paluready := PALU.io.in.ready
+  io.pmduready := PMDU.io.in.ready
 
   //connect PIDU
   PIDU.io.DecodeIn := io.DecodeIn
@@ -415,4 +419,244 @@ class SIMDU(hasBru: Boolean = false,NO1: Boolean = true) extends NutCoreModule w
   PMDU.io.flush    := io.flush
 
   Debug("[SIMDU] PALUVALID %x PMDUVALID %x PALUPC %x PMDUPC %x PALUInstNo %x PMDUInstNo %x \n",PALU_valid,PMDU_valid,PALU.io.out.bits.DecodeOut.cf.pc,PMDU.io.out.bits.DecodeOut.cf.pc,PALU.io.out.bits.DecodeOut.InstNo,PMDU.io.out.bits.DecodeOut.InstNo)
+}
+class SIMDU_IO_2way extends NutCoreBundle {
+  val flush = Input(Bool())
+  val DecodeOut = Vec(2,new DecodeIO)
+  val DecodeIn = Vec(2,Flipped(new DecodeIO))
+  val FirstStageFire = Vec(2,Output(Bool())) 
+  val in = Vec(2,Flipped(Decoupled(new Bundle {
+    val src1 = Output(UInt(XLEN.W))
+    val src2 = Output(UInt(XLEN.W))
+    val func = Output(FuOpType())
+  })))
+  val out = Vec(2,Decoupled(Output(UInt(XLEN.W))))
+}
+class SIMDU_2way extends NutCoreModule with HasInstrType{
+  val io = IO(new SIMDU_IO_2way)
+  val (valid0, src01, src02, func0) = (io.in(0).valid, io.in(0).bits.src1, io.in(0).bits.src2, io.in(0).bits.func)
+  val (valid1, src11, src12, func1) = (io.in(1).valid, io.in(1).bits.src1, io.in(1).bits.src2, io.in(1).bits.func)
+  def access(valid0: Bool, src01: UInt, src02: UInt, func0: UInt,valid1: Bool, src11: UInt, src12: UInt, func1: UInt): (UInt,UInt) = {
+    this.valid0:= valid0
+    this.src01 := src01
+    this.src02 := src02
+    this.func0 := func0
+    this.valid1:= valid1
+    this.src11 := src11
+    this.src12 := src12
+    this.func1 := func1
+    (io.out(0).bits,io.out(1).bits)
+  }
+  def notafter(ptr1:UInt,ptr2:UInt,flag1:UInt,flag2:UInt):Bool= (ptr1 <= ptr2) && (flag1 === flag2) || (ptr1 > ptr2) && (flag1 =/= flag2)
+  val PALU0 = Module(new PALU)
+  val PMDU0 = Module(new PMDU)
+  val PALU1 = Module(new PALU)
+  val PMDU1 = Module(new PMDU)
+  val PIDU0 = Module(new PIDU)
+  val PIDU1 = Module(new PIDU)
+
+  io.in(0).ready := !valid0 || io.FirstStageFire(0)
+  io.in(1).ready := !valid1 || io.FirstStageFire(1)
+
+  //in and out signals
+  io.out(0).bits := 0.U
+  io.out(1).bits := 0.U
+  io.DecodeOut(0) := 0.U.asTypeOf(new DecodeIO)
+  io.DecodeOut(1) := 0.U.asTypeOf(new DecodeIO)
+  io.out(0).valid := false.B
+  io.out(1).valid := false.B
+  PALU0.io.out.ready := false.B
+  PMDU0.io.out.ready := false.B
+  PALU1.io.out.ready := false.B
+  PMDU1.io.out.ready := false.B
+  io.FirstStageFire(0) := false.B 
+  io.FirstStageFire(1) := false.B 
+  
+
+  //connect PIDU
+  PIDU0.io.DecodeIn := io.DecodeIn(0)
+  PIDU1.io.DecodeIn := io.DecodeIn(1)
+
+  //init PALU
+  val PALU0_bits_next = Wire(new Bundle{val DecodeIn = new DecodeIO;val Pctrl = new PIDUIO})
+  val PALU0_bits      = RegInit(0.U.asTypeOf(new Bundle{val DecodeIn = new DecodeIO;val Pctrl = new PIDUIO}))
+  PALU0_bits_next := PALU0_bits
+  val PALU0_valid = RegInit(0.U.asTypeOf(Bool()))
+  val PALU0_valid_next = Wire(Bool())
+  PALU0_valid_next:= PALU0_valid
+  when(PALU0.io.out.fire()){PALU0_valid_next := false.B}
+
+  val PALU1_bits_next = Wire(new Bundle{val DecodeIn = new DecodeIO;val Pctrl = new PIDUIO})
+  val PALU1_bits      = RegInit(0.U.asTypeOf(new Bundle{val DecodeIn = new DecodeIO;val Pctrl = new PIDUIO}))
+  PALU1_bits_next := PALU1_bits
+  val PALU1_valid = RegInit(0.U.asTypeOf(Bool()))
+  val PALU1_valid_next = Wire(Bool())
+  PALU1_valid_next:= PALU1_valid
+  when(PALU1.io.out.fire()){PALU1_valid_next := false.B}
+  
+  //init PMDU
+  val PMDU0_bits_next = Wire(new Bundle{val DecodeIn = new DecodeIO;val Pctrl = new PIDUIO})
+  val PMDU0_bits      = RegInit(0.U.asTypeOf(new Bundle{val DecodeIn = new DecodeIO;val Pctrl = new PIDUIO}))
+  PMDU0_bits_next := PMDU0_bits
+  val PMDU0_valid = RegInit(0.U.asTypeOf(Bool()))
+  val PMDU0_valid_next = Wire(Bool())
+  PMDU0_valid_next:= PMDU0_valid
+  when(PMDU0.io.FirstStageFire){PMDU0_valid_next := false.B}
+
+  val PMDU1_bits_next = Wire(new Bundle{val DecodeIn = new DecodeIO;val Pctrl = new PIDUIO})
+  val PMDU1_bits      = RegInit(0.U.asTypeOf(new Bundle{val DecodeIn = new DecodeIO;val Pctrl = new PIDUIO}))
+  PMDU1_bits_next := PMDU1_bits
+  val PMDU1_valid = RegInit(0.U.asTypeOf(Bool()))
+  val PMDU1_valid_next = Wire(Bool())
+  PMDU1_valid_next:= PMDU1_valid
+  when(PMDU1.io.FirstStageFire){PMDU1_valid_next := false.B}
+
+  //connect 2 way in
+  val match_operator = WireInit(0.U.asTypeOf(Vec(4,Bool())))
+  val firstidx = Mux(notafter(io.DecodeIn(0).InstNo,io.DecodeIn(1).InstNo,io.DecodeIn(0).InstFlag,io.DecodeIn(1).InstFlag),1.U,0.U)
+  val secondidx = Mux(firstidx === 0.U,1.U,0.U)
+  when(io.in(firstidx).valid && (io.DecodeIn(firstidx).cf.instrType === InstrP || io.DecodeIn(firstidx).cf.instrType === InstrPB|| io.DecodeIn(firstidx).cf.instrType === InstrPI)){
+    when(PALU0.io.in.ready){
+      match_operator(0) := true.B
+      PALU0_valid_next := true.B
+      PALU0_bits_next.DecodeIn := io.DecodeIn(firstidx)
+      PALU0_bits_next.Pctrl    := Mux(firstidx === 0.U,PIDU0.io.Pctrl,PIDU1.io.Pctrl)
+      io.FirstStageFire(firstidx) := true.B
+    }.elsewhen(PALU1.io.in.ready){
+      match_operator(1) := true.B
+      PALU1_valid_next := true.B
+      PALU1_bits_next.DecodeIn := io.DecodeIn(firstidx)
+      PALU1_bits_next.Pctrl    := Mux(firstidx === 0.U,PIDU0.io.Pctrl,PIDU1.io.Pctrl)
+      io.FirstStageFire(firstidx) := true.B
+    }
+  }.elsewhen(io.in(firstidx).valid && (io.DecodeIn(firstidx).cf.instrType === InstrPM || io.DecodeIn(firstidx).cf.instrType === InstrPRD)){
+    when(PMDU0.io.in.ready){
+      match_operator(2) := true.B
+      PMDU0_valid_next := true.B
+      PMDU0_bits_next.DecodeIn := io.DecodeIn
+      PMDU0_bits_next.Pctrl    := Mux(firstidx === 0.U,PIDU0.io.Pctrl,PIDU1.io.Pctrl)
+      io.FirstStageFire(firstidx) := true.B
+    }.elsewhen(PMDU1.io.in.ready){
+      match_operator(3) := true.B
+      PMDU1_valid_next := true.B
+      PMDU1_bits_next.DecodeIn := io.DecodeIn
+      PMDU1_bits_next.Pctrl    := Mux(firstidx === 0.U,PIDU0.io.Pctrl,PIDU1.io.Pctrl)
+      io.FirstStageFire(firstidx) := true.B
+    }
+  }
+  when(io.in(secondidx).valid && (io.DecodeIn(secondidx).cf.instrType === InstrP || io.DecodeIn(secondidx).cf.instrType === InstrPB|| io.DecodeIn(secondidx).cf.instrType === InstrPI)){
+    when(PALU0.io.in.ready && !match_operator(0)){
+      PALU0_valid_next := true.B
+      PALU0_bits_next.DecodeIn := io.DecodeIn(secondidx)
+      PALU0_bits_next.Pctrl    := Mux(secondidx === 0.U,PIDU0.io.Pctrl,PIDU1.io.Pctrl)
+      io.FirstStageFire(secondidx) := true.B
+    }.elsewhen(PALU1.io.in.ready && !match_operator(1)){
+      PALU1_valid_next := true.B
+      PALU1_bits_next.DecodeIn := io.DecodeIn(secondidx)
+      PALU1_bits_next.Pctrl    := Mux(secondidx === 0.U,PIDU0.io.Pctrl,PIDU1.io.Pctrl)
+      io.FirstStageFire(secondidx) := true.B
+    }
+  }.elsewhen(io.in(secondidx).valid && (io.DecodeIn(secondidx).cf.instrType === InstrPM || io.DecodeIn(secondidx).cf.instrType === InstrPRD)){
+    when(PMDU0.io.in.ready && !match_operator(2)){
+      PMDU0_valid_next := true.B
+      PMDU0_bits_next.DecodeIn := io.DecodeIn
+      PMDU0_bits_next.Pctrl    := Mux(secondidx === 0.U,PIDU0.io.Pctrl,PIDU1.io.Pctrl)
+      io.FirstStageFire(secondidx) := true.B
+    }.elsewhen(PMDU1.io.in.ready && !match_operator(3)){
+      PMDU1_valid_next := true.B
+      PMDU1_bits_next.DecodeIn := io.DecodeIn
+      PMDU1_bits_next.Pctrl    := Mux(secondidx === 0.U,PIDU0.io.Pctrl,PIDU1.io.Pctrl)
+      io.FirstStageFire(secondidx) := true.B
+    }
+  }
+  when(io.flush){PALU0_valid_next := false.B}
+  PALU0_valid := PALU0_valid_next
+  PALU0_bits  := PALU0_bits_next
+  PALU0.io.in.valid := PALU0_valid
+  PALU0.io.in.bits  := PALU0_bits
+  when(io.flush){PALU1_valid_next := false.B}
+  PALU1_valid := PALU1_valid_next
+  PALU1_bits  := PALU1_bits_next
+  PALU1.io.in.valid := PALU1_valid
+  PALU1.io.in.bits  := PALU1_bits
+  when(io.flush){PMDU0_valid_next := false.B}
+  PMDU0_valid := PMDU0_valid_next
+  PMDU0_bits  := PMDU0_bits_next
+  PMDU0.io.in.valid := PMDU0_valid
+  PMDU0.io.in.bits  := PMDU0_bits
+  PMDU0.io.flush    := io.flush
+  when(io.flush){PMDU1_valid_next := false.B}
+  PMDU1_valid := PMDU1_valid_next
+  PMDU1_bits  := PMDU1_bits_next
+  PMDU1.io.in.valid := PMDU1_valid
+  PMDU1.io.in.bits  := PMDU1_bits
+  PMDU1.io.flush    := io.flush
+
+
+  //connect 2 way out 
+  val commit_operator = WireInit(0.U.asTypeOf(Vec(4,Bool())))
+  val winner0 = Mux(PALU0.io.out.valid,Mux(PALU1.io.out.valid,Mux(notafter(PALU0.io.out.bits.DecodeOut.InstNo,PALU1.io.out.bits.DecodeOut.InstNo,PALU0.io.out.bits.DecodeOut.InstFlag,PALU1.io.out.bits.DecodeOut.InstFlag),0.U,1.U),0.U),1.U)
+  val winner1 = Mux(PMDU0.io.out.valid,Mux(PMDU1.io.out.valid,Mux(notafter(PMDU0.io.out.bits.DecodeOut.InstNo,PMDU1.io.out.bits.DecodeOut.InstNo,PMDU0.io.out.bits.DecodeOut.InstFlag,PMDU1.io.out.bits.DecodeOut.InstFlag),2.U,3.U),2.U),3.U)
+  val InstNo0 = Mux(winner0 === 0.U,PALU0.io.out.bits.DecodeOut.InstNo,PALU1.io.out.bits.DecodeOut.InstNo)
+  val InstNo1 = Mux(winner1 === 2.U,PMDU0.io.out.bits.DecodeOut.InstNo,PMDU1.io.out.bits.DecodeOut.InstNo)
+  val InstFlag0 = Mux(winner0 === 0.U,PALU0.io.out.bits.DecodeOut.InstFlag,PALU1.io.out.bits.DecodeOut.InstFlag)
+  val InstFlag1 = Mux(winner1 === 2.U,PMDU0.io.out.bits.DecodeOut.InstFlag,PMDU1.io.out.bits.DecodeOut.InstFlag)
+  val outvalid0 = Mux(winner0 === 0.U,PALU0.io.out.valid,PALU1.io.out.valid)
+  val outvalid1 = Mux(winner1 === 2.U,PMDU0.io.out.valid,PMDU1.io.out.valid)
+  val king  = Mux(outvalid0,Mux(outvalid1,Mux(notafter(InstNo0,InstNo1,InstFlag0,InstFlag1),winner0,winner1),winner0),winner1)
+  val queen0= Mux(king === winner0,winner1,winner0)
+  val queen1= Mux(king === winner0,Mux(king === 0.U,1.U,0.U),Mux(king === 2.U,3.U,2.U))
+  val InstNo2 = Mux(queen0 === 0.U,PALU0.io.out.bits.DecodeOut.InstNo,Mux(queen0 === 1.U,PALU1.io.out.bits.DecodeOut.InstNo,Mux(queen0 === 2.U,PMDU0.io.out.bits.DecodeOut.InstNo,PMDU1.io.out.bits.DecodeOut.InstNo)))
+  val InstNo3 = Mux(queen1 === 0.U,PALU0.io.out.bits.DecodeOut.InstNo,Mux(queen1 === 1.U,PALU1.io.out.bits.DecodeOut.InstNo,Mux(queen1 === 2.U,PMDU0.io.out.bits.DecodeOut.InstNo,PMDU1.io.out.bits.DecodeOut.InstNo)))
+  val InstFlag2 = Mux(queen0 === 0.U,PALU0.io.out.bits.DecodeOut.InstFlag,Mux(queen0 === 1.U,PALU1.io.out.bits.DecodeOut.InstFlag,Mux(queen0 === 2.U,PMDU0.io.out.bits.DecodeOut.InstFlag,PMDU1.io.out.bits.DecodeOut.InstFlag)))
+  val InstFlag3 = Mux(queen1 === 0.U,PALU0.io.out.bits.DecodeOut.InstFlag,Mux(queen1 === 1.U,PALU1.io.out.bits.DecodeOut.InstFlag,Mux(queen1 === 2.U,PMDU0.io.out.bits.DecodeOut.InstFlag,PMDU1.io.out.bits.DecodeOut.InstFlag)))
+  val outvalid2 = Mux(queen0 === 0.U,PALU0.io.out.valid,Mux(queen0 === 1.U,PALU1.io.out.valid,Mux(queen0 === 2.U,PMDU0.io.out.valid,PMDU1.io.out.valid)))
+  val outvalid3 = Mux(queen1 === 0.U,PALU0.io.out.valid,Mux(queen1 === 1.U,PALU1.io.out.valid,Mux(queen1 === 2.U,PMDU0.io.out.valid,PMDU1.io.out.valid)))
+  val queen = Mux(outvalid2,Mux(outvalid3,Mux(notafter(InstNo2,InstNo3,InstFlag2,InstFlag3),queen0,queen1),queen0),queen1)
+
+  when(king === 0.U){
+    io.out(0).bits := PALU0.io.out.bits.result
+    io.DecodeOut(0):= PALU0.io.out.bits
+    io.out(0).valid:= PALU0.io.out.valid
+    PALU0.io.out.ready := io.out(0).ready
+  }.elsewhen(king === 1.U){
+    io.out(0).bits := PALU1.io.out.bits.result
+    io.DecodeOut(0):= PALU1.io.out.bits
+    io.out(0).valid:= PALU1.io.out.valid
+    PALU1.io.out.ready := io.out(0).ready
+  }.elsewhen(king === 2.U){
+    io.out(0).bits := PMDU0.io.out.bits.result
+    io.DecodeOut(0):= PMDU0.io.out.bits
+    io.out(0).valid:= PMDU0.io.out.valid
+    PMDU0.io.out.ready := io.out(0).ready
+  }.otherwise{
+    io.out(0).bits := PMDU1.io.out.bits.result
+    io.DecodeOut(0):= PMDU1.io.out.bits
+    io.out(0).valid:= PMDU1.io.out.valid
+    PMDU1.io.out.ready := io.out(0).ready
+  }
+  when(queen === 0.U){
+    io.out(1).bits := PALU0.io.out.bits.result
+    io.DecodeOut(1):= PALU0.io.out.bits
+    io.out(1).valid:= PALU0.io.out.valid
+    PALU0.io.out.ready := io.out(1).ready
+  }.elsewhen(queen === 1.U){
+    io.out(1).bits := PALU1.io.out.bits.result
+    io.DecodeOut(1):= PALU1.io.out.bits
+    io.out(1).valid:= PALU1.io.out.valid
+    PALU1.io.out.ready := io.out(1).ready
+  }.elsewhen(queen === 2.U){
+    io.out(1).bits := PMDU0.io.out.bits.result
+    io.DecodeOut(1):= PMDU0.io.out.bits
+    io.out(1).valid:= PMDU0.io.out.valid
+    PMDU0.io.out.ready := io.out(1).ready
+  }.otherwise{
+    io.out(1).bits := PMDU1.io.out.bits.result
+    io.DecodeOut(1):= PMDU1.io.out.bits
+    io.out(1).valid:= PMDU1.io.out.valid
+    PMDU1.io.out.ready := io.out(1).ready
+  }
+  Debug("[SIMDU] PALU0VALID %x PMDU0VALID %x PALU0PC %x PMDU0PC %x PALU0InstNo %x PMDU0InstNo %x \n",PALU0_valid,PMDU0_valid,PALU0.io.out.bits.DecodeOut.cf.pc,PMDU0.io.out.bits.DecodeOut.cf.pc,PALU0.io.out.bits.DecodeOut.InstNo,PMDU0.io.out.bits.DecodeOut.InstNo)
+  Debug("[SIMDU] PALU1VALID %x PMDU1VALID %x PALU1PC %x PMDU1PC %x PALU1InstNo %x PMDU1InstNo %x \n",PALU1_valid,PMDU1_valid,PALU1.io.out.bits.DecodeOut.cf.pc,PMDU1.io.out.bits.DecodeOut.cf.pc,PALU1.io.out.bits.DecodeOut.InstNo,PMDU1.io.out.bits.DecodeOut.InstNo)
+
 }
