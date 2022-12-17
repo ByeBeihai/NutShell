@@ -194,7 +194,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
 
   //ALU
   val aluidx = FuType.alu
-  val alu = Module(new ALU(hasBru = true,NO1 = false))
+  val alu = Module(new ALU(hasBru = true,NO1 = true))
   val aluOut = alu.access(valid = io.in(aluidx).valid, src1 = src1(aluidx), src2 = src2(aluidx), func = fuOpType(aluidx))
   alu.io.cfIn := io.in(aluidx).bits.cf
   alu.io.offset := io.in(aluidx).bits.data.imm
@@ -237,12 +237,12 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   mdu.io.flush := io.flush
 
   //bru
-  val bruidx = FuType.bru
-  val bru = Module(new ALU(hasBru = true,NO1 = true))
-  val bruOut = bru.access(valid = io.in(bruidx).valid, src1 = src1(bruidx), src2 = src2(bruidx), func = fuOpType(bruidx))
-  bru.io.cfIn := io.in(bruidx).bits.cf
-  bru.io.offset := io.in(bruidx).bits.data.imm
-  bru.io.out.ready := io.out(bruidx).ready
+  val bruidx = FuType.alu
+  //val bru = Module(new ALU(hasBru = true,NO1 = true))
+  //val bruOut = bru.access(valid = io.in(bruidx).valid, src1 = src1(bruidx), src2 = src2(bruidx), func = fuOpType(bruidx))
+  //bru.io.cfIn := io.in(bruidx).bits.cf
+  //bru.io.offset := io.in(bruidx).bits.data.imm
+  //bru.io.out.ready := io.out(bruidx).ready
 
   //LSU
   val lsuidx = FuType.lsu
@@ -316,13 +316,13 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   io.out(csridx).bits.decode.cf.redirect <> csr.io.redirect
   io.out(aluidx).bits.decode.cf.redirect <> alu.io.redirect
   io.out(alu1idx).bits.decode.cf.redirect <> alu1.io.redirect
-  io.out(bruidx).bits.decode.cf.redirect <> bru.io.redirect
+  //io.out(bruidx).bits.decode.cf.redirect <> bru.io.redirect
   for(i <- 0 to FuType.num-1){
     io.out(i).valid := MuxLookup(i.U, io.in(i).valid,Array(FuType.alu -> io.in(aluidx).valid,
                                                            FuType.lsu -> lsu.io.out.valid,
                                                            FuType.mdu -> mdu.io.out.valid,
                                                            FuType.csr -> csr.io.instrValid,
-                                                           FuType.bru -> io.in(bruidx).valid,
+                                                           //FuType.bru -> io.in(bruidx).valid,
                                                            FuType.alu1-> io.in(alu1idx).valid,
                                                            FuType.simdu -> simdu.io.out(0).valid,
                                                            FuType.simdu1 -> simdu.io.out(1).valid))
@@ -331,7 +331,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     io.out(k).bits.commits:= DontCare
   }
   io.out(FuType.alu).bits.commits := aluOut
-  io.out(FuType.bru).bits.commits := bruOut
+  //io.out(FuType.bru).bits.commits := bruOut
   io.out(FuType.lsu).bits.commits := lsuOut
   io.out(FuType.csr).bits.commits := csrOut
   io.out(FuType.mdu).bits.commits := mduOut
