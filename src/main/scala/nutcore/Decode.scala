@@ -62,18 +62,18 @@ object SrcType {
 object FuType extends HasNutCoreConst {
   def num = 7
   def alu = "b000".U
-  def lsu = "b100".U
-  def mdu = "b101".U
+  def lsu = "b101".U
+  def mdu = "b110".U
   def csr = "b001".U
   def csrint = 1
   def mou = "b111".U
-  def alu1= "b110".U
-  def bru = if(IndependentBru) "b000".U
-            else               "b000".U
-  def simdu = "b010".U
-  def simduint = 2
-  def simdu1 = "b011".U
-  def simdu1int = 3
+  def alu1= "b010".U
+  def bru = if(IndependentBru) "b010".U
+            else               "b010".U
+  def simdu = "b011".U
+  def simduint = 3
+  def simdu1 = "b100".U
+  def simdu1int = 4
   def apply() = UInt(log2Up(num+1).W)
 }
 

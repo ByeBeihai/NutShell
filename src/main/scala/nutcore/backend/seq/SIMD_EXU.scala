@@ -194,7 +194,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
 
   //ALU
   val aluidx = FuType.alu
-  val alu = Module(new ALU(hasBru = true,NO1 = true))
+  val alu = Module(new ALU(hasBru = true,NO1 = false))
   val aluOut = alu.access(valid = io.in(aluidx).valid, src1 = src1(aluidx), src2 = src2(aluidx), func = fuOpType(aluidx))
   alu.io.cfIn := io.in(aluidx).bits.cf
   alu.io.offset := io.in(aluidx).bits.data.imm
@@ -204,7 +204,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
 
   //ALU1
   val alu1idx = FuType.alu1
-  val alu1 = Module(new ALU(hasBru = true,NO1 = false))
+  val alu1 = Module(new ALU(hasBru = true,NO1 = true))
   val alu1Out = alu1.access(valid = io.in(alu1idx).valid, src1 = src1(alu1idx), src2 = src2(alu1idx), func = fuOpType(alu1idx))
   alu1.io.cfIn := io.in(alu1idx).bits.cf
   alu1.io.offset := io.in(alu1idx).bits.data.imm
@@ -237,7 +237,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   mdu.io.flush := io.flush
 
   //bru
-  val bruidx = FuType.alu
+  val bruidx = FuType.bru
   //val bru = Module(new ALU(hasBru = true,NO1 = true))
   //val bruOut = bru.access(valid = io.in(bruidx).valid, src1 = src1(bruidx), src2 = src2(bruidx), func = fuOpType(bruidx))
   //bru.io.cfIn := io.in(bruidx).bits.cf
