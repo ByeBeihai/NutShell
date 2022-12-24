@@ -58,11 +58,11 @@ class Multiplier(len: Int) extends NutCoreModule {
   val state = RegInit(s_idle)
   val cnt = RegInit(0.U(log2Up(5000).W))
 
-  def DSPInPipe[T <: Data](a: T) = RegNext(a)
-  def DSPOutPipe[T <: Data](a: T) = RegNext(RegNext(RegNext(a)))
+  def DSPInPipe[T <: Data](a: T) = a
+  def DSPOutPipe[T <: Data](a: T) = RegNext(a)
   val mulRes = (DSPInPipe(io.in.bits(0)).asSInt * DSPInPipe(io.in.bits(1)).asSInt)
   io.out.bits := DSPOutPipe(mulRes).asUInt
-  io.out.valid := state === s_mul && cnt === 4.U || state === s_wait
+  io.out.valid := state === s_mul && cnt === 1.U || state === s_wait
   io.in.ready := state === s_idle
 
   when(io.flush){
@@ -143,7 +143,7 @@ class Divider(len: Int = 64) extends NutCoreModule {
     shiftReg := Cat(Mux(enough, hi - bReg, hi)(len - 1, 0), lo, enough)
     cnt.inc()
     when (cnt.value === (len-1).U) { state := s_finish }
-  } .elsewhen (state === s_finish) {
+  } .elsewhen (state === s_finish && io.out.fire()) {
     state := s_idle
   }
 

@@ -596,6 +596,43 @@ class MulAdd9(len: Int = 9) extends NutCoreModule {
     io.FirstStageFire := s1Fire
 }
 
+class MulAdd(len: Int = 9) extends NutCoreModule {
+    val io = IO(new MulAddIO(len)) 
+    val valid = io.in.valid
+    val X = io.in.bits.srcs(0)
+    val Y = io.in.bits.srcs(1)
+    val s1Fire = Wire(Bool())
+    val s2Fire = Wire(Bool())
+    val s1_valid = io.in.valid
+    val s2_valid = RegEnable(false.B, init = false.B, s2Fire || io.flush)
+    val s2_decodein = RegEnable(0.U.asTypeOf(new DecodeIO),init = 0.U.asTypeOf(new DecodeIO),s2Fire)
+    val s2_Pctrl = RegEnable(0.U.asTypeOf(new PIDUIO),init = 0.U.asTypeOf(new PIDUIO),s2Fire)
+    when (s1Fire) { 
+        s2_valid := true.B 
+        s2_decodein := io.in.bits.DecodeIn
+        s2_Pctrl := io.in.bits.Pctrl
+    }
+    val s1_ready = !s1_valid || s1Fire
+    val s2_ready = !s2_valid || s2Fire
+    s1Fire := s1_valid && s2_ready
+    s2Fire := s2_valid && io.out.ready
+    
+    // First Stage
+    val xy = X.asSInt * Y.asSInt
+    
+    // Second Stage
+    val res = RegEnable(xy, s1Fire)
+    
+    // io
+    io.in.ready := s1_ready
+    io.out.bits.result := res(2*len-1,0)
+    io.out.bits.DecodeOut := s2_decodein
+    io.out.bits.Pctrl := s2_Pctrl
+    io.out.valid := s2_valid //Mux(s3_valid && !subS3, s3_valid, s4_valid)
+    io.out.bits.OV := false.B
+    io.FirstStageFire := s1Fire
+}
+
 
 class PMDUIO extends PALUIO {
     val flush = Input(Bool())
@@ -634,14 +671,14 @@ class PMDU extends NutCoreModule {
     def Xsrc(func:UInt)       = {func(1,0) ===  "b01".U || func(6,3) === "b1001".U}
     def Saturating(func:UInt) = {func(1,0) ===  "b11".U}
 
-    val MulAdd17_0 = Module(new MulAdd17)
-    val MulAdd17_1 = Module(new MulAdd17)
-    val MulAdd33_0 = Module(new MulAdd33)
-    val MulAdd65_0 = Module(new MulAdd65)
-    val MulAdd9_0  = Module(new MulAdd9)
-    val MulAdd9_1  = Module(new MulAdd9)
-    val MulAdd9_2  = Module(new MulAdd9)
-    val MulAdd9_3  = Module(new MulAdd9)
+    val MulAdd17_0 = Module(new MulAdd(17))
+    val MulAdd17_1 = Module(new MulAdd(17))
+    val MulAdd33_0 = Module(new MulAdd(33))
+    val MulAdd65_0 = Module(new MulAdd(65))
+    val MulAdd9_0  = Module(new MulAdd(9))
+    val MulAdd9_1  = Module(new MulAdd(9))
+    val MulAdd9_2  = Module(new MulAdd(9))
+    val MulAdd9_3  = Module(new MulAdd(9))
 
     MulAdd17_0.io.in.bits := 0.U.asTypeOf(new MulAddIO(17).in.bits)
     MulAdd17_1.io.in.bits := 0.U.asTypeOf(new MulAddIO(17).in.bits)
