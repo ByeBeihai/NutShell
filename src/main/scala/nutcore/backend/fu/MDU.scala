@@ -59,10 +59,10 @@ class Multiplier(len: Int) extends NutCoreModule {
   val cnt = RegInit(0.U(log2Up(5000).W))
 
   def DSPInPipe[T <: Data](a: T) = a
-  def DSPOutPipe[T <: Data](a: T) = RegNext(a)
+  def DSPOutPipe[T <: Data](a: T) = a
   val mulRes = (DSPInPipe(io.in.bits(0)).asSInt * DSPInPipe(io.in.bits(1)).asSInt)
   io.out.bits := DSPOutPipe(mulRes).asUInt
-  io.out.valid := state === s_mul && cnt === 1.U || state === s_wait
+  io.out.valid := io.in.valid
   io.in.ready := state === s_idle
 
   when(io.flush){
