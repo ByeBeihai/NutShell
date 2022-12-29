@@ -514,7 +514,8 @@ class BPU_SIMD extends NutCoreModule {
 
   val pcLatch = RegEnable(io.in.pc.bits, io.in.pc.valid)
   val btbHit = Wire(Vec(4, Bool()))
-  (0 to 3).map(i => btbHit(i) :=btbRead(i).valid && btbRead(i).tag === btbAddr.getTag(pcLatch) && !flush && RegNext(btb(i).io.r.req.fire(), init = false.B)  && !(pcLatch(1) && btbRead(i).brinfo(0)))
+  (0 to 3).map(i => btbHit(i) :=btbRead(i).valid && btbRead(i).tag === btbAddr.getTag(pcLatch) && RegNext(btb(i).io.r.req.fire(), init = false.B)  && !(pcLatch(1) && btbRead(i).brinfo(0)))
+  // (0 to 3).map(i => btbHit(i) :=btbRead(i).valid && btbRead(i).tag === btbAddr.getTag(pcLatch) && !flush && RegNext(btb(i).io.r.req.fire(), init = false.B)  && !(pcLatch(1) && btbRead(i).brinfo(0)))
 
   val crosslineJump = btbRead(3).brinfo(2) && btbHit(3)  && !io.brIdx(0) && !io.brIdx(1) && !io.brIdx(2)
   io.crosslineJump := crosslineJump

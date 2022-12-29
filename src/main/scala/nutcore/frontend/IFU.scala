@@ -463,7 +463,9 @@ class IFU_SIMD extends NutCoreModule with HasResetVector {
   val pbrIdx = bpu_SIMD.io.brIdx.asUInt | (crosslineJump << 3)
   brIdx := Mux(io.redirect.valid, 0.U, Mux(crosslineJumpLatch, 0.U, pbrIdx))
 
-  bpu_SIMD.io.in.pc.valid := io.imem.req.fire()
+  // bpu_SIMD.io.in.pc.valid := io.imem.req.fire()
+  bpu_SIMD.io.in.pc.valid := pcUpdate
+
   bpu_SIMD.io.in.pc.bits := npc 
   bpu_SIMD.io.flush := io.redirect.valid
 
