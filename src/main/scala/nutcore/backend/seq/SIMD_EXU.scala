@@ -288,7 +288,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   empty_RedirectIO.valid := false.B
 
   val IcantWrite = VecInit((0 to FuType.num-1).map(i => {
-                                                          val lsuexp = (lsu.io.loadAddrMisaligned || lsu.io.storeAddrMisaligned) && io.in(lsuidx).valid && notafter(io.in(lsuidx).bits.InstNo,io.in(i).bits.InstNo,io.in(lsuidx).bits.InstFlag,io.in(i).bits.InstFlag)
+                                                          val lsuexp = (lsu.io.loadAddrMisaligned || lsu.io.storeAddrMisaligned || io.memMMU.dmem.loadPF || io.memMMU.dmem.storePF) && io.in(lsuidx).valid && notafter(io.in(lsuidx).bits.InstNo,io.in(i).bits.InstNo,io.in(lsuidx).bits.InstFlag,io.in(i).bits.InstFlag)
                                                           val csrfix =  csr.io.wenFix && io.in(csridx).valid && notafter(io.in(csridx).bits.InstNo,io.in(i).bits.InstNo,io.in(csridx).bits.InstFlag,io.in(i).bits.InstFlag)
                                                           lsuexp || csrfix
                                                         }))
@@ -309,7 +309,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     io.out(k).bits.decode.ctrl.rfWen := io.in(k).bits.ctrl.rfWen && !IcantWrite(k)
     io.out(k).bits.decode.cf.redirect <> empty_RedirectIO
   }
-  io.out(lsuidx).bits.decode.ctrl.rfWen := lsu.io.DecodeOut.ctrl.rfWen
+  io.out(lsuidx).bits.decode.ctrl.rfWen := lsu.io.DecodeOut.ctrl.rfWen && !IcantWrite(lsuidx)
   io.out(simduidx).bits.decode.ctrl.rfWen := simdu.io.DecodeOut(0).ctrl.rfWen && !IcantWrite(simduidx)
   io.out(simdu1idx).bits.decode.ctrl.rfWen:= simdu.io.DecodeOut(1).ctrl.rfWen && !IcantWrite(simdu1idx)
 
