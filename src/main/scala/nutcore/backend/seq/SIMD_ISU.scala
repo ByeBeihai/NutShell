@@ -290,4 +290,16 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
     for(i <- 0 to FuType.num-1){
         Debug("[SIMD_ISU]futype %x rfdest %x rfwen %x wdata %x \n",i.U,io.forward(i).wb.rfDest,forwardRfWen(i),io.forward(i).wb.rfData)
     }
+    if (p.FPGAPlatform){
+        val IsuValid = Cat(io.out(1).valid,io.out(0).valid)
+        val IsuInValid = Cat(io.in(1).valid,io.in(0).valid)
+        val IsuReady = Cat(io.out(1).ready,io.out(0).ready)
+        val IsuPc0 = io.out(0).bits.cf.pc
+        val IsuPc1 = io.out(1).bits.cf.pc
+        BoringUtils.addSource(IsuValid,"IsuValid")
+        BoringUtils.addSource(IsuInValid,"IsuInValid")
+        BoringUtils.addSource(IsuReady,"IsuReady")
+        BoringUtils.addSource(IsuPc0,"IsuPc0")
+        BoringUtils.addSource(IsuPc1,"IsuPc1")
+    }
 }

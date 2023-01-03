@@ -230,7 +230,7 @@ class pipeline_lsu extends NutCoreModule with HasLSUConst {
   lsu_resp.io.DecodeIn.valid := lsu_resp_valid
 }
 
-class multicycle_lsu extends NutCoreModule with HasLSUConst {
+class multicycle_lsu(implicit val p: NutCoreConfig)extends NutCoreModule with HasLSUConst {
   val io = IO(new SIMD_LSU_IO)
   val (valid, src1, src2, func) = (io.in.valid, io.in.bits.src1, io.in.bits.src2, io.in.bits.func)
   def access(valid: Bool, src1: UInt, src2: UInt, func: UInt): UInt = {
@@ -356,4 +356,13 @@ class multicycle_lsu extends NutCoreModule with HasLSUConst {
   BoringUtils.addSource(io.out.fire(), "lsu_firststage_fire")
 
   io.DecodeOut := io.DecodeIn
+
+  if (p.FPGAPlatform){
+    BoringUtils.addSource(state,"lsustate")
+    BoringUtils.addSource(io.dmem.req.valid,"lsureqvalid")
+    BoringUtils.addSource(io.dmem.req.ready,"lsureqready")
+    BoringUtils.addSource(io.dmem.resp.valid,"lsurespvalid")
+    BoringUtils.addSource(io.dmem.resp.ready,"lsurespready")
+    BoringUtils.addSource(reqAddr,"lsureqAddr")
+  }
 }

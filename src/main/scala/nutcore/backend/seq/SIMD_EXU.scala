@@ -204,7 +204,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
 
   //ALU1
   val alu1idx = FuType.alu1
-  val alu1 = Module(new ALU(hasBru = true,NO1 = true))
+  val alu1 = Module(new ALU(hasBru = true,NO1 = false))
   val alu1Out = alu1.access(valid = io.in(alu1idx).valid, src1 = src1(alu1idx), src2 = src2(alu1idx), func = fuOpType(alu1idx))
   alu1.io.cfIn := io.in(alu1idx).bits.cf
   alu1.io.offset := io.in(alu1idx).bits.data.imm
@@ -389,5 +389,18 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
       Debug("[SIMD_EXU] [Issue: %x ]BeforeLSUhasRedirect %x TakeBranch %x BranchTo %x \n", i.U,BeforeLSUhasRedirect, io.out(i).bits.decode.cf.redirect.valid, io.out(i).bits.decode.cf.redirect.target)
       }
   }
-  
+  val ExuValid = Reverse(io.out.map(i => i.valid.asUInt).reduce(Cat(_,_)))
+  val ExuInValid = Reverse(io.in.map(i => i.valid.asUInt).reduce(Cat(_,_)))
+  val ExuReady = Reverse(io.out.map(i => i.ready.asUInt).reduce(Cat(_,_)))
+  val lsupc = io.in(FuType.lsuint).bits.cf.pc
+  val cnt = RegInit(0.U(32.W))
+  cnt := Mux(cnt === 0.U,0.U,cnt+1.U)
+  when (io.in(bruidx).bits.cf.pc === "h80000ebc".U){cnt := 1.U}
+  Debug("[SIMD_EXU] ExuValid %x cnt %x\n", ExuValid,cnt)
+  if (p.FPGAPlatform){
+        BoringUtils.addSource(ExuValid,"ExuValid")
+        BoringUtils.addSource(ExuInValid,"ExuInValid")
+        BoringUtils.addSource(ExuReady,"ExuReady")
+        BoringUtils.addSource(lsupc,"lsupc")
+  }
 }

@@ -63,6 +63,7 @@ object FuType extends HasNutCoreConst {
   def num = 7
   def alu = "b000".U
   def lsu = "b101".U
+  def lsuint = 5
   def mdu = "b110".U
   def csr = "b001".U
   def csrint = 1

@@ -237,4 +237,10 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     difftest.io.coreid := 0.U 
     difftest.io.gpr    := VecInit((0 to NRReg-1).map(i => rf.read(i.U)))
   }
+  if (p.FPGAPlatform){
+    val WbuInValid = Reverse(io.in.map(i => i.valid.asUInt).reduce(Cat(_,_)))
+    val WbuRfwen = Reverse(io.wb.rfWen.map(i => i.asUInt).reduce(Cat(_,_)))
+    BoringUtils.addSource(WbuInValid,"WbuInValid")
+    BoringUtils.addSource(WbuRfwen,"WbuRfwen")
+  }
 }
