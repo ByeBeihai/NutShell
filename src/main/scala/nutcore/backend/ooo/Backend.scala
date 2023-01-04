@@ -808,14 +808,19 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
     exu_valid := exu_valid_next
   }
 
+  def notafter(ptr1:UInt,ptr2:UInt,flag1:UInt,flag2:UInt):Bool= (ptr1 <= ptr2) ^ (flag1 =/= flag2) 
+  val redirct_index = Mux(exu.io.out(FuType.csr).valid,
+                          Mux(exu.io.out(FuType.bru).valid,
+                              Mux(notafter(exu.io.out(FuType.csr).bits.decode.InstNo,exu.io.out(FuType.bru).bits.decode.InstNo,exu.io.out(FuType.csr).bits.decode.InstFlag,exu.io.out(FuType.bru).bits.decode.InstFlag),FuType.csr,FuType.bru),FuType.csr),FuType.bru)
+
   //connect exu and wbu : FuType.num-way to FuType.num-way
   val wbu_bits_next = Wire(Vec(FuType.num,new SIMD_CommitIO))
   val wbu_bits      = RegInit(0.U.asTypeOf(Vec(FuType.num,new SIMD_CommitIO)))
   wbu_bits_next := wbu_bits
   val wbu_valid = Reg(Vec(FuType.num,Bool()))
   val wbu_valid_next = Wire(Vec(FuType.num,Bool()))
-  (0 to FuType.num-1).map(i => wbu_valid_next(i) := wbu_valid(i))
-  (0 to FuType.num-1).map(i => when(true.B){wbu_valid_next(i) := false.B})
+  //(0 to FuType.num-1).map(i => wbu_valid_next(i) := wbu_valid(i))
+  (0 to FuType.num-1).map(i => wbu_valid_next(i) := false.B)
 
   for(i <- 0 to FuType.num-1){
     wbu.io.in(i).bits := wbu_bits(i)
@@ -834,48 +839,34 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
                                                   }else{
                                                     wbu_valid_next(i-1)
                                                   }})
-  when(enoughspace){
-    for(i <- 0 to FuType.num-1){
-      for(j <- 0 to FuType.num-1){
-        when(exu.io.out(j).bits.decode.InstNo === TailPtr +& i.U && exu.io.out(j).valid && continusfire(i)){
-          exu.io.out(j).ready := true.B
-          wbu_bits_next(i) := exu.io.out(j).bits
-          wbu_valid_next(i) := true.B
-        }
-      }
-    }
-  }.otherwise{
-    for(i <- 0 to FuType.num-1){
-      for(j <- 0 to FuType.num-1){
-        when((i+1).U <= ptrleft){
-          when(exu.io.out(j).bits.decode.InstNo === TailPtr +& i.U && exu.io.out(j).valid && continusfire(i)){
-            exu.io.out(j).ready := true.B
-            wbu_bits_next(i) := exu.io.out(j).bits
-            wbu_valid_next(i) := true.B
-          }
-        }.otherwise{
-          when(exu.io.out(j).bits.decode.InstNo +& ptrleft === i.U && exu.io.out(j).valid && continusfire(i)){
-            exu.io.out(j).ready := true.B
-            wbu_bits_next(i) := exu.io.out(j).bits
-            wbu_valid_next(i) := true.B
-          }
-        }
+  val match_exuwbu = WireInit(0.U.asTypeOf(Vec(FuType.num,Vec(FuType.num,Bool()))))
+  for(i <- 0 to FuType.num-1){
+    for(j <- 0 to FuType.num-1){
+      val exu_matched = (0 to j).map( k => {if(k == j){
+                                            false.B
+                                            }else{
+                                            match_exuwbu(i)(k)
+                                            }}).reduce(_||_)
+      val wbu_matched = (0 to i).map( k => {if(k == i){
+                                              false.B
+                                            }else{match_exuwbu(k)(j)}}).reduce(_||_)
+      val front_wbu_matched = {if(i == 0){true.B}else{match_exuwbu(i-1).reduce(_||_)}}
+      when(Mux((i+1).U <= ptrleft,exu.io.out(j).bits.decode.InstNo === (TailPtr +& i.U),exu.io.out(j).bits.decode.InstNo +& ptrleft === i.U) && exu.io.out(j).valid && front_wbu_matched && !wbu_matched && !exu_matched
+      && Mux(exu.io.out(redirct_index).valid,notafter(exu.io.out(j).bits.decode.InstNo,exu.io.out(redirct_index).bits.decode.InstNo,exu.io.out(j).bits.decode.InstFlag,exu.io.out(redirct_index).bits.decode.InstFlag),true.B)){
+        exu.io.out(j).ready := true.B
+        wbu_bits_next(i) := exu.io.out(j).bits
+        wbu_valid_next(i) := true.B
+        match_exuwbu(i)(j) := true.B
       }
     }
   }
   val num_enterwbu = exu.io.out.map(i => i.fire().asUInt).reduce(_+&_)
-  wbu_bits := wbu_bits_next
-  val FronthasRedirect = (0 to FuType.num-1).map(i => {if(i == 0){
-                                                        false.B 
-                                                      }else{
-                                                        (0 to i-1).map(j => wbu_bits_next(j).decode.cf.redirect.valid && wbu_valid_next(j)).reduce(_||_)
-                                                      }})
-  for(i <- 0 to FuType.num-1){
-    when(reset.asBool || FronthasRedirect(i)){
-      wbu_valid_next(i) := false.B
-    }
+  when(reset.asBool){
+    (0 to FuType.num-1).map(i => wbu_valid(i) := false.B)
+  }.otherwise{
+    wbu_valid:= wbu_valid_next
   }
-  wbu_valid:= wbu_valid_next
+  wbu_bits := wbu_bits_next
 
   isu.io.in <> io.in
   io.isufire(0) := isu.io.out(0).fire
@@ -900,10 +891,6 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
     wbu.io.wb.rfSrc2(i):=isu.io.wb.rfSrc2(i)
     wbu.io.wb.rfSrc3(i):=isu.io.wb.rfSrc3(i)
   }
-  def notafter(ptr1:UInt,ptr2:UInt,flag1:UInt,flag2:UInt):Bool= (ptr1 <= ptr2) ^ (flag1 =/= flag2) 
-  val redirct_index = Mux(exu.io.out(FuType.csr).valid,
-                          Mux(exu.io.out(FuType.bru).valid,
-                              Mux(notafter(exu.io.out(FuType.csr).bits.decode.InstNo,exu.io.out(FuType.bru).bits.decode.InstNo,exu.io.out(FuType.csr).bits.decode.InstFlag,exu.io.out(FuType.bru).bits.decode.InstFlag),FuType.csr,FuType.bru),FuType.csr),FuType.bru)
   val redirect = WireInit(exu.io.out(redirct_index).bits.decode.cf.redirect)
   redirect.valid := exu.io.out(redirct_index).bits.decode.cf.redirect.valid && exu.io.out(redirct_index).fire()
   io.redirect <> redirect
