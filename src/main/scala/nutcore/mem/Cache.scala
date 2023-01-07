@@ -214,6 +214,7 @@ sealed class CacheStage2(implicit val cacheConfig: CacheConfig) extends CacheMod
   io.out.bits.waymask := waymask
   io.out.bits.datas := io.dataReadResp
   io.out.bits.mmio := AddressSpace.isMMIO(req.addr)
+  Debug("[CacheS2] addr %x inmmio %x \n",req.addr,io.out.bits.mmio)
 
   val isForwardData = io.in.valid && (io.dataWriteBus.req match { case r =>
     r.valid && r.bits.setIdx === getDataIdx(req.addr)
@@ -271,6 +272,7 @@ sealed class CacheStage3(implicit val cacheConfig: CacheConfig) extends CacheMod
   if (cacheName == "dcache") {
     BoringUtils.addSource(mmio, "lsuMMIO")
   }
+  Debug("[CacheS3] addr %x inmmio %x \n",req.addr,io.in.bits.mmio)
 
   val useForwardData = io.in.bits.isForwardData && io.in.bits.waymask === io.in.bits.forwardData.waymask.getOrElse("b1".U)
   val dataReadArray = Mux1H(io.in.bits.waymask, io.in.bits.datas).data

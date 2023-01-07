@@ -247,13 +247,14 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   //LSU
   val lsuidx = FuType.lsu
   val BeforeLSUhasRedirect = notafter(io.in(bruidx).bits.InstNo,io.in(lsuidx).bits.InstNo,io.in(bruidx).bits.InstFlag,io.in(lsuidx).bits.InstFlag)&&io.out(bruidx).bits.decode.cf.redirect.valid
-  val lsu = Module(new multicycle_lsu)
+  val lsu = Module(new multicycle_lsu_atom)
   lsu.io.DecodeIn := io.in(lsuidx).bits
   val lsuOut = lsu.access(valid = io.in(lsuidx).valid && !BeforeLSUhasRedirect, src1 = src1(lsuidx), src2 = io.in(lsuidx).bits.data.imm, func = fuOpType(lsuidx))
   lsu.io.wdata := src2(lsuidx)
   for(i <- 0 to FuType.num-1){
     io.out(i).bits.isMMIO := i.U === lsuidx && (lsu.io.isMMIO || (AddressSpace.isMMIO(io.in(lsuidx).bits.cf.pc) && io.out(i).valid))
   }
+  Debug("lsu_is_mmio %x \n",io.out(lsuidx).bits.isMMIO)
   io.dmem <> lsu.io.dmem
   lsu.io.out.ready := io.out(lsuidx).ready
 
@@ -263,12 +264,28 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   val csridx = FuType.csr
   val csr_bits = Mux(io.in(csridx).valid, io.in(csridx).bits,io.in(lsuidx).bits)
   val csr = Module(new new_SIMD_CSR)
-  val csrOut = csr.access(valid = io.in(csridx).valid, src1 = src1(csridx), src2 = src2(csridx), func = fuOpType(csridx),isMou = io.in(csridx).bits.ctrl.isMou)
+  val csrOut = csr.access(valid = io.in(csridx).valid, src1 = src1(csridx), src2 = src2(csridx), func = fuOpType(csridx),isMou = csr_bits.ctrl.isMou)
+  Debug("isMou %x lsumou %x csrmou %x\n",csr_bits.ctrl.isMou,io.in(lsuidx).bits.ctrl.isMou,io.in(csridx).bits.ctrl.isMou)
   csr.io.cfIn := Mux(io.in(csridx).valid, io.in(csridx).bits.cf,io.in(lsuidx).bits.cf)
-  csr.io.ctrlIn := io.in(csridx).bits.ctrl
+  csr.io.ctrlIn := Mux(io.in(csridx).valid, io.in(csridx).bits.ctrl,io.in(lsuidx).bits.ctrl)
   csr.io.cfIn.exceptionVec(loadAddrMisaligned) := lsu.io.loadAddrMisaligned 
-  csr.io.cfIn.exceptionVec(storeAddrMisaligned) := lsu.io.storeAddrMisaligned 
-  csr.io.instrValid := (io.in(csridx).valid || (io.memMMU.dmem.loadPF || io.memMMU.dmem.storePF) && io.in(lsuidx).valid  || lsu.io.loadAddrMisaligned || lsu.io.storeAddrMisaligned) 
+  csr.io.cfIn.exceptionVec(storeAddrMisaligned) := lsu.io.storeAddrMisaligned
+  val hasLoadPF = RegInit(false.B)
+  val hasStorePF= RegInit(false.B)
+  when(io.memMMU.dmem.loadPF){
+    hasLoadPF := true.B
+  } 
+  when(io.memMMU.dmem.storePF){
+    hasStorePF := true.B
+  }
+  when(io.flush){
+    hasLoadPF := false.B
+    hasStorePF := false.B
+  }
+  csr.io.cfIn.exceptionVec(loadPageFault) := hasLoadPF 
+  csr.io.cfIn.exceptionVec(storePageFault) := hasStorePF
+  val csr_instrValid = (lsu.io.loadAddrMisaligned || lsu.io.storeAddrMisaligned || io.memMMU.dmem.loadPF || io.memMMU.dmem.storePF || hasStorePF || hasLoadPF) && io.in(lsuidx).valid
+  csr.io.instrValid := (io.in(csridx).valid || csr_instrValid) && io.out(csridx).fire()
   //csr.io.isBackendException := false.B
   for(i <- 0 to FuType.num-1){
     io.out(i).bits.intrNO := DontCare
@@ -300,9 +317,10 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   io.out(simduidx).bits.decode <> simdu.io.DecodeOut(0)
   io.out(simdu1idx).bits.decode <> simdu.io.DecodeOut(1)
 
-  when((lsu.io.loadAddrMisaligned || lsu.io.storeAddrMisaligned) && io.in(lsuidx).valid){
+  when(csr_instrValid){
     io.out(csridx).bits.decode.InstNo := io.out(lsuidx).bits.decode.InstNo
     io.out(csridx).bits.decode.InstFlag := io.out(lsuidx).bits.decode.InstFlag
+    io.out(csridx).bits.decode := csr_bits
   }
 
   for(k <- 0 to FuType.num-1){
@@ -312,20 +330,23 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   io.out(lsuidx).bits.decode.ctrl.rfWen := lsu.io.DecodeOut.ctrl.rfWen && !IcantWrite(lsuidx)
   io.out(simduidx).bits.decode.ctrl.rfWen := simdu.io.DecodeOut(0).ctrl.rfWen && !IcantWrite(simduidx)
   io.out(simdu1idx).bits.decode.ctrl.rfWen:= simdu.io.DecodeOut(1).ctrl.rfWen && !IcantWrite(simdu1idx)
+  when(csr_instrValid){
+    io.out(csridx).bits.decode.ctrl.rfWen := false.B
+  }
 
   io.out(csridx).bits.decode.cf.redirect <> csr.io.redirect
   io.out(aluidx).bits.decode.cf.redirect <> alu.io.redirect
   io.out(alu1idx).bits.decode.cf.redirect <> alu1.io.redirect
   io.out(bruidx).bits.decode.cf.redirect <> bru.io.redirect
   for(i <- 0 to FuType.num-1){
-    io.out(i).valid := MuxLookup(i.U, io.in(i).valid,Array(FuType.alu -> io.in(aluidx).valid,
-                                                           FuType.lsu -> lsu.io.out.valid,
-                                                           FuType.mdu -> mdu.io.out.valid,
-                                                           FuType.csr -> csr.io.instrValid,
-                                                           FuType.bru -> io.in(bruidx).valid,
-                                                           FuType.alu1-> io.in(alu1idx).valid,
-                                                           FuType.simdu -> simdu.io.out(0).valid,
-                                                           FuType.simdu1 -> simdu.io.out(1).valid))
+    io.out(i).valid := MuxLookup(i.U, io.in(i).valid,Array(FuType.alu -> (io.in(aluidx).valid && !IcantWrite(aluidx)),
+                                                           FuType.lsu -> (lsu.io.out.valid && !IcantWrite(lsuidx)),
+                                                           FuType.mdu -> (mdu.io.out.valid && !IcantWrite(mduidx)),
+                                                           FuType.csr -> (io.in(csridx).valid || csr_instrValid),
+                                                           FuType.bru -> (io.in(bruidx).valid && !IcantWrite(bruidx)),
+                                                           FuType.alu1-> (io.in(alu1idx).valid && !IcantWrite(alu1idx)),
+                                                           FuType.simdu -> (simdu.io.out(0).valid && !IcantWrite(simduidx)),
+                                                           FuType.simdu1 -> (simdu.io.out(1).valid && !IcantWrite(simdu1idx))))
   }
   for(k <- 0 to FuType.num-1){
     io.out(k).bits.commits:= DontCare

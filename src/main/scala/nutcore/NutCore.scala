@@ -79,7 +79,8 @@ object AddressSpace extends HasNutCoreParameter {
   // (start, size)
   // address out of MMIO will be considered as DRAM
   def mmio = List(
-    (0x00000000L, 0x40000000L),  // internal devices, such as CLINT and PLIC
+    //(0x02000000L,0x00010000L),
+    (0x30000000L, 0x10000000L),  // internal devices, such as CLINT and PLIC
     (Settings.getLong("MMIOBase"), Settings.getLong("MMIOSize")) // external devices
   )
 
@@ -100,7 +101,7 @@ class NutCore(implicit val p: NutCoreConfig) extends NutCoreModule {
   val io = IO(new NutCoreIO)
 
   // Frontend
-  val frontend = Module(new Frontend_SIMD)
+  val frontend = Module(new Frontend_inorder)
   
   // Backend
   /*
