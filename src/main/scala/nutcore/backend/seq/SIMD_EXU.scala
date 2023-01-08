@@ -252,9 +252,16 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   val lsuOut = lsu.access(valid = io.in(lsuidx).valid && !BeforeLSUhasRedirect, src1 = src1(lsuidx), src2 = io.in(lsuidx).bits.data.imm, func = fuOpType(lsuidx))
   lsu.io.wdata := src2(lsuidx)
   for(i <- 0 to FuType.num-1){
-    io.out(i).bits.isMMIO := i.U === lsuidx && (lsu.io.isMMIO || (AddressSpace.isMMIO(io.in(lsuidx).bits.cf.pc) && io.out(i).valid))
+    io.out(i).bits.isMMIO := i.U === lsuidx && (lsu.io.isMMIO) && io.out(i).valid
   }
   Debug("lsu_is_mmio %x \n",io.out(lsuidx).bits.isMMIO)
+  Debug("4060000cismmio %x a %x b %x\n",AddressSpace.isMMIO("h4060000c".U),Settings.getLong("MMIOBase").U,Settings.getLong("MMIOSize").U)
+  val mmio = List(
+    //(0x02000000L,0x00010000L),
+    (0x00000000L, 0x40000000L),  // internal devices, such as CLINT and PLIC
+    (Settings.getLong("MMIOBase"), Settings.getLong("MMIOSize")) // external devices
+  )
+  mmio.map(range => {Debug("[addspace]range_1 %x range_2 %x r1+r2 %x\n",range._1.U,range._2.U,(0x3c000000L + 0x04000000L).U)})
   io.dmem <> lsu.io.dmem
   lsu.io.out.ready := io.out(lsuidx).ready
 

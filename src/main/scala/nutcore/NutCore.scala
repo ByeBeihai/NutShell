@@ -80,14 +80,14 @@ object AddressSpace extends HasNutCoreParameter {
   // address out of MMIO will be considered as DRAM
   def mmio = List(
     //(0x02000000L,0x00010000L),
-    (0x30000000L, 0x10000000L),  // internal devices, such as CLINT and PLIC
+    (0x00000000L, 0x40000000L),  // internal devices, such as CLINT and PLIC
     (Settings.getLong("MMIOBase"), Settings.getLong("MMIOSize")) // external devices
   )
 
   def isMMIO(addr: UInt) = mmio.map(range => {
     require(isPow2(range._2))
     val bits = log2Up(range._2)
-    (addr ^ range._1.U)(PAddrBits-1, bits) === 0.U
+    (addr >= range._1.U) && (addr < (range._1.U +& range._2.U))
   }).reduce(_ || _)
 }
 

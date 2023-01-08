@@ -67,7 +67,7 @@ class SIMD_LSU extends NutCoreModule with HasLSUConst {
 
     val mmioReg = RegInit(false.B)
     when (!mmioReg) { mmioReg := lsuMMIO }
-    when (io.out.valid) { mmioReg := false.B }
+    when (io.out.fire()) { mmioReg := false.B }
     io.isMMIO := mmioReg && io.out.valid
 }
 
