@@ -404,6 +404,7 @@ class EmbeddedTLBEmpty(implicit val tlbConfig: TLBConfig) extends TlbModule {
   })
 
   io.out <> io.in
+  io.in.ready := !io.in.valid || io.out.fire()
 }
 
 class EmbeddedTLB_fake(implicit val tlbConfig: TLBConfig) extends TlbModule with HasTLBIO {

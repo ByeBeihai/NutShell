@@ -87,7 +87,7 @@ object AddressSpace extends HasNutCoreParameter {
   def isMMIO(addr: UInt) = mmio.map(range => {
     require(isPow2(range._2))
     val bits = log2Up(range._2)
-    (addr >= range._1.U) && (addr < (range._1.U +& range._2.U))
+    (addr >= range._1.U) && (addr < (range._1 + range._2).U)
   }).reduce(_ || _)
 }
 
