@@ -1373,7 +1373,7 @@ class PMDU extends NutCoreModule {
         val submul1 = func_out === "b0110100".U || func_out === "b0110110".U || func_out(6,1) === "b010011".U
         val submul2 =(func_out(6,3) === "b0101".U || func_out(6,3) === "b0111".U) && (func_out(2,0) === "b100".U || func_out(2,0) === "b110".U)  || func_out(6,1) === "b010011".U
         val checkmode1 = func_out(6,1) === "b001110".U
-        val checkmode2 = func_out(6,3) === "b0100".U || func(2,0) === "b101".U || func(2,0) === "b110".U
+        val checkmode2 = func_out(6,3) === "b0100".U || func_out(2,0) === "b101".U || func_out(2,0) === "b110".U
         io.out.bits.result :={
             var l = List(0.U)
             for(i <- 0 until XLEN/32){
