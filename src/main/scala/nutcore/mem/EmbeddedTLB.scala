@@ -723,7 +723,7 @@ class SIMD_TLBEXEC(implicit val tlbConfig: TLBConfig) extends TlbModule{
   }
 
   // miss
-  val s_idle :: s_memReadReq :: s_memReadResp :: s_write_pte :: s_wait_resp :: s_miss_slpf :: Nil = Enum(6)
+  val s_idle :: s_memReadReq :: s_memReadResp :: s_write_pte :: s_wait_resp :: s_miss_slpf :: s_memwriteResp :: Nil = Enum(7)
   val state = RegInit(s_idle)
   val level = RegInit(Level.U(log2Up(Level).W))
   
@@ -826,10 +826,29 @@ class SIMD_TLBEXEC(implicit val tlbConfig: TLBConfig) extends TlbModule{
     }
 
     is (s_write_pte) {
-      when (io.flush) {
+      when (isFlush || io.out.fire() || alreadyOutFire) {
         state := s_idle
         needFlush := false.B
-      }.elsewhen (io.mem.req.fire()) { state := s_wait_resp }
+        missIPF := false.B
+        missSPF := false.B
+        missLPF := false.B
+        alreadyOutFire := false.B
+      }.elsewhen (io.mem.req.fire()) { state := s_memwriteResp }
+    }
+    
+    is(s_memwriteResp){
+      when (io.mem.resp.fire()){
+        when(isFlush || io.out.fire() || alreadyOutFire){
+          state := s_idle
+          needFlush := false.B
+          missIPF := false.B
+          missSPF := false.B
+          missLPF := false.B
+          alreadyOutFire := false.B
+        }.otherwise{
+          state := s_wait_resp
+        }
+      }
     }
 
     is (s_wait_resp) { when (io.out.fire() || isFlush || alreadyOutFire){
@@ -838,6 +857,7 @@ class SIMD_TLBEXEC(implicit val tlbConfig: TLBConfig) extends TlbModule{
       missSPF := false.B
       missLPF := false.B
       alreadyOutFire := false.B
+      needFlush := false.B
     }}
 
     is (s_miss_slpf) {
@@ -846,6 +866,7 @@ class SIMD_TLBEXEC(implicit val tlbConfig: TLBConfig) extends TlbModule{
           missSPF := false.B
           missLPF := false.B
           missIPF := false.B
+          needFlush := false.B
       }
     }
   }
@@ -853,7 +874,7 @@ class SIMD_TLBEXEC(implicit val tlbConfig: TLBConfig) extends TlbModule{
   // mem
   val cmd = Mux(state === s_write_pte, SimpleBusCmd.write, SimpleBusCmd.read)
   io.mem.req.bits.apply(addr = Mux(hitWB, hitData.pteaddr, raddr), cmd = cmd, size = (if (XLEN == 64) "b11".U else "b10".U), wdata =  Mux( hitWB, hitWBStore, memRespStore), wmask = 0xff.U)
-  io.mem.req.valid := ((state === s_memReadReq || state === s_write_pte) && !io.flush)
+  io.mem.req.valid := ((state === s_memReadReq || state === s_write_pte) && !isFlush)
   io.mem.resp.ready := true.B
 
   // tlb refill
