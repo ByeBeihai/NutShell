@@ -138,7 +138,7 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     io.wb.InstNo(i) := io.in(i).bits.decode.InstNo
   }
   for(i<-0 to FuType.num-1){
-    when (io.wb.rfWen(i)) { rf.write(io.wb.rfDest(i), io.wb.WriteData(i)) }
+    when (io.wb.rfWen(i) && !FronthasRedirect(i)) { rf.write(io.wb.rfDest(i), io.wb.WriteData(i)) }
     when(reset.asBool){rf.write(io.wb.rfDest(i), 0.U)}
   }
   for(i <- 0 to Issue_Num-1){
@@ -153,7 +153,7 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   //P-EXT
   val bool_wire = WireInit(false.B)
   for(i <- 0 to FuType.num-1){
-    when(io.in(i).valid && io.in(i).bits.decode.pext.OV){
+    when(io.in(i).valid && io.in(i).bits.decode.pext.OV && !FronthasRedirect(i)){
       bool_wire := true.B
     }
   }

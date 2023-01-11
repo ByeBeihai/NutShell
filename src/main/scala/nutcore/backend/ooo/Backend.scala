@@ -851,8 +851,7 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
                                               false.B
                                             }else{match_exuwbu(k)(j)}}).reduce(_||_)
       val front_wbu_matched = {if(i == 0){true.B}else{match_exuwbu(i-1).reduce(_||_)}}
-      when(Mux((i+1).U <= ptrleft,exu.io.out(j).bits.decode.InstNo === (TailPtr +& i.U),exu.io.out(j).bits.decode.InstNo +& ptrleft === i.U) && exu.io.out(j).valid && front_wbu_matched && !wbu_matched && !exu_matched
-      && Mux(exu.io.out(redirct_index).valid,notafter(exu.io.out(j).bits.decode.InstNo,exu.io.out(redirct_index).bits.decode.InstNo,exu.io.out(j).bits.decode.InstFlag,exu.io.out(redirct_index).bits.decode.InstFlag),true.B)){
+      when(Mux((i+1).U <= ptrleft,exu.io.out(j).bits.decode.InstNo === (TailPtr +& i.U),exu.io.out(j).bits.decode.InstNo +& ptrleft === i.U) && exu.io.out(j).valid && front_wbu_matched && !wbu_matched && !exu_matched){
         exu.io.out(j).ready := true.B
         wbu_bits_next(i) := exu.io.out(j).bits
         wbu_valid_next(i) := true.B

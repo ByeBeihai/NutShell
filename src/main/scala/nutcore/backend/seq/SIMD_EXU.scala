@@ -340,16 +340,16 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   io.out(aluidx).bits.decode.cf.redirect <> alu.io.redirect
   io.out(alu1idx).bits.decode.cf.redirect <> alu1.io.redirect
   io.out(bruidx).bits.decode.cf.redirect <> bru.io.redirect
-  for(i <- 0 to FuType.num-1){
-    io.out(i).valid := MuxLookup(i.U, io.in(i).valid,Array(FuType.alu -> (io.in(aluidx).valid ),
-                                                           FuType.lsu -> (lsu.io.out.valid && !lsuexp),
-                                                           FuType.mdu -> (mdu.io.out.valid),
-                                                           FuType.csr -> (io.in(csridx).valid || lsuexp),
-                                                           FuType.bru -> (io.in(bruidx).valid ),
-                                                           FuType.alu1-> (io.in(alu1idx).valid ),
-                                                           FuType.simdu -> (simdu.io.out(0).valid),
-                                                           FuType.simdu1 -> (simdu.io.out(1).valid)))
-  }
+  
+  io.out(FuType.alu).valid := io.in(aluidx).valid
+  io.out(FuType.alu1).valid := io.in(alu1idx).valid
+  io.out(FuType.lsu).valid := lsu.io.out.valid && !lsuexp
+  io.out(FuType.mdu).valid := mdu.io.out.valid
+  io.out(FuType.csr).valid := io.in(csridx).valid || lsuexp
+  io.out(FuType.bru).valid := io.in(bruidx).valid 
+  io.out(FuType.simdu).valid := simdu.io.out(0).valid
+  io.out(FuType.simdu1).valid := simdu.io.out(1).valid
+
   for(k <- 0 to FuType.num-1){
     io.out(k).bits.commits:= DontCare
   }

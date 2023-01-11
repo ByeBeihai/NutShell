@@ -1088,19 +1088,19 @@ class PMDU extends NutCoreModule {
     val adder34_3= WireInit(0.U.asTypeOf(Vec(2,UInt(34.W))))
     val adder34_4= WireInit(0.U.asTypeOf(Vec(2,UInt(34.W))))
 
-    val tmp68 = Wire(UInt(70.W))
-    val adder68_0= WireInit(0.U(70.W))
-    val adder68_1= WireInit(0.U(70.W))
-    val adder68_2= WireInit(0.U(70.W))
-    val adder68_3= WireInit(0.U(70.W))
-    val adder68_4= WireInit(0.U(70.W))
+    val tmp68 = Wire(UInt(71.W))
+    val adder68_0= WireInit(0.U(71.W))
+    val adder68_1= WireInit(0.U(71.W))
+    val adder68_2= WireInit(0.U(71.W))
+    val adder68_3= WireInit(0.U(71.W))
+    val adder68_4= WireInit(0.U(71.W))
     tmp68 := adder68_0 + adder68_1 + adder68_2 + adder68_3 + adder68_4
 
-    adder68_0 := Cat(adder34_0(1),0.U(2.W),adder34_0(0))
-    adder68_1 := Cat(adder34_1(1),0.U(2.W),adder34_1(0))
-    adder68_2 := Cat(adder34_2(1),0.U(2.W),adder34_2(0))
-    adder68_3 := Cat(adder34_3(1),0.U(2.W),adder34_3(0))
-    adder68_4 := Cat(adder34_4(1),0.U(2.W),adder34_4(0))
+    adder68_0 := Cat(adder34_0(1),0.U(3.W),adder34_0(0))
+    adder68_1 := Cat(adder34_1(1),0.U(3.W),adder34_1(0))
+    adder68_2 := Cat(adder34_2(1),0.U(3.W),adder34_2(0))
+    adder68_3 := Cat(adder34_3(1),0.U(3.W),adder34_3(0))
+    adder68_4 := Cat(adder34_4(1),0.U(3.W),adder34_4(0))
 
     if(XLEN == 64){
         when(MulAdd65_0.io.out.bits.Pctrl.isMul_16){
@@ -1236,11 +1236,11 @@ class PMDU extends NutCoreModule {
                     adder34_0(i) := adder0
                     adder34_1(i) := adder1
                     adder34_2(i) := 0.U
-                    val res = WireInit(tmp68(i*36+33,i*36)(31,0))
+                    val res = WireInit(tmp68(i*37+33,i*37)(31,0))
                     when(func_out(2,0) === "b100".U){
-                        when((Fill(33,tmp68(i*36+33,i*36)(32))^tmp68(i*36+33,i*36))(32,31) =/= 0.U){
+                        when((Fill(33,tmp68(i*37+33,i*37)(32))^tmp68(i*37+33,i*37))(32,31) =/= 0.U){
                             io.out.bits.DecodeOut.pext.OV := true.B
-                            when(tmp68(i*36+33,i*36)(32).asBool){
+                            when(tmp68(i*37+33,i*37)(32).asBool){
                                 res:= Cat(1.U,Fill(31,0.U))
                             }.otherwise{
                                 res := Cat(0.U,Fill(31,1.U))
@@ -1310,12 +1310,12 @@ class PMDU extends NutCoreModule {
                 adder34_1(i) := (Fill(33,sub.asUInt)^SignExt(round,33))
                 adder34_2(i) := sub.asBool
                 //val tmp   = SignExt(src3_out(i * 32 + 32 -1, i * 32),33) + (Fill(33,sub.asUInt)^SignExt(round,33))+sub.asBool
-                val res   = WireInit(tmp68(i*36+33,i*36)(31,0))
-                Debug("[PMDU] sub %x add %x sat %x round %x tmp %x res%x \n",sub,add,sat,round,tmp68(i*36+33,i*36)(31,0),res)
+                val res   = WireInit(tmp68(i*37+33,i*37)(31,0))
+                Debug("[PMDU] sub %x add %x sat %x round %x tmp %x res%x \n",sub,add,sat,round,tmp68(i*37+33,i*37)(31,0),res)
                 when(add || sub){
-                    when((Fill(33,tmp68(i*36+33,i*36)(32))^tmp68(i*36+33,i*36))(32,31) =/= 0.U){
+                    when((Fill(33,tmp68(i*37+33,i*37)(32))^tmp68(i*37+33,i*37))(32,31) =/= 0.U){
                         io.out.bits.DecodeOut.pext.OV := true.B
-                        when(tmp68(i*36+33,i*36)(32).asBool){
+                        when(tmp68(i*37+33,i*37)(32).asBool){
                             res := Cat(1.U,Fill(31,0.U))
                         }.otherwise{
                             res := Cat(0.U,Fill(31,1.U))
@@ -1351,13 +1351,13 @@ class PMDU extends NutCoreModule {
                 adder34_1(i) := SignExt(round,33)
                 adder34_2(i) := 0.U
                 //val tmp   = SignExt(src3_out(i * 32 + 32 -1, i * 32),33) + SignExt(round,33)
-                val res   = WireInit(tmp68(i*36+33,i*36)(31,0))
-                Debug("[PMDU] add %x sat %x round0 %x round %x tmp %x res %x src2_clip %x\n",add,sat,round0,round,tmp68(i*36+33,i*36),res,src2_clip)
+                val res   = WireInit(tmp68(i*37+33,i*37)(31,0))
+                Debug("[PMDU] add %x sat %x round0 %x round %x tmp %x res %x src2_clip %x\n",add,sat,round0,round,tmp68(i*37+33,i*37),res,src2_clip)
                 
                 when(add){
-                    when((Fill(33,tmp68(i*36+33,i*36)(32))^tmp68(i*36+33,i*36))(32,31) =/= 0.U){
+                    when((Fill(33,tmp68(i*37+33,i*37)(32))^tmp68(i*37+33,i*37))(32,31) =/= 0.U){
                         io.out.bits.DecodeOut.pext.OV := true.B
-                        when(tmp68(i*36+33,i*36)(32).asBool){
+                        when(tmp68(i*37+33,i*37)(32).asBool){
                             res := Cat(1.U,Fill(31,0.U))
                         }.otherwise{
                             res := Cat(0.U,Fill(31,1.U))
@@ -1393,15 +1393,15 @@ class PMDU extends NutCoreModule {
                 adder34_2(i) := Fill(34,submul2.asUInt)^SignExt(mul2,34)
                 adder34_3(i) := (submul1.asUInt +& submul2.asUInt)
                 //val tmp = SignExt(src3_out(i * 32 + 32 -1, i * 32),34) + ((Fill(34,submul1.asUInt)^SignExt(mul1,34)) + submul1.asUInt) + ((Fill(34,submul2.asUInt)^SignExt(mul2,34)) + submul2.asUInt)
-                res := tmp68(i*36+33,i*36)(31,0)
+                res := tmp68(i*37+33,i*37)(31,0)
                 when(checkmode1 && src1_out(i * 32 + 32 -1, i * 32) === Cat(Cat(1.U,Fill(15,0.U)),Cat(1.U,Fill(15,0.U))) && src2_out(i * 32 + 32 -1, i * 32) === Cat(Cat(1.U,Fill(15,0.U)),Cat(1.U,Fill(15,0.U)))){
                     res := Cat(0.U,Fill(31,1.U))
                     io.out.bits.DecodeOut.pext.OV := true.B
                 }
                 when(checkmode2){
-                    when((Fill(34,tmp68(i*36+33,i*36)(33))^tmp68(i*36+33,i*36))(33,31) =/= 0.U){
+                    when((Fill(34,tmp68(i*37+33,i*37)(33))^tmp68(i*37+33,i*37))(33,31) =/= 0.U){
                         io.out.bits.DecodeOut.pext.OV := true.B
-                        when(tmp68(i*36+33,i*36)(33).asBool){
+                        when(tmp68(i*37+33,i*37)(33).asBool){
                             res := Cat(1.U,Fill(31,0.U))
                         }.otherwise{
                             res := Cat(0.U,Fill(31,1.U))
@@ -1409,7 +1409,7 @@ class PMDU extends NutCoreModule {
                     }
                 }
                 l = List.concat(List(res),l)
-                Debug("[PMDUis1632] mul1 %x res %x tmp %x src3 %x \n",mul1,res,tmp68(i*36+33,i*36),src3_out(i * 32 + 32 -1, i * 32))
+                Debug("[PMDUis1632] mul1 %x res %x tmp %x src3 %x \n",mul1,res,tmp68(i*37+33,i*37),src3_out(i * 32 + 32 -1, i * 32))
             }
             l.dropRight(1).reduce(Cat(_,_))
         }
@@ -1451,7 +1451,7 @@ class PMDU extends NutCoreModule {
                 adder34_2(i) := add1
                 adder34_3(i) := add2 
                 adder34_4(i) := add3
-                val res = tmp68(i*36+33,i*36)(31,0)
+                val res = tmp68(i*37+33,i*37)(31,0)
                 l = List.concat(List(res),l)
                 Debug("[PMDU] add0 %x add1 %x add2 %x add3 %x src3_out %x res %x \n",add0,add1,add2,add3,src3_out(32*i+32-1,32*i),res)
             }
