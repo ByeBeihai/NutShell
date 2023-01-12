@@ -368,9 +368,13 @@ class multicycle_lsu_atom extends NutCoreModule with HasLSUConst {
     this.func := func
     io.out.bits
   }
-    val lsExecUnit = Module(new LSExecUnit_atom)
-    lsExecUnit.io.instr := io.DecodeIn.cf.instr
-    io.dtlbPF := lsExecUnit.io.dtlbPF
+    val exec_valid = WireInit(false.B)
+    val exec_finish = WireInit(false.B)
+    val exec_result = Wire(UInt(XLEN.W))
+    val exec_addr = WireInit(src1)
+    val exec_func = WireInit(func)
+    val exec_wdata = WireInit(io.wdata)
+    val exec_clear = WireInit(false.B)
 
     val storeReq = valid & LSUOpType.isStore(func)
     val loadReq  = valid & LSUOpType.isLoad(func)
@@ -408,12 +412,16 @@ class multicycle_lsu_atom extends NutCoreModule with HasLSUConst {
     val dtlbFinish = WireInit(false.B)
     val dtlbPF = WireInit(false.B)
     val dtlbEnable = WireInit(false.B)
+    if (Settings.get("HasDTLB")) {
     BoringUtils.addSink(dtlbFinish, "DTLBFINISH")
     BoringUtils.addSink(dtlbPF, "DTLBPF")
     BoringUtils.addSink(dtlbEnable, "DTLBENABLE")
+    }
+    io.dtlbPF := dtlbPF
+
 
     // LSU control FSM state
-    val s_idle :: s_exec :: s_load :: s_lr :: s_sc :: s_amo_l :: s_amo_a :: s_amo_s :: Nil = Enum(8)
+    val s_idle :: s_lr :: s_sc :: s_amo_l :: s_amo_a :: s_amo_s :: Nil = Enum(6)
 
     // LSU control FSM
     val state = RegInit(s_idle)
@@ -425,53 +433,18 @@ class multicycle_lsu_atom extends NutCoreModule with HasLSUConst {
     atomALU.io.func := func
     atomALU.io.isWordOp := atomWidthW
 
-    val addr = if(IndependentAddrCalcState){RegNext(src1 + src2, state === s_idle)}else{DontCare}
-    
-    // StoreQueue
-    // TODO: inst fence needs storeQueue to be finished
-    // val enableStoreQueue = EnableStoreQueue // StoreQueue is disabled for page fault detection
-    // if(enableStoreQueue){
-    //   val storeQueue = Module(new Queue(new StoreQueueEntry, 4))
-    //   storeQueue.io.enq.valid := state === s_idle && storeReq
-    //   storeQueue.io.enq.bits.src1 := src1
-    //   storeQueue.io.enq.bits.src2 := src2
-    //   storeQueue.io.enq.bits.wdata := io.wdata
-    //   storeQueue.io.enq.bits.func := func
-    //   storeQueue.io.deq.ready := lsExecUnit.io.out.fire()
-    // }
-    
-    lsExecUnit.io.in.valid     := false.B
-    lsExecUnit.io.out.ready    := DontCare
-    lsExecUnit.io.in.bits.src1 := DontCare
-    lsExecUnit.io.in.bits.src2 := DontCare
-    lsExecUnit.io.in.bits.func := DontCare
-    lsExecUnit.io.wdata        := DontCare
     io.out.valid               := false.B
-    io.in.ready                := false.B
+    io.in.ready                := io.out.fire() || !io.in.valid
 
     switch (state) {
       is(s_idle){ // calculate address 
-        lsExecUnit.io.in.valid     := false.B
-        lsExecUnit.io.out.ready    := DontCare 
-        lsExecUnit.io.in.bits.src1 := DontCare
-        lsExecUnit.io.in.bits.src2 := DontCare
-        lsExecUnit.io.in.bits.func := DontCare
-        lsExecUnit.io.wdata        := DontCare
-        io.in.ready                := false.B || scInvalid
-        io.out.valid               := false.B || scInvalid
-        when(valid){state := s_exec}
-
-        if(!IndependentAddrCalcState){
-          lsExecUnit.io.in.valid     := io.in.valid && !atomReq
-          lsExecUnit.io.out.ready    := io.out.ready 
-          lsExecUnit.io.in.bits.src1 := src1 + src2
-          lsExecUnit.io.in.bits.src2 := DontCare
-          lsExecUnit.io.in.bits.func := func
-          lsExecUnit.io.wdata        := io.wdata
-          io.in.ready                := lsExecUnit.io.out.fire() || scInvalid
-          io.out.valid               := lsExecUnit.io.out.valid  || scInvalid
-          state := s_idle
-        }
+        exec_valid := io.in.valid && !atomReq
+        exec_addr  := src1 + src2
+        exec_func  := func
+        exec_wdata := io.wdata
+        exec_clear := io.out.ready
+        io.out.valid  := exec_finish  || scInvalid
+        state := s_idle
 
         when(amoReq){state := s_amo_l}
         when(lrReq){state := s_lr}
@@ -479,100 +452,65 @@ class multicycle_lsu_atom extends NutCoreModule with HasLSUConst {
         
       } 
 
-      is(s_exec){
-        lsExecUnit.io.in.valid     := true.B
-        lsExecUnit.io.out.ready    := io.out.ready 
-        lsExecUnit.io.in.bits.src1 := addr
-        lsExecUnit.io.in.bits.src2 := DontCare
-        lsExecUnit.io.in.bits.func := func
-        lsExecUnit.io.wdata        := io.wdata
-        io.in.ready                := lsExecUnit.io.out.fire() 
-        io.out.valid               := lsExecUnit.io.out.valid  
-        assert(!atomReq || !amoReq || !lrReq || !scReq)
-        when(io.out.fire()){state := s_idle}
-      }
-
-      // is(s_load){
-      //   lsExecUnit.io.in.valid     := true.B
-      //   lsExecUnit.io.out.ready    := io.out.ready 
-      //   lsExecUnit.io.in.bits.src1 := src1
-      //   lsExecUnit.io.in.bits.src2 := src2
-      //   lsExecUnit.io.in.bits.func := func
-      //   lsExecUnit.io.wdata        := DontCare
-      //   io.in.ready                := lsExecUnit.io.out.fire()
-      //   io.out.valid               := lsExecUnit.io.out.valid
-      //   when(lsExecUnit.io.out.fire()){state := s_idle}//load finished
-      // }
-
       is(s_amo_l){
-        lsExecUnit.io.in.valid     := true.B
-        lsExecUnit.io.out.ready    := true.B 
-        lsExecUnit.io.in.bits.src1 := src1
-        lsExecUnit.io.in.bits.src2 := DontCare
-        lsExecUnit.io.in.bits.func := Mux(atomWidthD, LSUOpType.ld, LSUOpType.lw)
-        lsExecUnit.io.wdata        := DontCare
-        io.in.ready                := false.B
-        io.out.valid               := false.B
-        when(lsExecUnit.io.out.fire()){
+        exec_valid := true.B
+        exec_addr  := src1
+        exec_func  := Mux(atomWidthD, LSUOpType.ld, LSUOpType.lw)
+        exec_wdata := io.wdata
+        exec_clear := true.B
+        io.out.valid := false.B
+        when(exec_finish){
           state := s_amo_a; 
-          Debug("[AMO-L] lsExecUnit.io.out.bits %x addr %x src2 %x\n", lsExecUnit.io.out.bits, lsExecUnit.io.in.bits.src1, io.wdata)
+          Debug("[AMO-L] lsExecUnit.io.out.bits %x addr %x src2 %x\n", exec_result, exec_addr, io.wdata)
         }
-        atomMemReg := lsExecUnit.io.out.bits
-        atomRegReg := lsExecUnit.io.out.bits
+        atomMemReg := exec_result
+        atomRegReg := exec_result
       }
 
       is(s_amo_a){
-        lsExecUnit.io.in.valid     := false.B
-        lsExecUnit.io.out.ready    := false.B 
-        lsExecUnit.io.in.bits.src1 := DontCare
-        lsExecUnit.io.in.bits.src2 := DontCare
-        lsExecUnit.io.in.bits.func := DontCare
-        lsExecUnit.io.wdata        := DontCare
-        io.in.ready                := false.B
-        io.out.valid               := false.B
+        exec_valid := false.B
+        exec_addr  := src1
+        exec_func  := Mux(atomWidthD, LSUOpType.ld, LSUOpType.lw)
+        exec_wdata := io.wdata
+        exec_clear := false.B
+        io.out.valid := false.B
         state := s_amo_s
         atomMemReg := atomALU.io.result
         Debug("[AMO-A] src1 %x src2 %x res %x\n", atomMemReg, io.wdata, atomALU.io.result)
       }
 
       is(s_amo_s){
-        lsExecUnit.io.in.valid     := true.B
-        lsExecUnit.io.out.ready    := io.out.ready
-        lsExecUnit.io.in.bits.src1 := src1
-        lsExecUnit.io.in.bits.src2 := DontCare
-        lsExecUnit.io.in.bits.func := Mux(atomWidthD, LSUOpType.sd, LSUOpType.sw)
-        lsExecUnit.io.wdata        := atomMemReg
-        io.in.ready                := lsExecUnit.io.out.fire()
-        io.out.valid               := lsExecUnit.io.out.valid
-        when(lsExecUnit.io.out.fire()){
+        exec_valid := true.B
+        exec_addr  := src1
+        exec_func  := Mux(atomWidthD, LSUOpType.sd, LSUOpType.sw)
+        exec_wdata := atomMemReg
+        exec_clear := io.out.ready
+        io.out.valid := exec_finish
+        when(io.out.fire()){
           state := s_idle; 
-          Debug("[AMO-S] atomRegReg %x addr %x\n", atomRegReg, lsExecUnit.io.in.bits.src1)
+          Debug("[AMO-S] atomRegReg %x addr %x\n", atomRegReg, exec_addr)
         }
       }
       is(s_lr){
-        lsExecUnit.io.in.valid     := true.B
-        lsExecUnit.io.out.ready    := io.out.ready
-        lsExecUnit.io.in.bits.src1 := src1
-        lsExecUnit.io.in.bits.src2 := DontCare
-        lsExecUnit.io.in.bits.func := Mux(atomWidthD, LSUOpType.ld, LSUOpType.lw)
-        lsExecUnit.io.wdata        := DontCare
-        io.in.ready                := lsExecUnit.io.out.fire()
-        io.out.valid               := lsExecUnit.io.out.valid
-        when(lsExecUnit.io.out.fire()){
+        exec_valid := true.B
+        exec_addr  := src1
+        exec_func  := Mux(atomWidthD, LSUOpType.ld, LSUOpType.lw)
+        exec_wdata := io.wdata
+        exec_clear := io.out.ready
+        io.out.valid := exec_finish
+        when(io.out.fire()){
           state := s_idle; 
           Debug("[LR]\n")
         }
       }
       is(s_sc){
-        lsExecUnit.io.in.valid     := true.B
-        lsExecUnit.io.out.ready    := io.out.ready
-        lsExecUnit.io.in.bits.src1 := src1
-        lsExecUnit.io.in.bits.src2 := DontCare
-        lsExecUnit.io.in.bits.func := Mux(atomWidthD, LSUOpType.sd, LSUOpType.sw)
-        lsExecUnit.io.wdata        := io.wdata
-        io.in.ready                := lsExecUnit.io.out.fire()
-        io.out.valid               := lsExecUnit.io.out.valid
-        when(lsExecUnit.io.out.fire()){
+        exec_valid := true.B
+        exec_addr  := src1
+        exec_func  := Mux(atomWidthD, LSUOpType.sd, LSUOpType.sw)
+        exec_wdata := io.wdata
+        exec_clear := io.out.ready
+        io.out.valid := exec_finish
+        when(io.out.fire()){
           state := s_idle; 
           Debug("[SC] \n")
         }
@@ -586,37 +524,152 @@ class multicycle_lsu_atom extends NutCoreModule with HasLSUConst {
 
   Debug(io.out.fire(), "[LSU-AGU] state %x inv %x inr %x\n", state, io.in.valid, io.in.ready)
   Debug("[LSU-AGU] state %x atomReq %x func %x\n", state, atomReq, func)
-    // controled by FSM 
-    // io.in.ready := lsExecUnit.io.in.ready
-    // lsExecUnit.io.wdata := io.wdata
-    // io.out.valid := lsExecUnit.io.out.valid 
 
     //Set LR/SC bits
     setLr := io.out.fire() && (lrReq || scReq)
     setLrVal := lrReq
     setLrAddr := src1
 
-    io.dmem <> lsExecUnit.io.dmem
-    io.out.bits := Mux(scReq, scInvalid, Mux(state === s_amo_s, atomRegReg, lsExecUnit.io.out.bits))
+    io.out.bits := Mux(scReq, scInvalid, Mux(state === s_amo_s, atomRegReg, exec_result))
 
     val lsuMMIO = WireInit(false.B)
     BoringUtils.addSink(lsuMMIO, "lsuMMIO")
 
     val mmioReg = RegInit(false.B)
     when (!mmioReg) { mmioReg := lsuMMIO }
-    when (io.out.valid) { mmioReg := false.B }
+    when (io.out.fire()) { mmioReg := false.B }
     io.isMMIO := mmioReg && io.out.valid
 
     Debug("lsuMMIO %x mmioReg %x io.isMMIO %x \n",lsuMMIO,mmioReg,io.isMMIO)
 
-    io.loadAddrMisaligned := lsExecUnit.io.loadAddrMisaligned
-    io.storeAddrMisaligned := lsExecUnit.io.storeAddrMisaligned
-
     when(io.flush){state := s_idle}
-    lsExecUnit.io.flush := io.flush
     io.DecodeOut := io.DecodeIn
     when(!io.in.valid){io.in.ready := true.B}
     BoringUtils.addSource(io.out.fire(), "lsu_firststage_fire")
+
+    def genWmask(addr: UInt, sizeEncode: UInt): UInt = {
+    LookupTree(sizeEncode, List(
+      "b00".U -> 0x1.U, //0001 << addr(2:0)
+      "b01".U -> 0x3.U, //0011
+      "b10".U -> 0xf.U, //1111
+      "b11".U -> 0xff.U //11111111
+    )) << addr(2, 0)
+  }
+  def genWdata(data: UInt, sizeEncode: UInt): UInt = {
+    LookupTree(sizeEncode, List(
+      "b00".U -> Fill(8, data(7, 0)),
+      "b01".U -> Fill(4, data(15, 0)),
+      "b10".U -> Fill(2, data(31, 0)),
+      "b11".U -> data
+    ))
+  }
+
+  def genWmask32(addr: UInt, sizeEncode: UInt): UInt = {
+    LookupTree(sizeEncode, List(
+      "b00".U -> 0x1.U, //0001 << addr(1:0)
+      "b01".U -> 0x3.U, //0011
+      "b10".U -> 0xf.U  //1111
+    )) << addr(1, 0)
+  }
+  def genWdata32(data: UInt, sizeEncode: UInt): UInt = {
+    LookupTree(sizeEncode, List(
+      "b00".U -> Fill(4, data(7, 0)),
+      "b01".U -> Fill(2, data(15, 0)),
+      "b10".U -> data
+    ))
+  }
+  
+  val dmem = io.dmem
+  val addrLatch = RegNext(exec_addr)
+  val isStore = exec_valid && LSUOpType.isStore(exec_func)
+  val partialLoad = !isStore && (exec_func =/= LSUOpType.ld)
+
+  val s_init :: s_wait_tlb :: s_wait_resp :: s_wait_fire :: Nil = Enum(4)
+  val req_state = RegInit(s_init)
+
+  switch (req_state) {
+    is (s_init) { 
+      when (dmem.req.fire() && dtlbEnable)  { req_state := s_wait_tlb  }
+      when (dmem.req.fire() && !dtlbEnable) { req_state := s_wait_resp }
+      when (dmem.req.fire() && dtlbEnable && dtlbFinish && dtlbPF) {req_state := s_init}
+      when (dmem.req.fire() && dtlbEnable && dtlbFinish && !dtlbPF) {req_state := s_wait_resp}
+    }
+    is (s_wait_tlb) {
+      when (dtlbFinish && dtlbPF ) { req_state := s_init }
+      when (dtlbFinish && !dtlbPF) { req_state := s_wait_resp/*Mux(isStore, s_partialLoad, s_wait_resp) */} 
+    }
+    is (s_wait_resp) { when (dmem.resp.fire()) { req_state := Mux(exec_finish && exec_clear, s_init,s_wait_fire) } }
+    is (s_wait_fire) { when(exec_finish && exec_clear){req_state := s_init }}
+  }
+  Debug(dmem.req.fire(), "[LSU] %x, size %x, wdata_raw %x, isStore %x\n", exec_addr, exec_func(1,0), exec_wdata, isStore)
+  Debug(dmem.req.fire(), "[LSU] dtlbFinish:%d dtlbEnable:%d dtlbPF:%d req_state:%d addr:%x dmemReqFire:%d dmemRespFire:%d dmemRdata:%x\n",dtlbFinish, dtlbEnable, dtlbPF, req_state,  dmem.req.bits.addr, dmem.req.fire(), dmem.resp.fire(), dmem.resp.bits.rdata)
+  Debug(dtlbFinish && dtlbEnable, "[LSU] dtlbFinish:%d dtlbEnable:%d dtlbPF:%d req_state:%d addr:%x dmemReqFire:%d dmemRespFire:%d dmemRdata:%x\n",dtlbFinish, dtlbEnable, dtlbPF, req_state,  dmem.req.bits.addr, dmem.req.fire(), dmem.resp.fire(), dmem.resp.bits.rdata)
+
+  val size = exec_func(1,0)
+  val reqAddr  = if (XLEN == 32) SignExt(exec_addr, VAddrBits) else exec_addr(VAddrBits-1,0)
+  val reqWdata = if (XLEN == 32) genWdata32(exec_wdata, size) else genWdata(exec_wdata, size)
+  val reqWmask = if (XLEN == 32) genWmask32(exec_addr, size) else genWmask(exec_addr, size)
+  dmem.req.bits.apply(
+    addr = reqAddr, 
+    size = size, 
+    wdata = reqWdata,
+    wmask = reqWmask,
+    cmd = Mux(isStore, SimpleBusCmd.write, SimpleBusCmd.read))
+  dmem.req.valid := exec_valid && (req_state === s_init) && !io.loadAddrMisaligned && !io.storeAddrMisaligned && !io.flush
+  dmem.resp.ready := true.B
+  
+  val rdata = dmem.resp.bits.rdata
+  val rdatacache = RegEnable(rdata,dmem.resp.fire())
+  val rdataLatch = Mux(req_state === s_wait_fire,rdatacache,rdata)
+  val rdataSel64 = LookupTree(addrLatch(2, 0), List(
+    "b000".U -> rdataLatch(63, 0),
+    "b001".U -> rdataLatch(63, 8),
+    "b010".U -> rdataLatch(63, 16),
+    "b011".U -> rdataLatch(63, 24),
+    "b100".U -> rdataLatch(63, 32),
+    "b101".U -> rdataLatch(63, 40),
+    "b110".U -> rdataLatch(63, 48),
+    "b111".U -> rdataLatch(63, 56)
+  ))
+  val rdataSel32 = LookupTree(addrLatch(1, 0), List(
+    "b00".U -> rdataLatch(31, 0),
+    "b01".U -> rdataLatch(31, 8),
+    "b10".U -> rdataLatch(31, 16),
+    "b11".U -> rdataLatch(31, 24)
+  ))
+  val rdataSel = if (XLEN == 32) rdataSel32 else rdataSel64
+  val rdataPartialLoad = LookupTree(exec_func, List(
+      LSUOpType.lb   -> SignExt(rdataSel(7, 0) , XLEN),
+      LSUOpType.lh   -> SignExt(rdataSel(15, 0), XLEN),
+      LSUOpType.lw   -> SignExt(rdataSel(31, 0), XLEN),
+      LSUOpType.lbu  -> ZeroExt(rdataSel(7, 0) , XLEN),
+      LSUOpType.lhu  -> ZeroExt(rdataSel(15, 0), XLEN),
+      LSUOpType.lwu  -> ZeroExt(rdataSel(31, 0), XLEN)
+  ))
+  val addrAligned = LookupTree(exec_func(1,0), List(
+    "b00".U   -> true.B,            //b
+    "b01".U   -> (exec_addr(0) === 0.U),   //h
+    "b10".U   -> (exec_addr(1,0) === 0.U), //w
+    "b11".U   -> (exec_addr(2,0) === 0.U)  //d
+  ))
+  exec_result := Mux(partialLoad, rdataPartialLoad, rdataLatch(XLEN-1,0))
+  exec_finish := Mux( dtlbPF && req_state =/= s_idle || io.loadAddrMisaligned || io.storeAddrMisaligned, true.B, Mux(req_state === s_wait_fire, true.B, dmem.resp.fire() && (req_state === s_wait_resp)))
+
+  val isAMO = WireInit(false.B)
+  BoringUtils.addSink(isAMO, "ISAMO2")
+  BoringUtils.addSource(exec_addr, "LSUADDR")
+
+  io.loadAddrMisaligned :=  exec_valid && !isStore && !isAMO && !addrAligned
+  io.storeAddrMisaligned := exec_valid && (isStore || isAMO) && !addrAligned
+
+  when(io.flush){req_state := s_init}
+
+  Debug(io.loadAddrMisaligned || io.storeAddrMisaligned, "misaligned addr detected\n")
+
+  BoringUtils.addSource(dmem.isRead() && dmem.req.fire(), "perfCntCondMloadInstr")
+  BoringUtils.addSource(BoolStopWatch(dmem.isRead(), dmem.resp.fire()), "perfCntCondMloadStall")
+  BoringUtils.addSource(BoolStopWatch(dmem.isWrite(), dmem.resp.fire()), "perfCntCondMstoreStall")
+  BoringUtils.addSource(io.isMMIO && io.out.fire(), "perfCntCondMmmioInstr")
 }
 class UnpipeLSUIO_atom extends FunctionUnitIO {
   val wdata = Input(UInt(XLEN.W))
