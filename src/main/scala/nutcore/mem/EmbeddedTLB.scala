@@ -746,23 +746,24 @@ class SIMD_TLBEXEC(implicit val tlbConfig: TLBConfig) extends TlbModule{
   // state machine to handle miss(ptw) and pte-writing-back
   switch (state) {
     is (s_idle) {
-      when (!ioFlush && hitWB) {
+      when (!isFlush && hitWB) {
         state := s_write_pte
         needFlush := false.B
-        alreadyOutFire := false.B
-      }.elsewhen (miss && !ioFlush) {
+      }.elsewhen (miss && !isFlush) {
         state := s_memReadReq
         raddr := paddrApply(satp.ppn, vpn.vpn2) //
         level := Level.U
         needFlush := false.B
-        alreadyOutFire := false.B
       }
     }
 
     is (s_memReadReq) { 
-      when (io.flush) {
+      when (ioFlush) {
         state := s_idle
         needFlush := false.B
+        missIPF := false.B
+        missSPF := false.B
+        missLPF := false.B
       }.elsewhen (io.mem.req.fire()) { state := s_memReadResp}
     }
 
@@ -771,6 +772,9 @@ class SIMD_TLBEXEC(implicit val tlbConfig: TLBConfig) extends TlbModule{
       when (io.mem.resp.fire()) {
         when (isFlush) {
           state := s_idle
+          missIPF := false.B
+          missSPF := false.B
+          missLPF := false.B
           needFlush := false.B
         }.elsewhen (!(missflag.r || missflag.x) && (level===3.U || level===2.U)) {
           when(!missflag.v || (!missflag.r && missflag.w)) { //TODO: fix needflush
@@ -826,42 +830,39 @@ class SIMD_TLBEXEC(implicit val tlbConfig: TLBConfig) extends TlbModule{
     }
 
     is (s_write_pte) {
-      when (isFlush || io.out.fire() || alreadyOutFire) {
+      when (ioFlush) {
         state := s_idle
         needFlush := false.B
         missIPF := false.B
         missSPF := false.B
         missLPF := false.B
-        alreadyOutFire := false.B
       }.elsewhen (io.mem.req.fire()) { state := s_memwriteResp }
     }
     
     is(s_memwriteResp){
       when (io.mem.resp.fire()){
-        when(isFlush || io.out.fire() || alreadyOutFire){
+        when(isFlush){
           state := s_idle
           needFlush := false.B
           missIPF := false.B
           missSPF := false.B
           missLPF := false.B
-          alreadyOutFire := false.B
         }.otherwise{
           state := s_wait_resp
         }
       }
     }
 
-    is (s_wait_resp) { when (io.out.fire() || isFlush || alreadyOutFire){
+    is (s_wait_resp) { when (io.out.fire() || ioFlush ){
       state := s_idle
       missIPF := false.B
       missSPF := false.B
       missLPF := false.B
-      alreadyOutFire := false.B
       needFlush := false.B
     }}
 
     is (s_miss_slpf) {
-      when (io.out.fire() || isFlush || alreadyOutFire){
+      when (io.out.fire() || ioFlush){
           state := s_idle
           missSPF := false.B
           missLPF := false.B
@@ -874,11 +875,11 @@ class SIMD_TLBEXEC(implicit val tlbConfig: TLBConfig) extends TlbModule{
   // mem
   val cmd = Mux(state === s_write_pte, SimpleBusCmd.write, SimpleBusCmd.read)
   io.mem.req.bits.apply(addr = Mux(hitWB, hitData.pteaddr, raddr), cmd = cmd, size = (if (XLEN == 64) "b11".U else "b10".U), wdata =  Mux( hitWB, hitWBStore, memRespStore), wmask = 0xff.U)
-  io.mem.req.valid := ((state === s_memReadReq || state === s_write_pte) && !isFlush)
+  io.mem.req.valid := ((state === s_memReadReq || state === s_write_pte) && !ioFlush)
   io.mem.resp.ready := true.B
 
   // tlb refill
-  io.mdWrite.apply(wen = io.in.valid && (missMetaRefill && !io.flush || hitWB && state === s_idle && !io.flush), 
+  io.mdWrite.apply(wen = io.in.valid && (missMetaRefill && !isFlush || hitWB && state === s_idle && !isFlush), 
     windex = getIndex(req.addr), waymask = waymask, vpn = vpn.asUInt, 
     asid = Mux(hitWB, hitMeta.asid, satp.asid), mask = Mux(hitWB, hitMask, missMask), 
     flag = Mux(hitWB, hitRefillFlag, missRefillFlag), ppn = Mux(hitWB, hitData.ppn, memRdata.ppn), 
@@ -887,9 +888,9 @@ class SIMD_TLBEXEC(implicit val tlbConfig: TLBConfig) extends TlbModule{
   // io
   io.out.bits := req
   io.out.bits.addr := Mux(hit, maskPaddr(hitData.ppn, req.addr(PAddrBits-1, 0), hitMask), maskPaddr(memRespStore.asTypeOf(pteBundle).ppn, req.addr(PAddrBits-1, 0), missMaskStore))
-  io.out.valid := !isFlush && io.in.valid && Mux(hit && !hitWB, !(io.pf.isPF() || loadPF || storePF || missLPF || missSPF), state === s_wait_resp && !(io.pf.isPF() || loadPF || storePF || missLPF || missSPF))// && !alreadyOutFire
+  io.out.valid := !ioFlush && io.in.valid && Mux(false.B, !(io.pf.isPF() || loadPF || storePF || missLPF || missSPF), state === s_wait_resp && !(io.pf.isPF() || loadPF || storePF || missLPF || missSPF || io.ipf))// && !alreadyOutFire
   
-  io.in.ready := !io.in.valid || io.out.ready && (state === s_idle) && !miss && !hitWB && io.mdReady && (!io.pf.isPF() && !loadPF && !storePF && !io.ipf && !missLPF && !missSPF)//maybe be optimized
+  io.in.ready := !io.in.valid || io.out.fire() && io.mdReady
 
   io.ipf := Mux(hit, hitinstrPF, missIPF)
   io.isFinish := io.out.fire() || io.pf.isPF()
@@ -902,7 +903,6 @@ class SIMD_TLBEXEC(implicit val tlbConfig: TLBConfig) extends TlbModule{
   Debug("MemReq(%d, %d) MemResp(%d, %d) addr:%x cmd:%d rdata:%x cmd:%d\n", io.mem.req.valid, io.mem.req.ready, io.mem.resp.valid, io.mem.resp.ready, io.mem.req.bits.addr, io.mem.req.bits.cmd, io.mem.resp.bits.rdata, io.mem.resp.bits.cmd)
   Debug("io.ipf:%d hitinstrPF:%d missIPF:%d pf.loadPF:%d pf.storePF:%d loadPF:%d storePF:%d\n", io.ipf, hitinstrPF, missIPF, io.pf.loadPF, io.pf.storePF, loadPF, storePF)
 }
-
 
 class SIMD_TLBEXEC_INBUNDLE(implicit val tlbConfig: TLBConfig)  extends TlbBundle{
   val req = Flipped(new SimpleBusReqBundle(userBits = userBits, addrBits = VAddrBits))
