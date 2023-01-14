@@ -444,7 +444,7 @@ class IFU_SIMD extends NutCoreModule with HasResetVector {
   when(pcUpdate || bpu_SIMD.io.flush) {
     crosslineJumpLatch := Mux(bpu_SIMD.io.flush, false.B, crosslineJump && !crosslineJumpLatch)
   }
-  val crosslineJumpTarget = RegEnable(bpu_SIMD.io.out.target, crosslineJump)
+  val crosslineJumpTarget = RegEnable(bpu_SIMD.io.out.target, crosslineJump && pcUpdate)
 
   // next pc
   val pnpc = Mux(crosslineJump, snpc, bpu_SIMD.io.out.target)
