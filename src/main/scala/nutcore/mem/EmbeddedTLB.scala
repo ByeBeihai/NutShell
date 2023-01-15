@@ -799,19 +799,19 @@ class SIMD_TLBEXEC(implicit val tlbConfig: TLBConfig) extends TlbModule{
           val permExec = permCheck && missflag.x
           val permLoad = permCheck && (missflag.r || pf.status_mxr && missflag.x)
           val permStore = permCheck && missflag.w
-          val updateAD = if (Settings.get("FPGAPlatform")) !missflag.a || (!missflag.d && req.isWrite()) else false.B
+          val updateAD = !missflag.a || (!missflag.d && req.isWrite())
           val updateData = Cat( 0.U(56.W), req.isWrite(), 1.U(1.W), 0.U(6.W) )
           missRefillFlag := Cat(req.isWrite(), 1.U(1.W), 0.U(6.W)) | missflag.asUInt
           memRespStore := io.mem.resp.bits.rdata | updateData 
           if(tlbname == "itlb") {
-            when (!permExec) { missIPF := true.B ; state := s_wait_resp}
+            when (!permExec || updateAD) { missIPF := true.B ; state := s_wait_resp}
             .otherwise { 
               state := Mux(updateAD, s_write_pte, s_wait_resp)
               missMetaRefill := true.B
             }
           }
           if(tlbname == "dtlb") {
-            when((!permLoad && req.isRead()) || (!permStore && req.isWrite())) { 
+            when((!permLoad && req.isRead()) || (!permStore && req.isWrite()) || updateAD) { 
               state := s_miss_slpf
               loadPF := req.isRead() && !isAMO
               missLPF := loadPF
