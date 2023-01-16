@@ -804,9 +804,10 @@ class SIMD_TLBEXEC(implicit val tlbConfig: TLBConfig) extends TlbModule{
           missRefillFlag := Cat(req.isWrite(), 1.U(1.W), 0.U(6.W)) | missflag.asUInt
           memRespStore := io.mem.resp.bits.rdata | updateData 
           if(tlbname == "itlb") {
-            when (!permExec || updateAD) { missIPF := true.B ; state := s_wait_resp}
-            .otherwise { 
-              state := Mux(updateAD, s_write_pte, s_wait_resp)
+            when (!permExec || updateAD) { 
+              missIPF := true.B ; state := s_wait_resp
+            }.otherwise { 
+              state := s_wait_resp
               missMetaRefill := true.B
             }
           }
@@ -818,7 +819,7 @@ class SIMD_TLBEXEC(implicit val tlbConfig: TLBConfig) extends TlbModule{
               storePF := req.isWrite() || isAMO
               missSPF := storePF
             }.otherwise {
-              state := Mux(updateAD, s_write_pte, s_wait_resp)
+              state := s_wait_resp
               missMetaRefill := true.B
             }
           }
