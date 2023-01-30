@@ -264,7 +264,6 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   mmio.map(range => {Debug("[addspace]range_1 %x range_2 %x r1+r2 %x\n",range._1.U,range._2.U,(0x3c000000L + 0x04000000L).U)})
   io.dmem <> lsu.io.dmem
   lsu.io.out.ready := io.out(lsuidx).ready
-
   lsu.io.flush := io.flush
 
   //CSRU
@@ -392,6 +391,8 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     val csrops = io.in(csridx).valid === true.B
     BoringUtils.addSource(csrops, "csrops")
     BoringUtils.addSource(io.in(csridx).valid && io.in.map(i=>i.valid.asUInt).reduce(_+&_) =/= 1.U,"csrnotalone")
+    val LsuWorking = io.in(lsuidx).valid === true.B
+    BoringUtils.addSource(LsuWorking, "perfCntCondLsuWorking")
     //BoringUtils.addSource(io.in(mouidx).valid && io.in.map(i=>i.valid.asUInt).reduce(_+&_) =/= 1.U,"mounotalone")
 
     val difftest = Module(new DifftestTrapEvent)

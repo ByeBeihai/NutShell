@@ -632,6 +632,8 @@ class Cache_fake(implicit val cacheConfig: CacheConfig) extends CacheModule with
   Debug(io.out.mem.req.fire(), p"out.mem.req: ${io.out.mem.req.bits}\n")
   Debug(io.out.mem.resp.fire(), p"out.mem.resp: ${io.out.mem.resp.bits}\n")
   Debug(io.in.resp.fire(), p"in.resp: ${io.in.resp.bits}\n")
+  Debug("state %x io.in.req.ready %x\n",state,io.in.req.ready)
+  Debug("respcmd %x memcmd %x mmiocmd %x io.out.mem.resp.bits.cmd %x \n",io.in.resp.bits.cmd,memcmd,mmiocmd,io.out.mem.resp.bits.cmd)
 }
 
 class Cache_dummy(implicit val cacheConfig: CacheConfig) extends CacheModule with HasCacheIO {

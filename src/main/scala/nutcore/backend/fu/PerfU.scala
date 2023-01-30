@@ -46,8 +46,9 @@ class PerfU(implicit val p: NutCoreConfig) extends NutCoreModule {
     "CsrOps"      -> (0xb1c, "csrops"                ),
     "MultiCommit5"-> (0xb1d, "perfCntCondMultiCommit5"),
     "MultiCommit6"-> (0xb1e, "perfCntCondMultiCommit6"),
-    "csrnotalone"     -> (0xb1f, "csrnotalone"               ),
-    "mounotalone"     -> (0xb20, "mounotalone"               )
+    "csrnotalone" -> (0xb1f, "csrnotalone"            ),
+    "mounotalone" -> (0xb20, "mounotalone"            ),
+    "LsuWorking"  -> (0xb21, "perfCntCondLsuWorking"  )
   )
   val sequentialPerfCntList = Map(
     "MrawStall"   -> (0xb31, "perfCntCondMrawStall"    ),

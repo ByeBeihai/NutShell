@@ -121,6 +121,16 @@ class SimpleBusCrossbarNto1(n: Int, userBits:Int = 0) extends Module {
     is (s_readResp) { when (io.out.resp.fire() && io.out.resp.bits.isReadLast()) { state := s_idle } }
     is (s_writeResp) { when (io.out.resp.fire()) { state := s_idle } }
   }
+  if(false){
+    Debug(){
+      printf("inputArb0 reqvalid %x reqready %x \n",inputArb.io.in(0).valid,inputArb.io.in(0).ready)
+      printf("inputArb1 reqvalid %x reqready %x \n",inputArb.io.in(1).valid,inputArb.io.in(1).ready)
+      printf("inputArb2 reqvalid %x reqready %x \n",inputArb.io.in(2).valid,inputArb.io.in(2).ready)
+      printf("inputArb3 reqvalid %x reqready %x \n",inputArb.io.in(3).valid,inputArb.io.in(3).ready)
+      printf("inputArb  chosen %x outreqvalid %x outreqready %x outrespvalid %x outrespready %x isReadLast %x\n",inputArb.io.chosen,thisReq.valid,thisReq.ready,io.out.resp.valid,io.out.resp.ready,io.out.resp.bits.isReadLast())
+      printf("state %x cmd %x\n",state,io.out.resp.bits.cmd)
+    }
+  }
 }
 
 class SimpleBusCrossbar(n: Int, addressSpace: List[(Long, Long)]) extends Module {
