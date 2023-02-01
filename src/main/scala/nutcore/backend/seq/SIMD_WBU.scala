@@ -170,6 +170,16 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   //   printf("DUT pc %x redirect to %x cpid %x\n", runahead_redirect.io.pc, runahead_redirect.io.target_pc, runahead_redirect.io.checkpoint_id)
   // }
 
+  val commit_num = (0 to FuType.num-1).map(i => (io.in(i).valid && !FronthasRedirect(i)).asUInt).reduce(_+&_)
+  for(i <- 0 to 0){
+  BoringUtils.addSource(io.in(i).valid, "perfCntCondMinstret")
+  BoringUtils.addSource(commit_num=/=0.U, "perfCntCondMultiCommit")
+  BoringUtils.addSource(commit_num===2.U, "perfCntCondMultiCommit2")
+  BoringUtils.addSource(commit_num===3.U, "perfCntCondMultiCommit3")
+  BoringUtils.addSource(commit_num===4.U, "perfCntCondMultiCommit4")
+  BoringUtils.addSource(commit_num===5.U, "perfCntCondMultiCommit5")
+  BoringUtils.addSource(commit_num===6.U, "perfCntCondMultiCommit6")
+  }
 
   for(i <- 0 to FuType.num-1){
     Debug("[SIMD_WBU] issue %x valid %x pc %x wen %x wdata %x wdest %x futype %x instno %x isMMIO %x redirectvalid %x redirecttarget %x \n",i.U,io.in(i).valid,io.in(i).bits.decode.cf.pc,io.wb.rfWen(i),io.wb.WriteData(i),io.wb.rfDest(i),io.in(i).bits.decode.ctrl.fuType,io.in(i).bits.decode.InstNo,io.in(i).bits.isMMIO,io.in(i).bits.decode.cf.redirect.valid,io.in(i).bits.decode.cf.redirect.target)
@@ -212,16 +222,6 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     //   printf("DUT commit branch %x\n", runahead_commit.io.pc)
     // }
     }
-    val commit_num = (0 to FuType.num-1).map(i => (io.in(i).valid && !FronthasRedirect(i)).asUInt).reduce(_+&_)
-    for(i <- 0 to 0){
-    BoringUtils.addSource(io.in(i).valid, "perfCntCondMinstret")
-    BoringUtils.addSource(commit_num=/=0.U, "perfCntCondMultiCommit")
-    BoringUtils.addSource(commit_num===2.U, "perfCntCondMultiCommit2")
-    BoringUtils.addSource(commit_num===3.U, "perfCntCondMultiCommit3")
-    BoringUtils.addSource(commit_num===4.U, "perfCntCondMultiCommit4")
-    BoringUtils.addSource(commit_num===5.U, "perfCntCondMultiCommit5")
-    BoringUtils.addSource(commit_num===6.U, "perfCntCondMultiCommit6")
-  }
   } else {
     for(i <- 0 to 0){
     BoringUtils.addSource(io.in(i).valid, "ilaWBUvalid")
