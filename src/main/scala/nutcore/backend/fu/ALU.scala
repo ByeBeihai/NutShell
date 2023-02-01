@@ -166,8 +166,8 @@ class ALU(hasBru: Boolean = false,NO1: Boolean = true) extends NutCoreModule {
   if(hasBru && NO1){
     BoringUtils.addSource(bpuUpdateReq, "bpuUpdateReq")
   
-    val right = valid && isBru && !predictWrong
-    val wrong = valid && isBru && predictWrong
+    val right = io.out.fire() && isBru && !predictWrong
+    val wrong = io.out.fire() && isBru && predictWrong
     BoringUtils.addSource(right && isBranch, "MbpBRight")
     BoringUtils.addSource(wrong && isBranch, "MbpBWrong")
     BoringUtils.addSource(right && (func === ALUOpType.jal || func === ALUOpType.call), "MbpJRight")
