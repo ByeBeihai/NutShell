@@ -222,7 +222,11 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
     }
 
     io.in(0).ready := !io.in(0).valid||io.out(0).fire()
-    io.in(1).ready := !io.in(1).valid||io.out(1).fire()
+    if(Issue_Num == 1){
+        io.in(1).ready := false.B
+    }else{
+        io.in(1).ready := !io.in(1).valid||io.out(1).fire()
+    }
 
     for(i <- 0 to Issue_Num-1){
         io.out(i).bits.data.src1 := Mux1H(List(

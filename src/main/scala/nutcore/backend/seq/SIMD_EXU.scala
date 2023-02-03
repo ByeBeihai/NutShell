@@ -192,8 +192,23 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   val fuType   = VecInit((0 to FuType.num-1).map(i => io.in(i).bits.ctrl.fuType))
   val fuOpType = VecInit((0 to FuType.num-1).map(i => io.in(i).bits.ctrl.fuOpType))
 
+  //basic connect
+  val empty_RedirectIO = Wire(new RedirectIO)
+  empty_RedirectIO.target := 0.U
+  empty_RedirectIO.rtype := 0.U
+  empty_RedirectIO.valid := false.B
+
+  for(i <- 0 to FuType.num-1){
+    io.out(i).bits.decode <> io.in(i).bits
+    io.out(i).bits.decode.ctrl.rfWen := io.in(i).bits.ctrl.rfWen
+    io.out(i).bits.decode.cf.redirect <> empty_RedirectIO
+    io.out(i).bits.commits:= DontCare
+    io.in(i).ready := !io.in(i).valid || io.out(i).fire()
+  }
+
   //ALU
   val aluidx = FuType.alu
+  
   val alu = Module(new ALU(hasBru = true,NO1 = false))
   val aluOut = alu.access(valid = io.in(aluidx).valid, src1 = src1(aluidx), src2 = src2(aluidx), func = fuOpType(aluidx))
   alu.io.cfIn := io.in(aluidx).bits.cf
@@ -204,30 +219,58 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
 
   //ALU1
   val alu1idx = FuType.alu1
-  val alu1 = Module(new ALU(hasBru = true,NO1 = false))
+  val alu1 = Module(new ALU(hasBru = true,NO1 = if(!(Issue_Num == 1)){false}else{true}))
   val alu1Out = alu1.access(valid = io.in(alu1idx).valid, src1 = src1(alu1idx), src2 = src2(alu1idx), func = fuOpType(alu1idx))
   alu1.io.cfIn := io.in(alu1idx).bits.cf
   alu1.io.offset := io.in(alu1idx).bits.data.imm
   alu1.io.out.ready := io.out(alu1idx).ready
-
-  //SIMDU
-  val simduidx = FuType.simdu
-  val simdu1idx = FuType.simdu1
-  val simdu = Module(new SIMDU_2way)
   
-  //SIMDU0
-  val (simduOut,simdu1Out) = simdu.access(valid0 = io.in(simduidx).valid, src01 = src1(simduidx), src02 = src2(simduidx), func0 = fuOpType(simduidx),valid1 = io.in(simdu1idx).valid, src11 = src1(simdu1idx), src12 = src2(simdu1idx), func1 = fuOpType(simdu1idx))
-  simdu.io.DecodeIn(0) := io.in(simduidx).bits
-  simdu.io.DecodeIn(1) := io.in(simdu1idx).bits
-  simdu.io.out(0).ready := io.out(simduidx).ready
-  simdu.io.out(1).ready := io.out(simdu1idx).ready
-  simdu.io.flush := io.flush
-  val simdu_firststage_fire = Wire(Bool())
-  simdu_firststage_fire := simdu.io.FirstStageFire(0)
-  BoringUtils.addSource(simdu_firststage_fire, "simdu_fs_fire")
-  val simdu1_firststage_fire = Wire(Bool())
-  simdu1_firststage_fire := simdu.io.FirstStageFire(1)
-  BoringUtils.addSource(simdu1_firststage_fire, "simdu1_fs_fire")
+  //SIMDU
+  if(!(Issue_Num == 1)){
+    val simduidx = FuType.simdu
+    val simdu1idx = FuType.simdu1
+    val simdu = Module(new SIMDU_2way)
+    
+    val (simduOut,simdu1Out) = simdu.access(valid0 = io.in(simduidx).valid, src01 = src1(simduidx), src02 = src2(simduidx), func0 = fuOpType(simduidx),valid1 = io.in(simdu1idx).valid, src11 = src1(simdu1idx), src12 = src2(simdu1idx), func1 = fuOpType(simdu1idx))
+    simdu.io.DecodeIn(0) := io.in(simduidx).bits
+    simdu.io.DecodeIn(1) := io.in(simdu1idx).bits
+    simdu.io.out(0).ready := io.out(simduidx).ready
+    simdu.io.out(1).ready := io.out(simdu1idx).ready
+    simdu.io.flush := io.flush
+    val simdu_firststage_fire = Wire(Bool())
+    simdu_firststage_fire := simdu.io.FirstStageFire(0)
+    BoringUtils.addSource(simdu_firststage_fire, "simdu_fs_fire")
+    val simdu1_firststage_fire = Wire(Bool())
+    simdu1_firststage_fire := simdu.io.FirstStageFire(1)
+    BoringUtils.addSource(simdu1_firststage_fire, "simdu1_fs_fire")
+    
+    io.out(simduidx).bits.decode <> simdu.io.DecodeOut(0)
+    io.out(simdu1idx).bits.decode <> simdu.io.DecodeOut(1)
+    io.out(simduidx).bits.decode.ctrl.rfWen := simdu.io.DecodeOut(0).ctrl.rfWen 
+    io.out(simdu1idx).bits.decode.ctrl.rfWen:= simdu.io.DecodeOut(1).ctrl.rfWen
+    io.out(FuType.simdu).valid := simdu.io.out(0).valid
+    io.out(FuType.simdu1).valid := simdu.io.out(1).valid
+    io.out(FuType.simdu).bits.commits := simduOut
+    io.out(FuType.simdu1).bits.commits := simdu1Out
+    io.in(simduidx).ready  := simdu.io.in(0).ready
+    io.in(simdu1idx).ready := simdu.io.in(1).ready
+  }else{
+    val simduidx = FuType.simdu
+    val simdu = Module(new SIMDU)
+    val simduOut = simdu.access(valid = io.in(simduidx).valid, src1 = src1(simduidx), src2 = src2(simduidx), func = fuOpType(simduidx))
+    simdu.io.DecodeIn := io.in(simduidx).bits
+    simdu.io.out.ready := io.out(simduidx).ready
+    simdu.io.flush := io.flush
+    val simdu_firststage_fire = Wire(Bool())
+    simdu_firststage_fire := simdu.io.FirstStageFire
+    BoringUtils.addSource(simdu_firststage_fire, "simdu_fs_fire")
+
+    io.out(simduidx).bits.decode <> simdu.io.DecodeOut
+    io.out(simduidx).bits.decode.ctrl.rfWen := simdu.io.DecodeOut.ctrl.rfWen
+    io.out(FuType.simdu).valid := simdu.io.out.valid
+    io.out(FuType.simdu).bits.commits := simduOut
+    io.in(simduidx).ready := simdu.io.in.ready
+  }
 
   //MDU
   val mduidx = FuType.mdu
@@ -238,11 +281,16 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
 
   //bru
   val bruidx = FuType.bru
-  val bru = Module(new ALU(hasBru = true,NO1 = true))
-  val bruOut = bru.access(valid = io.in(bruidx).valid, src1 = src1(bruidx), src2 = src2(bruidx), func = fuOpType(bruidx))
-  bru.io.cfIn := io.in(bruidx).bits.cf
-  bru.io.offset := io.in(bruidx).bits.data.imm
-  bru.io.out.ready := io.out(bruidx).ready
+  if(!(Issue_Num == 1)){
+    val bru = Module(new ALU(hasBru = true,NO1 = true))
+    val bruOut = bru.access(valid = io.in(bruidx).valid, src1 = src1(bruidx), src2 = src2(bruidx), func = fuOpType(bruidx))
+    bru.io.cfIn := io.in(bruidx).bits.cf
+    bru.io.offset := io.in(bruidx).bits.data.imm
+    bru.io.out.ready := io.out(bruidx).ready
+    io.out(bruidx).bits.decode.cf.redirect <> bru.io.redirect
+    io.out(FuType.bru).valid := io.in(bruidx).valid 
+    io.out(FuType.bru).bits.commits := bruOut
+  }
 
   //LSU
   val lsuidx = FuType.lsu
@@ -258,6 +306,8 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   io.dmem <> lsu.io.dmem
   lsu.io.out.ready := io.out(lsuidx).ready
   lsu.io.flush := io.flush
+  io.out(lsuidx).bits.decode <> lsu.io.DecodeOut
+  io.out(lsuidx).bits.decode.ctrl.rfWen := lsu.io.DecodeOut.ctrl.rfWen
 
   //CSRU
   val csridx = FuType.csr
@@ -295,72 +345,35 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   csr.io.imemMMU <> io.memMMU.imem
   csr.io.dmemMMU <> io.memMMU.dmem
 
-  //PerU need no parameter,use boringutils
-  val PerfU = Module(new PerfU)
-
-  //connect wires
-  val empty_RedirectIO = Wire(new RedirectIO)
-  empty_RedirectIO.target := 0.U
-  empty_RedirectIO.rtype := 0.U
-  empty_RedirectIO.valid := false.B
-
-  for(i <- 0 to FuType.num-1){
-    io.out(i).bits.decode <> io.in(i).bits
-  }
-  io.out(lsuidx).bits.decode <> lsu.io.DecodeOut
-  io.out(simduidx).bits.decode <> simdu.io.DecodeOut(0)
-  io.out(simdu1idx).bits.decode <> simdu.io.DecodeOut(1)
-
   when(lsuexp){
     io.out(csridx).bits.decode.InstNo := io.out(lsuidx).bits.decode.InstNo
     io.out(csridx).bits.decode.InstFlag := io.out(lsuidx).bits.decode.InstFlag
     io.out(csridx).bits.decode := csr_bits
   }
-
-  for(k <- 0 to FuType.num-1){
-    io.out(k).bits.decode.ctrl.rfWen := io.in(k).bits.ctrl.rfWen
-    io.out(k).bits.decode.cf.redirect <> empty_RedirectIO
-  }
-  io.out(lsuidx).bits.decode.ctrl.rfWen := lsu.io.DecodeOut.ctrl.rfWen
-  io.out(simduidx).bits.decode.ctrl.rfWen := simdu.io.DecodeOut(0).ctrl.rfWen 
-  io.out(simdu1idx).bits.decode.ctrl.rfWen:= simdu.io.DecodeOut(1).ctrl.rfWen 
   when(lsuexp || csrfix){
     io.out(csridx).bits.decode.ctrl.rfWen := false.B
   }
 
+  //PerU need no parameter,use boringutils
+  val PerfU = Module(new PerfU)
+
   io.out(csridx).bits.decode.cf.redirect <> csr.io.redirect
   io.out(aluidx).bits.decode.cf.redirect <> alu.io.redirect
   io.out(alu1idx).bits.decode.cf.redirect <> alu1.io.redirect
-  io.out(bruidx).bits.decode.cf.redirect <> bru.io.redirect
   
   io.out(FuType.alu).valid := io.in(aluidx).valid
   io.out(FuType.alu1).valid := io.in(alu1idx).valid
   io.out(FuType.lsu).valid := lsu.io.out.valid && !lsuexp
   io.out(FuType.mdu).valid := mdu.io.out.valid
   io.out(FuType.csr).valid := io.in(csridx).valid || lsuexp
-  io.out(FuType.bru).valid := io.in(bruidx).valid 
-  io.out(FuType.simdu).valid := simdu.io.out(0).valid
-  io.out(FuType.simdu1).valid := simdu.io.out(1).valid
 
-  for(k <- 0 to FuType.num-1){
-    io.out(k).bits.commits:= DontCare
-  }
   io.out(FuType.alu).bits.commits := aluOut
-  io.out(FuType.bru).bits.commits := bruOut
   io.out(FuType.lsu).bits.commits := lsuOut
   io.out(FuType.csr).bits.commits := csrOut
   io.out(FuType.mdu).bits.commits := mduOut
   io.out(FuType.alu1).bits.commits:= alu1Out
-  io.out(FuType.simdu).bits.commits := simduOut
-  io.out(FuType.simdu1).bits.commits := simdu1Out
 
-  for(i <- 0 to FuType.num-1){
-    io.in(i).ready := !io.in(i).valid || io.out(i).fire()
-  }
-  //io.in(alu1idx).ready := false.B
   io.in(lsuidx).ready := lsu.io.in.ready
-  io.in(simduidx).ready  := simdu.io.in(0).ready
-  io.in(simdu1idx).ready := simdu.io.in(1).ready
 
   for(i <- 0 to FuType.num-1){
     io.forward(i).valid := io.out(i).valid
