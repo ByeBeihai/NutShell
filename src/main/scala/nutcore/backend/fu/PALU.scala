@@ -80,26 +80,15 @@ class PALU extends NutCoreModule with HasInstrType{
 
     val isPbs     = io.in.bits.Pctrl.isPbs
 
-    val isSub = WireInit(0.U(8.W))
-    when(isSub_64 | isSub_32 | isSub_16 | isSub_8 | isComp_16 | isComp_8 | isMaxMin | isPbs | isSub_Q15 | isSub_Q31 | isSub_C31){
-        isSub:= "b11111111".U
-    }.elsewhen(isCras_16 | isStas_16){
-        isSub:= "b00000101".U
-    }.elsewhen(isCrsa_16 | isStsa_16){
-        isSub:= "b00001010".U
-    }.elsewhen(isCras_32 | isStas_32){
-        isSub:= "b00000001".U
-    }.elsewhen(isCrsa_32 | isStsa_32){
-        isSub:= "b00000010".U
-    }
+    val isSub = io.in.bits.Pctrl.isSub
 
-    val isAdder = (isSub=/=0.U | isAdd | isCr | isSt) && !isCompare && !isMaxMin && !isPbs
+    val isAdder = io.in.bits.Pctrl.isAdder
 
-    val SrcSigned   = func(6,4) === 0.U || func(6,4) === "b100".U || isSt && (func(6,3) === "b1011".U || func(6,3) === "b1100".U)
-    val Saturating  = !isSt && func(3).asBool || isSt && !func(3).asBool
-    val Translation = !Saturating && (!isSt && !(func(6,3) === 4.U) || isSt && (func(6,3) === "b1011".U || func(6,3) === "b1101".U))
-    val LessEqual   = Saturating
-    val LessThan    = Translation
+    val SrcSigned   = io.in.bits.Pctrl.SrcSigned
+    val Saturating  = io.in.bits.Pctrl.Saturating
+    val Translation = io.in.bits.Pctrl.Translation
+    val LessEqual   = io.in.bits.Pctrl.LessEqual
+    val LessThan    = io.in.bits.Pctrl.LessThan
     
     def MixPrecisionLen = XLEN + XLEN / 8 + XLEN / 8
     def extender(SrcSigned:Bool,src:UInt,width:Int)={
@@ -112,213 +101,19 @@ class PALU extends NutCoreModule with HasInstrType{
         a
     }
     
-    val adderRes_ori = Wire(UInt(MixPrecisionLen.W))
-    val adderRes = Wire(UInt(XLEN.W))
-    val add1 = Wire(UInt(MixPrecisionLen.W))
-    val add2 = Wire(UInt(MixPrecisionLen.W))
-    val adderRes_ori_drophighestbit = Wire(UInt(MixPrecisionLen.W))
-    val add1_drophighestbit = Wire(UInt(MixPrecisionLen.W))
-    val add2_drophighestbit = Wire(UInt(MixPrecisionLen.W))
+    val adderRes_ori = io.in.bits.Pctrl.adderRes_ori
+    val adderRes = io.in.bits.Pctrl.adderRes
+    val adderRes_ori_drophighestbit = io.in.bits.Pctrl.adderRes_ori_drophighestbit
+    //val add1 = Wire(UInt(MixPrecisionLen.W))
+    //val add2 = Wire(UInt(MixPrecisionLen.W))
+    //val add1_drophighestbit = Wire(UInt(MixPrecisionLen.W))
+    //val add2_drophighestbit = Wire(UInt(MixPrecisionLen.W))
     
-    // todo: if possible, rewrite add_src_map like adder_gather
-    def add_src_map(width: Int, src:UInt, isSub: UInt,SrcSigned:Bool,isCr:Bool) = {
-        var l = List(0.U)
-        for (i <- 0 until XLEN / width) {
-            val SrcClip = WireInit(0.U(width.W))
-            SrcClip := src(i * width + width - 1, i * width)
-            when(isCr){
-                if(i%2 == 0 && XLEN/width > 1){
-                    SrcClip :=src((i+1) * width + width - 1, (i+1) * width)
-                }else if(i >= 1){
-                    SrcClip :=src((i-1) * width + width - 1, (i-1) * width)
-                }
-            }
-            val tmp = (SrcClip ^ Fill(width, isSub(i))) + isSub(i)
-            val extension = Wire(UInt(1.W))
-            when(SrcSigned){
-                extension := tmp(width - 1)
-                when(isSub(i) && tmp === Cat(1.U , Fill(width-1,0.U))){extension := 0.U}
-            }.otherwise{
-                extension := 0.U
-                when(isSub(i) && tmp =/= 0.U){extension := 1.U}
-            }
-            val tmp_list1 = List.concat(List(extension), List(tmp(width - 1,0)))
-            val tmp_list2 = List.concat(List(0.U), tmp_list1)
-            l = List.concat(tmp_list2 ,l)
-        }
-        l.dropRight(1).reduce(Cat(_, _)) // drop leading zero which we added for convenience
-    }
-    def add_src_map_drophighestbit(width: Int, src:UInt, isSub: UInt,isCr:Bool) = {
-        var l = List(0.U)
-        for (i <- 0 until XLEN / width) {
-            val SrcClip = WireInit(0.U(width.W))
-            SrcClip := src(i * width + width - 1, i * width)
-            when(isCr){
-                if(i%2 == 0 && XLEN/width > 1){
-                    SrcClip :=src((i+1) * width + width - 1, (i+1) * width)
-                }else if(i >= 1){
-                    SrcClip :=src((i-1) * width + width - 1, (i-1) * width)
-                }
-            }
-            val tmp = (SrcClip ^ Fill(width, isSub(i))) + isSub(i)
-            val highestbit = Wire(UInt(1.W))
-            highestbit := 0.U
-            when(isSub(i) && tmp === Cat(1.U , Fill(width-1,0.U))){highestbit := 1.U}
-            val tmp_list = List.concat(List(highestbit), List(tmp(width - 2,0)))
-            val tmp_list1 = List.concat(List(0.U),tmp_list)
-            val tmp_list2 = List.concat(List(0.U),tmp_list1)
-            l = List.concat(tmp_list2 ,l)
-        }
-        l.dropRight(1).reduce(Cat(_, _)) 
-    }
-    
-    if (XLEN == 32) {
-        when (isAdd_8 | isSub_8) {
-            add1 := add_src_map(8, src1, 0.B,SrcSigned,false.B)
-            add2 := add_src_map(8, src2, isSub,SrcSigned,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(8, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(8, src2, isSub,false.B)
-        } .elsewhen (isAdd_16 | isSub_16) {
-            add1 := add_src_map(16, src1, 0.B,SrcSigned,false.B)
-            add2 := add_src_map(16, src2, isSub,SrcSigned,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(16, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(16, src2, isSub,false.B)
-        } .elsewhen (isAdd_32 | isSub_32) {
-            add1 := add_src_map(32, src1, 0.B,SrcSigned,false.B)
-            add2 := add_src_map(32, src2, isSub,SrcSigned,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(32, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(32, src2, isSub,false.B)
-        } .elsewhen(isCras_16 | isCrsa_16){
-            add1 := add_src_map(16, src1, 0.B,SrcSigned,false.B)
-            add2 := add_src_map(16, src2, isSub,SrcSigned,true.B)
-            add1_drophighestbit := add_src_map_drophighestbit(16, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(16, src2, isSub,true.B)
-        } .elsewhen(isCras_32 | isCrsa_32){
-            add1 := add_src_map(32, src1, 0.B,SrcSigned,false.B)
-            add2 := add_src_map(32, src2, isSub,SrcSigned,true.B)
-            add1_drophighestbit := add_src_map_drophighestbit(32, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(32, src2, isSub,true.B)
-        } .elsewhen(isStas_16 | isStsa_16){
-            add1 := add_src_map(16, src1, 0.B,SrcSigned,false.B)
-            add2 := add_src_map(16, src2, isSub,SrcSigned,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(16, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(16, src2, isSub,false.B)
-        } .elsewhen(isStas_32 | isStsa_32){
-            add1 := add_src_map(32, src1, 0.B,SrcSigned,false.B)
-            add2 := add_src_map(32, src2, isSub,SrcSigned,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(32, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(32, src2, isSub,false.B)
-        }.elsewhen(isComp_16){
-            add1 := add_src_map(16, src1, 0.B,SrcSigned,false.B)
-            add2 := add_src_map(16, src2, isSub,SrcSigned,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(16, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(16, src2, isSub,false.B)
-        } .elsewhen(isComp_8){
-            add1 := add_src_map(8, src1, 0.B,SrcSigned,false.B)
-            add2 := add_src_map(8, src2, isSub,SrcSigned,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(16, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(16, src2, isSub,false.B)
-        } .elsewhen(isMaxMin_16){
-            add1 := add_src_map(16, src1, 0.B,!func(3).asBool,false.B)
-            add2 := add_src_map(16, src2, isSub,!func(3).asBool,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(16, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(16, src2, isSub,false.B)
-        } .elsewhen(isMaxMin_8){
-            add1 := add_src_map(8, src1, 0.B,!func(3).asBool,false.B)
-            add2 := add_src_map(8, src2, isSub,!func(3).asBool,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(8, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(8, src2, isSub,false.B)
-        } .elsewhen(isMaxMin_XLEN){
-            add1 := add_src_map(XLEN, src1, 0.B,true.B,false.B)
-            add2 := add_src_map(XLEN, src2, isSub,true.B,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(XLEN, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(XLEN, src2, isSub,false.B)
-        }.elsewhen(isPbs){
-            add1 := add_src_map(8, src1, 0.B,false.B,false.B)
-            add2 := add_src_map(8, src2, isSub,false.B,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(8, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(8, src2, isSub,false.B)
-        } .elsewhen(isAdd_Q15 | isSub_Q15){
-            add1 := add_src_map(16, Cat(Fill(16,0.U),src1(15,0)), 0.B,!func(3).asBool,false.B)
-            add2 := add_src_map(16, Cat(Fill(16,0.U),src2(15,0)), isSub,!func(3).asBool,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(16, Cat(Fill(16,0.U),src1(15,0)), 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(16, Cat(Fill(16,0.U),src2(15,0)), isSub,false.B)
-        } .elsewhen(isAdd_Q31 | isSub_Q31 | isSub_C31 |isAdd_C31){
-            add1 := add_src_map(32, src1(31,0), 0.B,!func(3).asBool,false.B)
-            add2 := add_src_map(32, src2(31,0), isSub,!func(3).asBool,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(32,src1(31,0), 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(32, src2(31,0), isSub,false.B)
-        } .elsewhen(isAve){
-            add1 := add_src_map(32, src1, 0.B,true.B,false.B)
-            add2 := add_src_map(32, src2, isSub,true.B,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(32,src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(32, src2, isSub,false.B)
-        }.otherwise {
-            add1 := DontCare
-            add2 := DontCare
-            add1_drophighestbit := DontCare
-            add2_drophighestbit := DontCare
-        }
-    } else if (XLEN == 64) {
-        when (isAdd_8 | isSub_8 | isComp_8 | isMaxMin_8 | isPbs) {
-            val isSrcSigned = Mux(isMaxMin_8,!func(3).asBool,Mux(isPbs,false.B,SrcSigned))
-            add1 := add_src_map(8, src1, 0.B,isSrcSigned,false.B)
-            add2 := add_src_map(8, src2, isSub,isSrcSigned,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(8, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(8, src2, isSub,false.B)
-        } .elsewhen (isAdd_16 | isSub_16 | isCras_16 | isCrsa_16 | isStas_16 | isStsa_16 | isComp_16 | isMaxMin_16 | isAdd_Q15 | isSub_Q15) {
-            val realsrc1 = Mux(isAdd_Q15 | isSub_Q15,Cat(Fill(48,0.U),src1(15,0)),src1)
-            val realsrc2 = Mux(isAdd_Q15 | isSub_Q15,Cat(Fill(48,0.U),src2(15,0)),src2)
-            val isSrcSigned = Mux(isMaxMin_16 | isAdd_Q15 | isSub_Q15,!func(3).asBool,SrcSigned)
-            val isCross = Mux(isCras_16 | isCrsa_16,true.B,false.B)
-            add1 := add_src_map(16, realsrc1, 0.B,isSrcSigned,false.B)
-            add2 := add_src_map(16, realsrc2, isSub,isSrcSigned,isCross)
-            add1_drophighestbit := add_src_map_drophighestbit(16, realsrc1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(16, realsrc2, isSub,isCross)
-        } .elsewhen (isAdd_32 | isSub_32 | isCras_32 | isCrsa_32 | isStas_32 | isStsa_32 | isMaxMin_32 | isAdd_Q31 | isSub_Q31 | isSub_C31 |isAdd_C31) {
-            val realsrc1 = Mux(isAdd_Q31 | isSub_Q31 | isSub_C31 |isAdd_C31,Cat(Fill(32,0.U),src1(31,0)),src1)
-            val realsrc2 = Mux(isAdd_Q31 | isSub_Q31 | isSub_C31 |isAdd_C31,Cat(Fill(32,0.U),src2(31,0)),src2)
-            val isSrcSigned = Mux(isAdd_Q31 | isSub_Q31 | isSub_C31 |isAdd_C31,!func(3).asBool,Mux(isMaxMin_32,func(3).asBool,SrcSigned))
-            val isCross = Mux(isCras_32 | isCrsa_32,true.B,false.B)
-            add1 := add_src_map(32, realsrc1, 0.B,isSrcSigned,false.B)
-            add2 := add_src_map(32, realsrc2, isSub,isSrcSigned,isCross)
-            add1_drophighestbit := add_src_map_drophighestbit(32, realsrc1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(32, realsrc2, isSub,isCross)
-        } .elsewhen (isAdd_64 | isSub_64 | isMaxMin_XLEN) {
-            val isSrcSigned = Mux(isMaxMin_XLEN | isAve,true.B,SrcSigned)
-            add1 := add_src_map(64, src1, 0.B,isSrcSigned,false.B)
-            add2 := add_src_map(64,  src2, isSub,isSrcSigned,false.B)
-            add1_drophighestbit := add_src_map_drophighestbit(64, src1, 0.B,false.B)
-            add2_drophighestbit := add_src_map_drophighestbit(64, src2, isSub,false.B)
-        }.otherwise {
-            add1 := DontCare
-            add2 := DontCare
-            add1_drophighestbit := DontCare
-            add2_drophighestbit := DontCare
-        }
-    } else {
-        Debug(prefix = true, "Unexpected XLEN for VALU")
-        add1 := DontCare
-        add2 := DontCare
-        add1_drophighestbit := DontCare
-        add2_drophighestbit := DontCare
-    }
-    adderRes_ori := add1 +& add2
-    adderRes_ori_drophighestbit := add1_drophighestbit +& add2_drophighestbit
     
     def gather_offset(width: Int, index: Int) = (width + 2) * index + width - 1
     
     def gather_offset_end(width: Int, index: Int) = gather_offset(width, index) - width + 1
     
-    def adder_gather(adderRes_ori: UInt, width: Int) = {
-        var l: List[UInt] = List(adderRes_ori(gather_offset(width, 0), gather_offset_end(width, 0)))
-        if ((XLEN / width - 2) >= 0) {
-            for (i <- 1 until XLEN / width) {
-                l =  List.concat(List(adderRes_ori(gather_offset(width, i), gather_offset_end(width, i))), l)
-            }
-        }
-        l.reduce(Cat(_, _))
-    }
     def Saturated_Check(adderRes_ori:UInt,adderRes_ori_drophighestbit:UInt,width: Int,SrcSigned:Bool,isSub:UInt)= {
         var l = List(0.U)
         val OV = WireInit(false.B)
@@ -383,18 +178,6 @@ class PALU extends NutCoreModule with HasInstrType{
         }
         l.dropRight(1).reduce(Cat(_, _))
     }    
-
-    when (isAdd_8 | isSub_8 | isPbs) {
-        adderRes := adder_gather(adderRes_ori, 8)
-    } .elsewhen (isAdd_16 | isSub_16 | isCras_16 | isCrsa_16 | isAdd_Q15 | isSub_Q15 | isStas_16 | isStsa_16) {
-        adderRes := adder_gather(adderRes_ori, 16)
-    } .elsewhen (isAdd_32 | isSub_32 | isCras_32 | isCrsa_32 |isAdd_Q31 |isSub_Q31|isSub_C31|isAdd_C31 | isStas_32 | isStsa_32) {
-        adderRes := adder_gather(adderRes_ori, 32)
-    } .elsewhen(isAdd_64 | isSub_64 | isAve) {
-        adderRes := adder_gather(adderRes_ori, 64)
-    } .otherwise {
-        adderRes := DontCare
-    }
 
     val adderOV = WireInit(false.B)
     val adderRes_final = WireInit(adderRes)
@@ -467,7 +250,7 @@ class PALU extends NutCoreModule with HasInstrType{
 
     Debug("[PALU] src1 %x src2 %x func %x is_Add8 %x is_Sub8 %x is_Add16 %x isSub_16 %x isCras_16 %x isCrsa_16 %x SrcSigned %x Saturating %x Translation %x \n",src1,src2,func,isAdd_8,isSub_8,isAdd_16,isSub_16,isCras_16,isCrsa_16,SrcSigned,Saturating,Translation)
     Debug("[PALU] isAdd_32 %x isSub_32 %x isCras_32 %x isCrsa_32 %x isAdd_64 %x isSub_64 %x \n",isAdd_32,isSub_32,isCras_32,isCrsa_32,isAdd_64,isSub_64)
-    Debug("[PALU] add1 %x add2 %x add1drop %x add2drop %x adderRes_ori %x adderRes_oridrop %x \n",add1,add2,add1_drophighestbit,add2_drophighestbit,adderRes_ori,adderRes_ori_drophighestbit)
+    //Debug("[PALU] add1 %x add2 %x add1drop %x add2drop %x adderRes_ori %x adderRes_oridrop %x \n",add1,add2,add1_drophighestbit,add2_drophighestbit,adderRes_ori,adderRes_ori_drophighestbit)
     Debug("[PALU] addres %x adderRes_final %x adderOV %x \n",adderRes,adderRes_final,adderOV)
 
     Debug("[PALU] isComp_16 %x LessThan %x LessEqual %x compareRes %x \n",isComp_16,LessThan,LessEqual,compareRes)
@@ -490,14 +273,9 @@ class PALU extends NutCoreModule with HasInstrType{
     val isWext  = io.in.bits.Pctrl.isWext
     val isShifter = io.in.bits.Pctrl.isShifter
 
-    val Round       =((func(6,3) === "b0110".U &&(func(1) === 0.U || func(1,0) === "b11".U)
-                    ||func(6,3) === "b0111".U && (func(2,1) === 0.U && func24.asBool || func(2,1) === 2.U && func23.asBool)) && funct3 === 0.U
-                    ||(isRs_32 && (func(6,3) === 6.U || func(6,3) === 8.U) || isLR_32 && func(4).asBool)
-                    ||(isLR_Q31 && func(3).asBool)
-                    ||isRs_XLEN
-                    ||isSRAIWU)
-    val ShiftSigned = (isLR_16 || isLR_8 || isLR_32 || isLR_Q31 || isLs_Q31 ||isLs_32 && (func(6,3) === 6.U || func(6,3) === 8.U) || (isLs_16 || isLs_8) && (func(6,3) === "b0110".U || func === "b0111010".U && func24.asBool || func === "b0111110".U && func23.asBool))
-    val Arithmetic  = (isRs_16 || isRs_8 || isRs_32) && func(0) === 0.U  || isLR_16 || isLR_8 || isLR_32 || isLR_Q31 || isRs_XLEN || isSRAIWU
+    val Round       = io.in.bits.Pctrl.Round
+    val ShiftSigned = io.in.bits.Pctrl.ShiftSigned
+    val Arithmetic  = io.in.bits.Pctrl.Arithmetic
 
     val isClip_16 = io.in.bits.Pctrl.isClip_16
     val isClip_8  = io.in.bits.Pctrl.isClip_8
