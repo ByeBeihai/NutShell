@@ -60,20 +60,21 @@ object SrcType {
 }
 
 object FuType extends HasNutCoreConst {
-  def num = if(Issue_Num == 1){6}else{8}
-  def alu = if(Issue_Num == 1){"b000".U}else{"b110".U}
-  def lsu = "b100".U
-  def mdu = "b101".U
+  def num = 5 + Polaris_Independent_Bru + Polaris_SIMDU_WAY_NUM
+  def width = 4
+  def alu = if(Polaris_Independent_Bru == 1){(Polaris_Independent_Bru + 3 + Polaris_SIMDU_WAY_NUM).U(width.W)}else{"b000".U}
+  def lsu = if(Polaris_Independent_Bru == 1){(2+Polaris_SIMDU_WAY_NUM).U(width.W)}else{(3+Polaris_SIMDU_WAY_NUM).U(width.W)}
+  def mdu = if(Polaris_Independent_Bru == 1){(3+Polaris_SIMDU_WAY_NUM).U(width.W)}else{(4+Polaris_SIMDU_WAY_NUM).U(width.W)}
   def csr = "b001".U
   def csrint = 1
   def mou = "b1000".U
-  def alu1= if(Issue_Num == 1){"b011".U}else{"b111".U}
-  def bru = if(Issue_Num == 1){alu1}else{"b000".U}
-  def simdu = "b010".U
-  def simduint = 2
-  def simdu1 = "b011".U
-  def simdu1int = 3
-  def apply() = UInt(4.W)
+  def alu1= if(Polaris_Independent_Bru == 1){(Polaris_Independent_Bru + 3 + Polaris_SIMDU_WAY_NUM + 1).U(width.W)}else{"b010".U}
+  def bru = if(Polaris_Independent_Bru == 1){"b000".U}else{alu1}
+  def simdu = simduint.U(width.W)
+  def simduint = if(Polaris_Independent_Bru == 1){2}else{3}
+  def simdu1 = simdu1int.U(width.W)
+  def simdu1int = if(Polaris_Independent_Bru == 1){3}else{4}
+  def apply() = UInt(width.W)
 }
 
 object FuOpType {

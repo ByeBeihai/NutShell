@@ -50,7 +50,9 @@ trait HasNutCoreParameter {
   val EnableOutOfOrderMemAccess = false // enable out of order mem access will improve OoO backend's performance
   //parameter for SIMD backend
   val Issue_Num = 2
-  val Queue_num = 32
+  val Queue_num = 16
+  val Polaris_Independent_Bru = 1 //0 or 1
+  val Polaris_SIMDU_WAY_NUM = 2   //1 or 2
 }
 
 trait HasNutCoreConst extends HasNutCoreParameter {

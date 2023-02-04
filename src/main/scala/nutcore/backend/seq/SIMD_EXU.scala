@@ -219,14 +219,14 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
 
   //ALU1
   val alu1idx = FuType.alu1
-  val alu1 = Module(new ALU(hasBru = true,NO1 = if(!(Issue_Num == 1)){false}else{true}))
+  val alu1 = Module(new ALU(hasBru = true,NO1 = if(Polaris_Independent_Bru == 1){false}else{true}))
   val alu1Out = alu1.access(valid = io.in(alu1idx).valid, src1 = src1(alu1idx), src2 = src2(alu1idx), func = fuOpType(alu1idx))
   alu1.io.cfIn := io.in(alu1idx).bits.cf
   alu1.io.offset := io.in(alu1idx).bits.data.imm
   alu1.io.out.ready := io.out(alu1idx).ready
   
   //SIMDU
-  if(!(Issue_Num == 1)){
+  if(Polaris_SIMDU_WAY_NUM == 2){
     val simduidx = FuType.simdu
     val simdu1idx = FuType.simdu1
     val simdu = Module(new SIMDU_2way)
@@ -281,7 +281,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
 
   //bru
   val bruidx = FuType.bru
-  if(!(Issue_Num == 1)){
+  if(Polaris_Independent_Bru == 1){
     val bru = Module(new ALU(hasBru = true,NO1 = true))
     val bruOut = bru.access(valid = io.in(bruidx).valid, src1 = src1(bruidx), src2 = src2(bruidx), func = fuOpType(bruidx))
     bru.io.cfIn := io.in(bruidx).bits.cf

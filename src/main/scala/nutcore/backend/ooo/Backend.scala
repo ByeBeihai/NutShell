@@ -734,7 +734,7 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   val exu_valid = Reg(Vec(FuType.num,Bool()))
   val exu_valid_next = Wire(Vec(FuType.num,Bool()))
   (0 to FuType.num-1).map(i => exu_valid_next(i) := exu_valid(i))
-  if(!(Issue_Num==1)){
+  if(Polaris_SIMDU_WAY_NUM == 2){
     (0 to FuType.num-1).map(i => {when(exu.io.out(i).fire() && i.U =/= FuType.lsu && i.U =/= FuType.simdu && i.U =/= FuType.simdu1){exu_valid_next(i) := false.B}})
   }else{
     (0 to FuType.num-1).map(i => {when(exu.io.out(i).fire() && i.U =/= FuType.lsu && i.U =/= FuType.simdu){exu_valid_next(i) := false.B}})
@@ -747,12 +747,12 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   val simdu1_firststage_fire = WireInit(false.B)
   BoringUtils.addSink(simdu_firststage_fire, "simdu_fs_fire")
   when(simdu_firststage_fire){exu_valid_next(FuType.simdu) := false.B}
-  if(!(Issue_Num==1)){
+  if(Polaris_SIMDU_WAY_NUM == 2){
     BoringUtils.addSink(simdu1_firststage_fire, "simdu1_fs_fire")
     when(simdu1_firststage_fire){exu_valid_next(FuType.simdu1) := false.B}
   }
 
-  def MultiOperatorMatch(futype1:UInt,futype2:UInt,isBru:Bool):Bool = if(!(Issue_Num==1)){
+  def MultiOperatorMatch(futype1:UInt,futype2:UInt,isBru:Bool):Bool = if(Polaris_SIMDU_WAY_NUM == 2){
                                                                         ((futype1 === FuType.alu) && (futype2 ===FuType.alu || futype2 === FuType.alu1) && !isBru
                                                                         ||(futype1 === FuType.simdu) && (futype2 ===FuType.simdu || futype2 === FuType.simdu1)
                                                                         ||(futype1 === FuType.mou) && (futype2 ===FuType.csr))
