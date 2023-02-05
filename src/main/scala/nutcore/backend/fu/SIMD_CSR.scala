@@ -745,7 +745,7 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     rdata := mipWire.asUInt | mipReg
     when(RegWen){mipReg := (wdata & sipMask) | (mipReg & ~sipMask)}
   }.elsewhen(addr === Mip.U){
-    rdata := mipWire.asUInt | mipReg
+    rdata := mipWire.asUInt | mipReg //when need diff on rtthread，set it to 0.U
     when(RegWen){mipReg:= (wdata & mipFixMask) | (mipReg & ~mipFixMask)}
   }.otherwise{
     rdata := 0.U
