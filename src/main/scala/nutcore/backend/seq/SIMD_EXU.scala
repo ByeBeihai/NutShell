@@ -295,7 +295,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   //LSU
   val lsuidx = FuType.lsu
   val BeforeLSUhasRedirect = notafter(io.in(bruidx).bits.InstNo,io.in(lsuidx).bits.InstNo,io.in(bruidx).bits.InstFlag,io.in(lsuidx).bits.InstFlag)&&io.out(bruidx).bits.decode.cf.redirect.valid
-  val lsu = Module(new multicycle_lsu_atom)
+  val lsu = Module(new pipeline_lsu_atom)
   lsu.io.DecodeIn := io.in(lsuidx).bits
   val lsuOut = lsu.access(valid = io.in(lsuidx).valid && !BeforeLSUhasRedirect, src1 = src1(lsuidx), src2 = io.in(lsuidx).bits.data.imm, func = fuOpType(lsuidx))
   lsu.io.wdata := src2(lsuidx)
@@ -311,16 +311,17 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
 
   //CSRU
   val csridx = FuType.csr
-  val csr_bits = Mux(io.in(csridx).valid, io.in(csridx).bits,io.in(lsuidx).bits)
+  val csr_bits = Mux(io.in(csridx).valid, io.in(csridx).bits,lsu.io.DecodeOut)
   val csr = Module(new new_SIMD_CSR)
   val csrOut = csr.access(valid = io.in(csridx).valid, src1 = src1(csridx), src2 = src2(csridx), func = fuOpType(csridx),isMou = csr_bits.ctrl.isMou)
   Debug("isMou %x lsumou %x csrmou %x\n",csr_bits.ctrl.isMou,io.in(lsuidx).bits.ctrl.isMou,io.in(csridx).bits.ctrl.isMou)
-  csr.io.cfIn := Mux(io.in(csridx).valid, io.in(csridx).bits.cf,io.in(lsuidx).bits.cf)
-  csr.io.ctrlIn := Mux(io.in(csridx).valid, io.in(csridx).bits.ctrl,io.in(lsuidx).bits.ctrl)
+  csr.io.cfIn := Mux(io.in(csridx).valid, io.in(csridx).bits.cf,lsu.io.DecodeOut.cf)
+  csr.io.ctrlIn := Mux(io.in(csridx).valid, io.in(csridx).bits.ctrl,lsu.io.DecodeOut.ctrl)
   csr.io.cfIn.exceptionVec(loadAddrMisaligned) := lsu.io.loadAddrMisaligned 
   csr.io.cfIn.exceptionVec(storeAddrMisaligned) := lsu.io.storeAddrMisaligned
-  val hasLoadPF = RegInit(false.B)
-  val hasStorePF= RegInit(false.B)
+  val hasLoadPF = lsu.io.loadPF//RegInit(false.B)
+  val hasStorePF= lsu.io.storePF//RegInit(false.B)
+  /*
   when(io.memMMU.dmem.loadPF){
     hasLoadPF := true.B
   } 
@@ -331,9 +332,12 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     hasLoadPF := false.B
     hasStorePF := false.B
   }
+  */
+  BoringUtils.addSource(io.memMMU.dmem.loadPF,"loadPF")
+  BoringUtils.addSource(io.memMMU.dmem.storePF,"storePF")
   csr.io.cfIn.exceptionVec(loadPageFault) := hasLoadPF 
   csr.io.cfIn.exceptionVec(storePageFault) := hasStorePF
-  val lsuexp = (lsu.io.loadAddrMisaligned || lsu.io.storeAddrMisaligned || io.memMMU.dmem.loadPF || io.memMMU.dmem.storePF || hasStorePF || hasLoadPF) && io.in(lsuidx).valid
+  val lsuexp = (lsu.io.loadAddrMisaligned || lsu.io.storeAddrMisaligned || hasStorePF || hasLoadPF) && lsu.io.out.valid
   val csrfix =  csr.io.wenFix && io.in(csridx).valid
   csr.io.instrValid := (io.in(csridx).valid || lsuexp) && io.out(csridx).fire()
   //csr.io.isBackendException := false.B
@@ -346,8 +350,8 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   csr.io.dmemMMU <> io.memMMU.dmem
 
   when(lsuexp){
-    io.out(csridx).bits.decode.InstNo := io.out(lsuidx).bits.decode.InstNo
-    io.out(csridx).bits.decode.InstFlag := io.out(lsuidx).bits.decode.InstFlag
+    io.out(csridx).bits.decode.InstNo := lsu.io.DecodeOut.InstNo
+    io.out(csridx).bits.decode.InstFlag := lsu.io.DecodeOut.InstFlag
     io.out(csridx).bits.decode := csr_bits
   }
   when(lsuexp || csrfix){

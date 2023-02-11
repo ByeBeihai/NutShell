@@ -270,7 +270,7 @@ sealed class CacheStage3(implicit val cacheConfig: CacheConfig) extends CacheMod
 
   // this is ugly
   if (cacheName == "dcache") {
-    BoringUtils.addSource(mmio, "lsuMMIO")
+    //BoringUtils.addSource(mmio, "lsuMMIO")
   }
   Debug("[CacheS3] addr %x inmmio %x \n",req.addr,io.in.bits.mmio)
 
@@ -562,7 +562,7 @@ class Cache_fake(implicit val cacheConfig: CacheConfig) extends CacheModule with
   val ismmio = AddressSpace.isMMIO(io.in.req.bits.addr)
   val ismmioRec = RegEnable(ismmio, io.in.req.fire())
   if (cacheConfig.name == "dcache") {
-    BoringUtils.addSource(ismmio && io.in.req.fire(), "lsuMMIO")
+    //BoringUtils.addSource(ismmio && io.in.req.fire(), "lsuMMIO")
   }
 
   val needFlush = RegInit(false.B)

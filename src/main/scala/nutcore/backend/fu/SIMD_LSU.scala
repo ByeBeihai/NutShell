@@ -17,6 +17,8 @@ class SIMD_LSU_IO extends FunctionUnitIO {
   val DecodeOut = new DecodeIO
   val DecodeIn = Flipped(new DecodeIO)
   val dtlbPF = Output(Bool())
+  val storePF = Output(Bool())
+  val loadPF = Output(Bool())
 }
 
 class SIMD_LSU extends NutCoreModule with HasLSUConst {
@@ -407,6 +409,7 @@ class multicycle_lsu_atom extends NutCoreModule with HasLSUConst {
     BoringUtils.addSink(lrAddr, "lr_addr")
 
     val scInvalid = !(src1 === lrAddr) && scReq
+    Debug("setLr %x setLrVal %x setLrAddr %x lr %x lrAddr %x src1 %x\n",setLr,setLrVal,setLrAddr,lr,lrAddr,src1)
 
     // PF signal from TLB
     val dtlbFinish = WireInit(false.B)
@@ -504,10 +507,28 @@ class multicycle_lsu_atom extends NutCoreModule with HasLSUConst {
         }
       }
     }
-    when(dtlbPF || io.loadAddrMisaligned || io.storeAddrMisaligned){
-      state := s_idle
+    val loadPF = WireInit(false.B)
+    val storePF = WireInit(false.B)
+    BoringUtils.addSink(loadPF, "loadPF")
+    BoringUtils.addSink(storePF, "storePF")
+    val hasLoadPF = RegInit(false.B)
+    val hasStorePF= RegInit(false.B)
+    when(loadPF){
+      hasLoadPF := true.B
+    } 
+    when(storePF){
+      hasStorePF := true.B
+    }
+    when(io.flush || io.out.fire()){
+      hasLoadPF := false.B
+      hasStorePF := false.B
+    }
+    io.loadPF := hasLoadPF
+    io.storePF := hasStorePF
+    when(hasLoadPF || hasStorePF || io.loadAddrMisaligned || io.storeAddrMisaligned){
+      //state := s_idle
       io.out.valid := true.B
-      io.in.ready := true.B
+      io.in.ready := false.B
     }
 
   Debug(io.out.fire(), "[LSU-AGU] state %x inv %x inr %x\n", state, io.in.valid, io.in.ready)
@@ -641,7 +662,7 @@ class multicycle_lsu_atom extends NutCoreModule with HasLSUConst {
     "b11".U   -> (exec_addr(2,0) === 0.U)  //d
   ))
   exec_result := Mux(partialLoad, rdataPartialLoad, rdataLatch(XLEN-1,0))
-  exec_finish := Mux( dtlbPF && req_state =/= s_idle || io.loadAddrMisaligned || io.storeAddrMisaligned, true.B, Mux(req_state === s_wait_fire, true.B, dmem.resp.fire() && (req_state === s_wait_resp)))
+  exec_finish := Mux(req_state === s_wait_fire, true.B, dmem.resp.fire() && (req_state === s_wait_resp))
 
   val isAMO = WireInit(false.B)
   BoringUtils.addSink(isAMO, "ISAMO2")
@@ -659,13 +680,5 @@ class multicycle_lsu_atom extends NutCoreModule with HasLSUConst {
   BoringUtils.addSource(BoolStopWatch(dmem.isWrite(), dmem.resp.fire()), "perfCntCondMstoreStall")
   BoringUtils.addSource(io.isMMIO && io.out.fire(), "perfCntCondMmmioInstr")
 }
-class UnpipeLSUIO_atom extends FunctionUnitIO {
-  val wdata = Input(UInt(XLEN.W))
-  val instr = Input(UInt(32.W)) // Atom insts need aq rl funct3 bit from instr
-  val dmem = new SimpleBusUC(addrBits = VAddrBits)
-  val isMMIO = Output(Bool())
-  val dtlbPF = Output(Bool()) // TODO: refactor it for new backend
-  val loadAddrMisaligned = Output(Bool()) // TODO: refactor it for new backend
-  val storeAddrMisaligned = Output(Bool()) // TODO: refactor it for new backend
-  val flush = Input(Bool())
-}
+
+

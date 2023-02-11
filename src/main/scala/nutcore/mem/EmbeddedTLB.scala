@@ -414,6 +414,8 @@ class EmbeddedTLB_fake(implicit val tlbConfig: TLBConfig) extends TlbModule with
   io.csrMMU.storePF := false.B
   io.csrMMU.addr := io.in.req.bits.addr
   io.ipf := false.B
+  val ismmio = io.out.req.fire() && AddressSpace.isMMIO(io.in.req.bits.addr)
+  BoringUtils.addSource(ismmio,"lsuMMIO")
 }
 
 
@@ -501,6 +503,7 @@ class SIMD_TLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasTLBI
 
   val s_idle :: s_exec :: Nil = Enum(2)
   val state = RegInit(s_idle)
+  val ismmio = WireInit(false.B)
   when(!vmEnable) {
     tlbexec_inbundle.valid := false.B
     tlbExec.io.out.ready := true.B // let existed request go out
@@ -517,6 +520,7 @@ class SIMD_TLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasTLBI
     when(io.flush){state := s_idle}
     out_req.valid := false.B
     out_req.ready := false.B
+    ismmio := io.out.req.fire() && AddressSpace.isMMIO(io.out.req.bits.addr)
   }.otherwise {
     //io.out.req <> tlbExec.io.out
     val req = io.in.req.bits
@@ -611,6 +615,7 @@ class SIMD_TLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasTLBI
     tlbexec_inbundle.bits.hitinstrPF := hitinstrPF
     Debug("state:%x hit %x miss %x currentlp %x currentsp %x currentipf %x\n",state,hit,miss,loadPF,storePF,hitinstrPF)
     Debug("hit:%d hitWB:%d hitVPN:%x hitFlag:%x hitPPN:%x hitRefillFlag:%x hitWBStore:%x hitCheck:%d hitExec:%d hitLoad:%d hitStore:%d\n", hit, hitWB, hitMeta.vpn, hitFlag.asUInt, hitData.ppn, hitRefillFlag, hitWBStore, hitCheck, hitExec, hitLoad, hitStore)
+    ismmio := out_req.fire() && AddressSpace.isMMIO(out_req.bits.addr)
   }
   io.in.resp <> io.out.resp
   //Debug("state:%x \n",state)
@@ -624,6 +629,7 @@ class SIMD_TLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasTLBI
     BoringUtils.addSource(tlbFinish, "DTLBFINISH")
     BoringUtils.addSource(io.csrMMU.isPF(), "DTLBPF")
     BoringUtils.addSource(vmEnable, "DTLBENABLE")
+    BoringUtils.addSource(ismmio,"lsuMMIO")    
     }
     Debug("alreadyOutFinish %x \n",alreadyOutFinish)
   }
@@ -894,7 +900,7 @@ class SIMD_TLBEXEC(implicit val tlbConfig: TLBConfig) extends TlbModule{
   io.in.ready := !io.in.valid || io.out.fire() && io.mdReady
 
   io.ipf := Mux(hit, hitinstrPF, missIPF)
-  io.isFinish := io.out.fire() || io.pf.isPF()
+  io.isFinish := io.out.fire() //|| io.pf.isPF()
 
   Debug("In(%d, %d) Out(%d, %d) InAddr:%x OutAddr:%x cmd:%d \n", io.in.valid, io.in.ready, io.out.valid, io.out.ready, req.addr, io.out.bits.addr, req.cmd)
   Debug("isAMO:%d io.Flush:%d needFlush:%d alreadyOutFire:%d isFinish:%d\n",isAMO, io.flush, needFlush, alreadyOutFire, io.isFinish)
