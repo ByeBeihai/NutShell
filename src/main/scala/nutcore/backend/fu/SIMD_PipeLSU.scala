@@ -307,6 +307,13 @@ class pipeline_lsu_stage2 extends NutCoreModule with HasLSUConst {
   BoringUtils.addSource(BoolStopWatch(dmem.isWrite(), dmem.resp.fire()), "perfCntCondMstoreStall")
   BoringUtils.addSource(io.out.bits.isMMIO && io.out.fire(), "perfCntCondMmmioInstr")
 }
+class pipeline_lsu_empty_stage extends NutCoreModule with HasLSUConst{
+  val io = IO(new SIMD_Pipelsu_IO)
+  io.out.valid := io.in.valid
+  io.in.ready := io.out.fire() || !io.in.valid
+  io.out.bits := io.in.bits
+  io.dmem <> DontCare
+}
 class new_SIMD_LSU_IO extends FunctionUnitIO {
   val wdata = Input(UInt(XLEN.W))
   val dmem = new SimpleBusUC(addrBits = VAddrBits)
@@ -485,7 +492,7 @@ class lsu_for_atom extends NutCoreModule with HasLSUConst {
     }
 
   Debug(io.out.fire(), "[LSU-AGU] state %x inv %x inr %x\n", state, io.in.valid, io.in.ready)
-  Debug("[LSU-AGU] state %x atomReq %x func %x\n", state, atomReq, func)
+  Debug("[LSU-AGU] state %x atomReq %x func %x outvalid %x exec_finish %x\n", state, atomReq, func,io.out.valid,exec_finish)
 
     //Set LR/SC bits
     setLr := io.out.fire() && (lrReq || scReq)
@@ -614,6 +621,7 @@ class lsu_for_atom extends NutCoreModule with HasLSUConst {
   ))
   exec_result := Mux(partialLoad, rdataPartialLoad, rdataLatch(XLEN-1,0))
   exec_finish := Mux(req_state === s_wait_fire, true.B, dmem.resp.fire() && (req_state === s_wait_resp))
+  Debug("req_state %x\n",req_state)
 
   val isAMO = WireInit(false.B)
   BoringUtils.addSink(isAMO, "ISAMO2")
@@ -643,17 +651,20 @@ class pipeline_lsu_atom extends NutCoreModule with HasLSUConst {
   }
   val stage1 = Module(new pipeline_lsu_stage1)
   val stage2 = Module(new pipeline_lsu_stage2)
+  val stage_empty = Module(new pipeline_lsu_empty_stage)
   val atomstage = Module(new lsu_for_atom)
 
   val atomReq = LSUOpType.isAtom(func)
 
   val stage2_exp = WireInit(false.B)
 
+  val stage_empty_exp = WireInit(false.B)
+
   val lsu_firststage_fire = WireInit(false.B)
 
   val addr = WireInit(src1)
 
-  stage1.io.in.valid := valid && !stage2_exp && !atomReq && Mux(stage2.io.in.valid,stage2.io.out.ready,true.B)
+  stage1.io.in.valid := valid && !stage2_exp && !stage_empty_exp && !atomReq && Mux(stage2.io.in.valid,stage2.io.out.ready,true.B)
   stage1.io.flush    := io.flush
   stage1.io.in.bits  := 0.U.asTypeOf(new SIMD_Pipelsu_Bundle)
   stage1.io.in.bits.src1  := src1
@@ -673,47 +684,66 @@ class pipeline_lsu_atom extends NutCoreModule with HasLSUConst {
   atomstage.io.out.ready     := io.out.ready
   
   PipelineConnect(stage1.io.out, stage2.io.in, stage2.io.out.fire(), io.flush)
-  stage2_exp  := stage2.io.out.valid && (stage2.io.out.bits.loadAddrMisaligned || stage2.io.out.bits.storeAddrMisaligned || stage2.io.out.bits.storePF || stage2.io.out.bits.loadPF)
+  stage2_exp  := stage2.io.in.valid && (stage2.io.out.bits.loadAddrMisaligned || stage2.io.out.bits.storeAddrMisaligned || stage2.io.out.bits.storePF || stage2.io.out.bits.loadPF)
   stage2.io.flush := io.flush
   stage2.io.out.ready := io.out.ready
+
+  stage_empty_exp := stage_empty.io.in.valid && (stage_empty.io.out.bits.loadAddrMisaligned || stage_empty.io.out.bits.storeAddrMisaligned || stage_empty.io.out.bits.storePF || stage_empty.io.out.bits.loadPF)
+  stage_empty.io.flush := io.flush
+  stage_empty.io.out.ready := io.out.ready
 
   val fake_dmem = 0.U.asTypeOf(new SimpleBusUC(addrBits = VAddrBits))
 
   atomstage.io.dmem <> fake_dmem
   stage1.io.dmem <> fake_dmem
   stage2.io.dmem <> fake_dmem
+  stage_empty.io.dmem <> fake_dmem
   
+  val empty_out = WireInit(0.U.asTypeOf(Decoupled(new SIMD_Pipelsu_Bundle)))
   when(atomstage.io.in.valid){
-    io.out.valid:= atomstage.io.out.valid
-    io.out.bits := atomstage.io.out.bits.result
-    io.isMMIO   := atomstage.io.out.bits.isMMIO
-    io.DecodeOut:= atomstage.io.out.bits.Decode
-    io.loadAddrMisaligned  := atomstage.io.out.valid && atomstage.io.out.bits.loadAddrMisaligned
-    io.storeAddrMisaligned := atomstage.io.out.valid && atomstage.io.out.bits.storeAddrMisaligned
-    io.storePF  := atomstage.io.out.valid && atomstage.io.out.bits.storePF
-    io.loadPF   := atomstage.io.out.valid && atomstage.io.out.bits.loadPF
-    io.dmem <> atomstage.io.dmem
-    lsu_firststage_fire := atomstage.io.out.fire()
-    addr := atomstage.io.out.bits.addr
+    empty_out.valid := atomstage.io.out.valid
+    empty_out.bits  := atomstage.io.out.bits
+    atomstage.io.out.ready := empty_out.ready
+  }.elsewhen(stage2.io.in.valid && stage2_exp){
+    empty_out.valid := stage2.io.out.valid
+    empty_out.bits  := stage2.io.out.bits
+    stage2.io.out.ready := empty_out.ready
+  }
+  PipelineConnect(empty_out, stage_empty.io.in, stage_empty.io.out.fire(), io.flush)
+
+  io.loadAddrMisaligned  := stage_empty.io.out.valid && stage_empty.io.out.bits.loadAddrMisaligned
+  io.storeAddrMisaligned := stage_empty.io.out.valid && stage_empty.io.out.bits.storeAddrMisaligned
+  io.storePF  := stage_empty.io.out.valid && stage_empty.io.out.bits.storePF
+  io.loadPF   := stage_empty.io.out.valid && stage_empty.io.out.bits.loadPF
+  addr := stage_empty.io.out.bits.addr
+  when(stage_empty.io.in.valid){
+    io.out.valid:= stage_empty.io.out.valid
+    io.out.bits := stage_empty.io.out.bits.result
+    io.isMMIO   := stage_empty.io.out.bits.isMMIO
+    io.DecodeOut:= stage_empty.io.out.bits.Decode
   }.otherwise{
-    io.out.valid:= stage2.io.out.valid
+    io.out.valid:= stage2.io.out.valid && !stage2_exp
     io.out.bits := stage2.io.out.bits.result
     io.isMMIO   := stage2.io.out.bits.isMMIO
     io.DecodeOut:= stage2.io.out.bits.Decode
-    io.loadAddrMisaligned  := stage2.io.out.valid && stage2.io.out.bits.loadAddrMisaligned
-    io.storeAddrMisaligned := stage2.io.out.valid && stage2.io.out.bits.storeAddrMisaligned
-    io.storePF  := stage2.io.out.valid && stage2.io.out.bits.storePF
-    io.loadPF   := stage2.io.out.valid && stage2.io.out.bits.loadPF
+  }
+
+  when(atomstage.io.in.valid){
+    io.dmem <> atomstage.io.dmem
+    lsu_firststage_fire := atomstage.io.out.fire()
+  }.otherwise{
     io.dmem.req <> stage1.io.dmem.req
     io.dmem.resp <> stage2.io.dmem.resp
     stage1.io.dmem.resp <> DontCare
     stage2.io.dmem.req  <> DontCare
     lsu_firststage_fire := stage1.io.out.fire()
-    addr := stage2.io.out.bits.addr
   }
+
   io.in.ready  := !valid || lsu_firststage_fire
   BoringUtils.addSource(lsu_firststage_fire,"lsu_firststage_fire")
   BoringUtils.addSource(addr,"LSUADDR")
 
   Debug("stage1pc %x outvalid %x stage2pc %x outvalid %x\n",stage1.io.out.bits.Decode.cf.pc,stage1.io.out.valid,stage2.io.out.bits.Decode.cf.pc,stage2.io.out.valid)
+  Debug("stage2exp %x stageemptyexp %x\n",stage2_exp,stage_empty_exp)
+  Debug("stageemptyinvalid %x stageemptyinready %x stageemptyoutvalid %x stageemptyoutready %x\n",stage_empty.io.in.valid,stage_empty.io.in.ready,stage_empty.io.out.valid,stage_empty.io.out.ready)
 }

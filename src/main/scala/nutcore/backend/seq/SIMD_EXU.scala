@@ -337,7 +337,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   BoringUtils.addSource(io.memMMU.dmem.storePF,"storePF")
   csr.io.cfIn.exceptionVec(loadPageFault) := hasLoadPF 
   csr.io.cfIn.exceptionVec(storePageFault) := hasStorePF
-  val lsuexp = (lsu.io.loadAddrMisaligned || lsu.io.storeAddrMisaligned || hasStorePF || hasLoadPF) && lsu.io.out.valid
+  val lsuexp = (lsu.io.loadAddrMisaligned || lsu.io.storeAddrMisaligned || hasStorePF || hasLoadPF)
   val csrfix =  csr.io.wenFix && io.in(csridx).valid
   csr.io.instrValid := (io.in(csridx).valid || lsuexp) && io.out(csridx).fire()
   //csr.io.isBackendException := false.B
