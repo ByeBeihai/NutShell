@@ -71,9 +71,9 @@ object FuType extends HasNutCoreConst {
   def alu1= if(Polaris_Independent_Bru == 1){(Polaris_Independent_Bru + 3 + Polaris_SIMDU_WAY_NUM + 1).U(width.W)}else{"b010".U}
   def bru = if(Polaris_Independent_Bru == 1){"b000".U}else{alu1}
   def simdu = simduint.U(width.W)
-  def simduint = if(Polaris_Independent_Bru == 1){2}else{3}
+  def simduint = if(Polaris_SIMDU_WAY_NUM != 0){if(Polaris_Independent_Bru == 1){2}else{3}}else{0}
   def simdu1 = simdu1int.U(width.W)
-  def simdu1int = if(Polaris_Independent_Bru == 1){3}else{4}
+  def simdu1int = if(Polaris_SIMDU_WAY_NUM != 0){if(Polaris_Independent_Bru == 1){3}else{4}}else{0}
   def apply() = UInt(width.W)
 }
 
@@ -91,11 +91,13 @@ object Instructions extends HasInstrType with HasNutCoreParameter {
     //Priviledged.table_s ++
     RVAInstr.table ++
     RVZicsrInstr.table ++ RVZifenceiInstr.table ++
+    (if(Polaris_SIMDU_WAY_NUM != 0){
     RVPInstr.table ++
     RVPIInstr.table ++
     RVPMInstr.table ++
     RVPBInstr.table ++
     RVPRDInstr.table 
+    }else Nil)
 }
 
 object CInstructions extends HasInstrType with HasNutCoreParameter{

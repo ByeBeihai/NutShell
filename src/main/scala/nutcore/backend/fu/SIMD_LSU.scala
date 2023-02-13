@@ -409,7 +409,6 @@ class multicycle_lsu_atom extends NutCoreModule with HasLSUConst {
     BoringUtils.addSink(lrAddr, "lr_addr")
 
     val scInvalid = !(src1 === lrAddr) && scReq
-    Debug("setLr %x setLrVal %x setLrAddr %x lr %x lrAddr %x src1 %x\n",setLr,setLrVal,setLrAddr,lr,lrAddr,src1)
 
     // PF signal from TLB
     val dtlbFinish = WireInit(false.B)
@@ -513,10 +512,10 @@ class multicycle_lsu_atom extends NutCoreModule with HasLSUConst {
     BoringUtils.addSink(storePF, "storePF")
     val hasLoadPF = RegInit(false.B)
     val hasStorePF= RegInit(false.B)
-    when(loadPF){
+    when(loadPF && io.in.valid){
       hasLoadPF := true.B
     } 
-    when(storePF){
+    when(storePF&& io.in.valid){
       hasStorePF := true.B
     }
     when(io.flush || io.out.fire()){
@@ -680,5 +679,4 @@ class multicycle_lsu_atom extends NutCoreModule with HasLSUConst {
   BoringUtils.addSource(BoolStopWatch(dmem.isWrite(), dmem.resp.fire()), "perfCntCondMstoreStall")
   BoringUtils.addSource(io.isMMIO && io.out.fire(), "perfCntCondMmmioInstr")
 }
-
 

@@ -254,7 +254,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     io.out(FuType.simdu1).bits.commits := simdu1Out
     io.in(simduidx).ready  := simdu.io.in(0).ready
     io.in(simdu1idx).ready := simdu.io.in(1).ready
-  }else{
+  }else if(Polaris_SIMDU_WAY_NUM == 1){
     val simduidx = FuType.simdu
     val simdu = Module(new SIMDU)
     val simduOut = simdu.access(valid = io.in(simduidx).valid, src1 = src1(simduidx), src2 = src2(simduidx), func = fuOpType(simduidx))
@@ -314,7 +314,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   val csr_bits = Mux(io.in(csridx).valid, io.in(csridx).bits,lsu.io.DecodeOut)
   val csr = Module(new new_SIMD_CSR)
   val csrOut = csr.access(valid = io.in(csridx).valid, src1 = src1(csridx), src2 = src2(csridx), func = fuOpType(csridx),isMou = csr_bits.ctrl.isMou)
-  Debug("isMou %x lsumou %x csrmou %x\n",csr_bits.ctrl.isMou,io.in(lsuidx).bits.ctrl.isMou,io.in(csridx).bits.ctrl.isMou)
+  Debug("isMou %x lsumou %x csrmou %x\n",csr_bits.ctrl.isMou,lsu.io.DecodeOut.ctrl.isMou,io.in(csridx).bits.ctrl.isMou)
   csr.io.cfIn := Mux(io.in(csridx).valid, io.in(csridx).bits.cf,lsu.io.DecodeOut.cf)
   csr.io.ctrlIn := Mux(io.in(csridx).valid, io.in(csridx).bits.ctrl,lsu.io.DecodeOut.ctrl)
   csr.io.cfIn.exceptionVec(loadAddrMisaligned) := lsu.io.loadAddrMisaligned 
@@ -337,7 +337,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   BoringUtils.addSource(io.memMMU.dmem.storePF,"storePF")
   csr.io.cfIn.exceptionVec(loadPageFault) := hasLoadPF 
   csr.io.cfIn.exceptionVec(storePageFault) := hasStorePF
-  val lsuexp = (lsu.io.loadAddrMisaligned || lsu.io.storeAddrMisaligned || hasStorePF || hasLoadPF)
+  val lsuexp = (lsu.io.loadAddrMisaligned || lsu.io.storeAddrMisaligned || hasStorePF || hasLoadPF)// && lsu.io.in.valid
   val csrfix =  csr.io.wenFix && io.in(csridx).valid
   csr.io.instrValid := (io.in(csridx).valid || lsuexp) && io.out(csridx).fire()
   //csr.io.isBackendException := false.B

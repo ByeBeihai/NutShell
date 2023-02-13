@@ -144,20 +144,25 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   for(i <- 0 to Issue_Num-1){
     io.wb.ReadData1(i):=rf.read(io.wb.rfSrc1(i))
     io.wb.ReadData2(i):=rf.read(io.wb.rfSrc2(i))
-    io.wb.ReadData3(i):=rf.read(io.wb.rfSrc3(i))
+    io.wb.ReadData3(i):=DontCare
+    if(Polaris_SIMDU_WAY_NUM!=0){
+      io.wb.ReadData3(i):=rf.read(io.wb.rfSrc3(i))
+    }
   }
   for(i <- 0 to FuType.num-1){
     io.in(i).ready := true.B
   }
 
   //P-EXT
-  val bool_wire = WireInit(false.B)
-  for(i <- 0 to FuType.num-1){
-    when(io.in(i).valid && io.in(i).bits.decode.pext.OV && !FronthasRedirect(i)){
-      bool_wire := true.B
+  if(Polaris_SIMDU_WAY_NUM!=0){
+    val bool_wire = WireInit(false.B)
+    for(i <- 0 to FuType.num-1){
+      when(io.in(i).valid && io.in(i).bits.decode.pext.OV && !FronthasRedirect(i)){
+        bool_wire := true.B
+      }
     }
+    BoringUtils.addSource(bool_wire,"OVWEN")
   }
-  BoringUtils.addSource(bool_wire,"OVWEN")
   
   val runahead_redirect = Module(new DifftestRunaheadRedirectEvent)
   runahead_redirect.io.clock := clock
