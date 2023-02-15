@@ -815,7 +815,7 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
     }
   }
   exu_bits := exu_bits_next
-  Debug("match_operaotr(0)(5) %x match_operator(0)(0) %x \n",match_operaotr(0)(5),match_operaotr(0)(0))
+  //Debug("match_operaotr(0)(5) %x match_operator(0)(0) %x \n",match_operaotr(0)(5),match_operaotr(0)(0))
   
   when(reset.asBool || io.flush(0)){
     (0 to FuType.num-1).map(i => exu_valid(i) := false.B)
