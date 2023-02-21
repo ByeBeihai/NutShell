@@ -91,13 +91,11 @@ object Instructions extends HasInstrType with HasNutCoreParameter {
     //Priviledged.table_s ++
     RVAInstr.table ++
     RVZicsrInstr.table ++ RVZifenceiInstr.table ++
-    (if(Polaris_SIMDU_WAY_NUM != 0){
     RVPInstr.table ++
     RVPIInstr.table ++
     RVPMInstr.table ++
     RVPBInstr.table ++
     RVPRDInstr.table 
-    }else Nil)
 }
 
 object CInstructions extends HasInstrType with HasNutCoreParameter{

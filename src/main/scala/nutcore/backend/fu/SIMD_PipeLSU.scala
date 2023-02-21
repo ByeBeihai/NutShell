@@ -419,7 +419,12 @@ class lsu_for_atom extends NutCoreModule with HasLSUConst {
 
     switch (state) {
       is(s_idle){  
-        io.out.valid  := scInvalid
+        exec_valid := io.in.valid && !atomReq
+        exec_addr  := src1 + src2
+        exec_func  := func
+        exec_wdata := io.in.bits.wdata
+        exec_clear := io.out.ready
+        io.out.valid  := exec_finish  || scInvalid
         state := s_idle
 
         when(amoReq){state := s_amo_l}
@@ -491,7 +496,7 @@ class lsu_for_atom extends NutCoreModule with HasLSUConst {
 
     //Set LR/SC bits
     setLr := io.out.fire() && (lrReq || scReq)
-    setLrVal := lrReq //&& Mux(lr,lrAddr === setLrAddr,true.B)
+    setLrVal := lrReq
     setLrAddr := src1
 
     io.out.bits.result := Mux(scReq, scInvalid, Mux(state === s_amo_s, atomRegReg, exec_result))
@@ -601,9 +606,16 @@ class lsu_for_atom extends NutCoreModule with HasLSUConst {
   ))
   val rdataSel = if (XLEN == 32) rdataSel32 else rdataSel64
   val rdataPartialLoad = LookupTree(exec_func, List(
+      LSUOpType.lb   -> SignExt(rdataSel(7, 0) , XLEN),
+      LSUOpType.lh   -> SignExt(rdataSel(15, 0), XLEN),
       LSUOpType.lw   -> SignExt(rdataSel(31, 0), XLEN),
+      LSUOpType.lbu  -> ZeroExt(rdataSel(7, 0) , XLEN),
+      LSUOpType.lhu  -> ZeroExt(rdataSel(15, 0), XLEN),
+      LSUOpType.lwu  -> ZeroExt(rdataSel(31, 0), XLEN)
   ))
   val addrAligned = LookupTree(exec_func(1,0), List(
+    "b00".U   -> true.B,            //b
+    "b01".U   -> (exec_addr(0) === 0.U),   //h
     "b10".U   -> (exec_addr(1,0) === 0.U), //w
     "b11".U   -> (exec_addr(2,0) === 0.U)  //d
   ))
