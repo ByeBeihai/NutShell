@@ -39,7 +39,10 @@ object DefaultSettings {
     "FPGAPlatform" -> false,
     "EnableILA" -> true,
     "EnableDebug" -> true,
-    "EnableRVC" -> true
+    "EnableRVC" -> true,
+    "Issue_Num" -> 2,
+    "Polaris_Independent_Bru" -> 1, //0 or 1
+    "Polaris_SIMDU_WAY_NUM" -> 2   //1 or 2
   )
 }
 
