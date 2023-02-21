@@ -414,6 +414,8 @@ class EmbeddedTLB_fake(implicit val tlbConfig: TLBConfig) extends TlbModule with
   io.csrMMU.storePF := false.B
   io.csrMMU.addr := io.in.req.bits.addr
   io.ipf := false.B
+  val ismmio = io.out.req.fire() && AddressSpace.isMMIO(io.in.req.bits.addr)	
+  BoringUtils.addSource(ismmio,"lsuMMIO")
 }
 
 

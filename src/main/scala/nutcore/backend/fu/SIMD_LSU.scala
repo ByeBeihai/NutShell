@@ -512,10 +512,10 @@ class multicycle_lsu_atom extends NutCoreModule with HasLSUConst {
     BoringUtils.addSink(storePF, "storePF")
     val hasLoadPF = RegInit(false.B)
     val hasStorePF= RegInit(false.B)
-    when(loadPF){
+    when(loadPF && io.in.valid){
       hasLoadPF := true.B
     } 
-    when(storePF){
+    when(storePF && io.in.valid){
       hasStorePF := true.B
     }
     when(io.flush || io.out.fire()){

@@ -191,6 +191,16 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   }
   Debug("[SIMD_WBU] redirctindex %x redirctvalid %x redircttarget %x \n",redirct_index,io.redirect.valid,io.redirect.target)
   Debug("[SIMD_WBU] t0 %x \n",rf.read(5.U))
+  val a = RegInit(false.B)
+  val b = RegInit(0.U(AddrBits.W))
+  when(a){
+    b := b + 1.U
+  }
+  when(io.in(0).bits.isMMIO && io.in(0).valid){
+    a := true.B
+    b := 0.U
+  }
+  Debug("[SIMD_WBU] ismmiotime %d \n",b)
   if (!p.FPGAPlatform) {
     for(i <- 0 to FuType.num-1){
     val difftest_commit = Module(new DifftestInstrCommit)
