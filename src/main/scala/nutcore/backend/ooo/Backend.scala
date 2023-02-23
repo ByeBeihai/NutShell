@@ -891,52 +891,6 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
     exu.io.out(FuType.lsu).ready := lsuoutready
   }
 
-  if(p.FPGAPlatform){
-    for(i <- 0 to FuType.num-1){
-      for(j <- 0 to FuType.num-1){
-        val wbu_matched = (0 to j).map( k => {if(k == j){
-                                              false.B
-                                              }else{
-                                              match_exuwbu(i)(k)
-                                              }}).reduce(_||_)
-        val front_wbu_matched = {if(i == 0){true.B}else{match_exuwbu(i-1).reduce(_||_)}}
-        when(Mux((i+1).U <= ptrleft,exu.io.out(j).bits.decode.InstNo === (TailPtr +& i.U),exu.io.out(j).bits.decode.InstNo +& ptrleft === i.U) && exu.io.out(j).valid && front_wbu_matched && !wbu_matched){
-          exu.io.out(j).ready := true.B
-          wbu_bits_next(i) := exu.io.out(j).bits
-          wbu_valid_next(i) := true.B
-          match_exuwbu(i)(j) := true.B
-        }
-      }
-    }
-    val lsuoutready = WireInit(true.B)
-    val lsuInstNo = Mux(exu.io.out(FuType.lsu).bits.decode.InstNo >= TailPtr, exu.io.out(FuType.lsu).bits.decode.InstNo - TailPtr,exu.io.out(FuType.lsu).bits.decode.InstNo + ptrleft)
-    for(i <- 0 to FuType.num-1){
-      when(i.U < lsuInstNo && !wbu_valid_next(i)){
-        lsuoutready :=false.B
-      }
-    }
-    exu.io.out(FuType.lsu).ready := lsuoutready
-  }else{
-    for(i <- 0 to FuType.num-1){
-      for(j <- 0 to FuType.num-1){
-        val wbu_matched = (0 to j).map( k => {if(k == j){
-                                              false.B
-                                              }else{
-                                              match_exuwbu(i)(k)
-                                              }}).reduce(_||_)
-        val front_wbu_matched = {if(i == 0){true.B}else{match_exuwbu(i-1).reduce(_||_)}}
-        when(Mux((i+1).U <= ptrleft,exu.io.out(j).bits.decode.InstNo === (TailPtr +& i.U),exu.io.out(j).bits.decode.InstNo +& ptrleft === i.U) && front_wbu_matched && !wbu_matched){
-          exu.io.out(j).ready := true.B
-          when(exu.io.out(j).valid){
-            wbu_bits_next(i) := exu.io.out(j).bits
-            wbu_valid_next(i) := true.B
-            match_exuwbu(i)(j) := true.B
-          }
-        }
-      }
-    }
-  }
-
   val num_enterwbu = exu.io.out.map(i => i.fire().asUInt).reduce(_+&_)
   when(reset.asBool){
     (0 to FuType.num-1).map(i => wbu_valid(i) := false.B)
