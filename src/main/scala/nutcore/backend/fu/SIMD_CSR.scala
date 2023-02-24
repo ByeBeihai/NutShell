@@ -553,6 +553,7 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     val s = new Priv
   }
 
+  // Atom LR/SC Control Bits
   val setLr = WireInit(Bool(), false.B)
   val setLrVal = WireInit(Bool(), false.B)
   val setLrAddr = WireInit(UInt(AddrBits.W), DontCare) //TODO : need check
@@ -761,7 +762,7 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     rdata := mipWire.asUInt | mipReg
     when(RegWen){mipReg := (wdata & sipMask) | (mipReg & ~sipMask)}
   }.elsewhen(addr === Mip.U){
-    rdata := mipWire.asUInt | mipReg
+    rdata := mipWire.asUInt | mipReg //when need diff on rtthread，set it to 0.U
     when(RegWen){mipReg:= (wdata & mipFixMask) | (mipReg & ~mipFixMask)}
   }.otherwise{
     rdata := 0.U
@@ -787,7 +788,7 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   // Exception and Intr
   // interrupts
   val intrVecEnable = Wire(Vec(12, Bool()))
-  (0 to 12-1).map(i => intrVecEnable(i) := Mux(priviledgeMode < ModeM,  (priviledgeMode === ModeS && mstatusStruct.ie.s) || priviledgeMode < ModeS
+  (0 to 12-1).map(i => intrVecEnable(i) := Mux(priviledgeMode < ModeM,  (priviledgeMode === ModeS && mstatusStruct.ie.s) || !mideleg(i) || priviledgeMode < ModeS
                                                                         , !mideleg(i) && mstatusStruct.ie.m))
   val mipVec  = mipWire.asUInt | mipReg
   val intrVec = mie(11,0) & mipVec & intrVecEnable.asUInt
@@ -882,7 +883,7 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
       retTarget := uepc(VAddrBits-1, 0)
     }
     mstatus := mstatusNew.asUInt
-    lr := false.B
+    lr:=false.B
   }
 
   //connect tlb about satp

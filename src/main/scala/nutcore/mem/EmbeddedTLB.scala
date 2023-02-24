@@ -414,7 +414,7 @@ class EmbeddedTLB_fake(implicit val tlbConfig: TLBConfig) extends TlbModule with
   io.csrMMU.storePF := false.B
   io.csrMMU.addr := io.in.req.bits.addr
   io.ipf := false.B
-  val ismmio = io.out.req.fire() && AddressSpace.isMMIO(io.in.req.bits.addr)	
+  val ismmio = io.out.req.fire() && AddressSpace.isMMIO(io.in.req.bits.addr)
   BoringUtils.addSource(ismmio,"lsuMMIO")
 }
 
@@ -629,7 +629,7 @@ class SIMD_TLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasTLBI
     BoringUtils.addSource(tlbFinish, "DTLBFINISH")
     BoringUtils.addSource(io.csrMMU.isPF(), "DTLBPF")
     BoringUtils.addSource(vmEnable, "DTLBENABLE")
-    BoringUtils.addSource(ismmio,"lsuMMIO")
+    BoringUtils.addSource(ismmio,"lsuMMIO") 
     }
     Debug("alreadyOutFinish %x \n",alreadyOutFinish)
   }
