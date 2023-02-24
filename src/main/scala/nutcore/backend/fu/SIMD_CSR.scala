@@ -881,8 +881,8 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
       mstatusNew.pie.u := true.B
       retTarget := uepc(VAddrBits-1, 0)
     }
-    lr := false.B
     mstatus := mstatusNew.asUInt
+    lr := false.B
   }
 
   //connect tlb about satp
