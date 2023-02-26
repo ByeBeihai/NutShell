@@ -496,7 +496,7 @@ class lsu_for_atom extends NutCoreModule with HasLSUConst {
 
     //Set LR/SC bits
     setLr := io.out.fire() && (lrReq || scReq)
-    setLrVal := lrReq //&& Mux(lr,lrAddr === setLrAddr,true.B)
+    setLrVal := lrReq
     setLrAddr := src1
 
     io.out.bits.result := Mux(scReq, scInvalid, Mux(state === s_amo_s, atomRegReg, exec_result))
