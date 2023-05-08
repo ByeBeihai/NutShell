@@ -158,6 +158,7 @@ class pipeline_lsu_stage1 extends NutCoreModule with HasLSUConst {
     wdata = reqWdata,
     wmask = reqWmask,
     cmd = Mux(isStore, SimpleBusCmd.write, SimpleBusCmd.read))
+  dmem.req.bits.vector := DontCare
   dmem.req.valid := exec_valid && (req_state === s_init) && !hasloadAddrMisaligned && !hasstoreAddrMisaligned && !io.flush
   dmem.resp <> DontCare
   
@@ -198,6 +199,8 @@ class pipeline_lsu_stage1 extends NutCoreModule with HasLSUConst {
     io.in.ready := false.B
   }
   io.out.bits.addr := exec_addr
+  
+
 }
 
 class pipeline_lsu_stage2 extends NutCoreModule with HasLSUConst {
@@ -582,6 +585,7 @@ class lsu_for_atom extends NutCoreModule with HasLSUConst {
     wdata = reqWdata,
     wmask = reqWmask,
     cmd = Mux(isStore, SimpleBusCmd.write, SimpleBusCmd.read))
+  dmem.req.bits.vector := DontCare
   dmem.req.valid := exec_valid && (req_state === s_init) && !io.out.bits.loadAddrMisaligned && !io.out.bits.storeAddrMisaligned && !io.flush
   dmem.resp.ready := true.B
   

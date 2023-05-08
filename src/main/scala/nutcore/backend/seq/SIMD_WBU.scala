@@ -121,8 +121,7 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     val wb = new new_SIMD_WriteBackIO
     val redirect = new RedirectIO
   })
-
-  val rf = new RegFile
+  def bool2int(b:Boolean) = if (b) 1 else 0
 
   val redirct_index = PriorityMux(VecInit((0 to Commit_num-1).map(i => io.in(i).bits.decode.cf.redirect.valid && io.in(i).valid)).zipWithIndex.map{case(a,b)=>(a,b.U)})
   io.redirect := io.in(redirct_index).bits.decode.cf.redirect
@@ -130,6 +129,7 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
 
   val FronthasRedirect = VecInit((0 to Commit_num-1).map(i => i.U > redirct_index))
 
+  //forward
   for(i <- 0 to Commit_num-1){
     io.wb.rfWen(i) := io.in(i).bits.decode.ctrl.rfWen && io.in(i).valid 
     io.wb.rfDest(i) := io.in(i).bits.decode.ctrl.rfDest
@@ -137,18 +137,58 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     io.wb.valid(i) :=io.in(i).valid
     io.wb.InstNo(i) := io.in(i).bits.decode.InstNo
   }
-  for(i<-0 to Commit_num-1){
-    when (io.wb.rfWen(i) && !FronthasRedirect(i)) { rf.write(io.wb.rfDest(i), io.wb.WriteData(i)) }
-    when(reset.asBool){rf.write(io.wb.rfDest(i), 0.U)}
-  }
-  for(i <- 0 to Issue_Num-1){
-    io.wb.ReadData1(i):=rf.read(io.wb.rfSrc1(i))
-    io.wb.ReadData2(i):=rf.read(io.wb.rfSrc2(i))
-    io.wb.ReadData3(i):=DontCare
-    if(Polaris_SIMDU_WAY_NUM!=0){
-      io.wb.ReadData3(i):=rf.read(io.wb.rfSrc3(i))
+
+  //register (banks)
+  if(Polaris_RegBanks){
+    val rf_banks = for (i <- 0 until Issue_Num) yield {
+      val rf_unit = for (j <- 0 until 2 + bool2int(Polaris_SIMDU_WAY_NUM != 0)) yield {
+        val rf = new RegFile
+        rf
+      } 
+      rf_unit
+    }
+    for(i<-0 to Commit_num-1){
+      when (io.wb.rfWen(i) && !FronthasRedirect(i)) {(0 to Issue_Num-1).map(m => ((0 to (2 + bool2int(Polaris_SIMDU_WAY_NUM != 0) - 1)).map(n => rf_banks(m)(n).write(io.wb.rfDest(i), io.wb.WriteData(i)))))}
+    }
+    for(i <- 0 to Issue_Num-1){
+      io.wb.ReadData1(i):=rf_banks(i)(0).read(io.wb.rfSrc1(i))
+      io.wb.ReadData2(i):=rf_banks(i)(1).read(io.wb.rfSrc2(i))
+      io.wb.ReadData3(i):=DontCare
+      if(Polaris_SIMDU_WAY_NUM!=0){
+        io.wb.ReadData3(i):=rf_banks(i)(2).read(io.wb.rfSrc3(i))
+      }
+    }
+    if (!p.FPGAPlatform) {
+      when(reset.asBool){(0 to Issue_Num-1).map(i => ((0 to (2 + bool2int(Polaris_SIMDU_WAY_NUM != 0) - 1)).map(j => (0 to NRReg-1).map(k => rf_banks(i)(j).write(k.U, 0.U)))))}
+      val difftest = Module(new DifftestArchIntRegState)
+      difftest.io.clock  := clock
+      difftest.io.coreid := 0.U 
+      difftest.io.gpr    := VecInit((0 to NRReg-1).map(i => rf_banks(0)(0).read(i.U)))
+    }
+  }else{
+    val rf = new RegFile
+    for(i<-0 to Commit_num-1){
+      when (io.wb.rfWen(i) && !FronthasRedirect(i)) { rf.write(io.wb.rfDest(i), io.wb.WriteData(i)) }
+      when(reset.asBool){rf.write(io.wb.rfDest(i), 0.U)}
+    }
+    for(i <- 0 to Issue_Num-1){
+      io.wb.ReadData1(i):=rf.read(io.wb.rfSrc1(i))
+      io.wb.ReadData2(i):=rf.read(io.wb.rfSrc2(i))
+      io.wb.ReadData3(i):=DontCare
+      if(Polaris_SIMDU_WAY_NUM!=0){
+        io.wb.ReadData3(i):=rf.read(io.wb.rfSrc3(i))
+      }
+    }
+    if (!p.FPGAPlatform) {
+      when(reset.asBool){(0 to NRReg-1).map(k => rf.write(k.U, 0.U))}
+      val difftest = Module(new DifftestArchIntRegState)
+      difftest.io.clock  := clock
+      difftest.io.coreid := 0.U 
+      difftest.io.gpr    := VecInit((0 to NRReg-1).map(i => rf.read(i.U)))
     }
   }
+
+  
   for(i <- 0 to Commit_num-1){
     io.in(i).ready := true.B
   }
@@ -190,7 +230,6 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     Debug("[SIMD_WBU] issue %x valid %x pc %x wen %x wdata %x wdest %x futype %x instno %x isMMIO %x redirectvalid %x redirecttarget %x \n",i.U,io.in(i).valid,io.in(i).bits.decode.cf.pc,io.wb.rfWen(i),io.wb.WriteData(i),io.wb.rfDest(i),io.in(i).bits.decode.ctrl.fuType,io.in(i).bits.decode.InstNo,io.in(i).bits.isMMIO,io.in(i).bits.decode.cf.redirect.valid,io.in(i).bits.decode.cf.redirect.target)
   }
   Debug("[SIMD_WBU] redirctindex %x redirctvalid %x redircttarget %x \n",redirct_index,io.redirect.valid,io.redirect.target)
-  Debug("[SIMD_WBU] t0 %x \n",rf.read(5.U))
   if (!p.FPGAPlatform) {
     for(i <- 0 to Commit_num-1){
     val difftest_commit = Module(new DifftestInstrCommit)
@@ -235,11 +274,5 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     BoringUtils.addSource(io.wb.rfDest(i), "ilaWBUrfDest")
     BoringUtils.addSource(io.wb.WriteData(i), "ilaWBUrfData")
     }
-  }
-  if (!p.FPGAPlatform) {
-    val difftest = Module(new DifftestArchIntRegState)
-    difftest.io.clock  := clock
-    difftest.io.coreid := 0.U 
-    difftest.io.gpr    := VecInit((0 to NRReg-1).map(i => rf.read(i.U)))
   }
 }

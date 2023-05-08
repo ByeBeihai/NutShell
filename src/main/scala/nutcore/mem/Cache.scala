@@ -328,6 +328,8 @@ sealed class CacheStage3(implicit val cacheConfig: CacheConfig) extends CacheMod
   io.mem.req.bits.apply(addr = Mux(state === s_memReadReq, raddr, waddr),
     cmd = cmd, size = (if (XLEN == 64) "b11".U else "b10".U),
     wdata = dataHitWay, wmask = Fill(DataBytes, 1.U))
+  io.mem.req.bits.vector := DontCare
+  io.out.bits.vector := DontCare
 
   io.mem.resp.ready := true.B
   io.mem.req.valid := (state === s_memReadReq) || ((state === s_memWriteReq) && (state2 === s2_dataOK))
@@ -350,6 +352,7 @@ sealed class CacheStage3(implicit val cacheConfig: CacheConfig) extends CacheMod
   val releaseLast = Counter(state === s_release && io.cohResp.fire(), LineBeats)._2
   io.cohResp.bits.cmd := Mux(state === s_release, Mux(releaseLast, SimpleBusCmd.readLast, 0.U),
     Mux(hit, SimpleBusCmd.probeHit, SimpleBusCmd.probeMiss))
+  io.cohResp.bits.vector := DontCare
 
   val respToL1Fire = hitReadBurst && io.out.ready && state2 === s2_dataOK
   val respToL1Last = Counter((state === s_idle || state === s_release && state2 === s2_dataOK) && hitReadBurst && io.out.ready, LineBeats)._2
@@ -518,6 +521,7 @@ class Cache(implicit val cacheConfig: CacheConfig) extends CacheModule with HasC
     // coh does not have user signal, any better code?
     val coh = Wire(new SimpleBusReqBundle(userBits = userBits, idBits = idBits))
     coh.apply(addr = cohReq.addr, cmd = cohReq.cmd, size = cohReq.size, wdata = cohReq.wdata, wmask = cohReq.wmask)
+    coh.vector := DontCare
     arb.io.in(0).bits := coh
     arb.io.in(0).valid := io.out.coh.req.valid
     io.out.coh.req.ready := arb.io.in(0).ready

@@ -54,6 +54,13 @@ class SimpleBusReqBundle(val userBits: Int = 0, val addrBits: Int = 32, val idBi
   val wdata = Output(UInt(DataBits.W))
   val user = if (userBits > 0) Some(Output(UInt(userBits.W))) else None
   val id = if (idBits > 0) Some(Output(UInt(idBits.W))) else None
+  val vector = new Bundle{
+    val vstep = Output(UInt(addrBits.W))
+    val vwdata = Output(UInt(256.W))
+    val velen = Output(UInt(log2Up(4).W)) // 0123 分别对应 8  16  32  64
+    val vxlen = Output(UInt(log2Up(4).W)) // 012  分别对应 64 128 256 
+  }
+
 
   override def toPrintable: Printable = {
     p"addr = 0x${Hexadecimal(addr)}, cmd = ${cmd}, size = ${size}, " +
@@ -85,6 +92,9 @@ class SimpleBusRespBundle(val userBits: Int = 0, val idBits: Int = 0) extends Si
   val rdata = Output(UInt(64.W))  // TODO: when frontend datapath support 32bit, set DataBits.W here
   val user = if (userBits > 0) Some(Output(UInt(userBits.W))) else None
   val id = if (idBits > 0) Some(Output(UInt(idBits.W))) else None
+  val vector = new Bundle{
+    val vrdata = Output(UInt(512.W))
+  }
 
   override def toPrintable: Printable = p"rdata = ${Hexadecimal(rdata)}, cmd = ${cmd}"
 

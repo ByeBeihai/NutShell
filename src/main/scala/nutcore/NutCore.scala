@@ -55,7 +55,7 @@ trait HasNutCoreParameter {
   val Polaris_SIMDU_WAY_NUM = Settings.getInt("Polaris_SIMDU_WAY_NUM")   //1 or 2
   val Forward_num = 4 + Polaris_SIMDU_WAY_NUM
   val Commit_num = 3
-  
+  val Polaris_RegBanks = Settings.get("Polaris_RegBanks") //0 or 1
 }
 
 trait HasNutCoreConst extends HasNutCoreParameter {

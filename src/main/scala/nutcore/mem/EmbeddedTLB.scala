@@ -517,6 +517,7 @@ class SIMD_TLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasTLBI
     io.out.req.bits.wmask := io.in.req.bits.wmask
     io.out.req.bits.wdata := io.in.req.bits.wdata
     io.out.req.bits.user.map(_ := io.in.req.bits.user.getOrElse(0.U))
+    io.out.req.bits.vector := DontCare
     when(io.flush){state := s_idle}
     out_req.valid := false.B
     out_req.ready := false.B
@@ -649,17 +650,8 @@ class SIMD_TLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasTLBI
       io.ipf := tlbExec.io.ipf
     }
   }
-  val a = RegInit(0.U(64.W))
-  when(io.out.req.fire() && io.out.req.bits.addr === "h808005d0".U && io.out.isWrite()){a := io.out.req.bits.wdata}
 
-  val c1 = RegInit(false.B)
-  when((io.out.req.bits.addr) === "h81801000".U && io.out.req.fire() && io.out.isWrite()){c1 := true.B}
-  val c = RegInit(0.U(128.W))
-  when(c1){c := c + 1.U}
-  when((io.out.req.bits.addr) === "h81801000".U && io.out.req.fire() && io.out.isWrite()){c := 0.U}
-  Debug("c %x \n",c)
-
-  Debug("InReq(%d, %d) InResp(%d, %d) OutReq(%d, %d) OutResp(%d, %d) vmEnable:%d mode:%d a %x \n", io.in.req.valid, io.in.req.ready, io.in.resp.valid, io.in.resp.ready, io.out.req.valid, io.out.req.ready, io.out.resp.valid, io.out.resp.ready, vmEnable, io.csrMMU.priviledgeMode,a)
+  Debug("InReq(%d, %d) InResp(%d, %d) OutReq(%d, %d) OutResp(%d, %d) vmEnable:%d mode:%d \n", io.in.req.valid, io.in.req.ready, io.in.resp.valid, io.in.resp.ready, io.out.req.valid, io.out.req.ready, io.out.resp.valid, io.out.resp.ready, vmEnable, io.csrMMU.priviledgeMode)
   Debug("InReq: addr:%x cmd:%d wdata:%x OutReq: addr:%x cmd:%x wdata:%x\n", io.in.req.bits.addr, io.in.req.bits.cmd, io.in.req.bits.wdata, io.out.req.bits.addr, io.out.req.bits.cmd, io.out.req.bits.wdata)
   Debug("OutResp: rdata:%x cmd:%x Inresp: rdata:%x cmd:%x\n", io.out.resp.bits.rdata, io.out.resp.bits.cmd, io.in.resp.bits.rdata, io.in.resp.bits.cmd)
   Debug("satp:%x flush:%d cacheEmpty:%d instrPF:%d loadPF:%d storePF:%d \n", satp, io.flush, io.cacheEmpty, io.ipf, io.csrMMU.loadPF, io.csrMMU.storePF)
@@ -882,6 +874,7 @@ class SIMD_TLBEXEC(implicit val tlbConfig: TLBConfig) extends TlbModule{
   // mem
   val cmd = Mux(state === s_write_pte, SimpleBusCmd.write, SimpleBusCmd.read)
   io.mem.req.bits.apply(addr = Mux(hitWB, hitData.pteaddr, raddr), cmd = cmd, size = (if (XLEN == 64) "b11".U else "b10".U), wdata =  Mux( hitWB, hitWBStore, memRespStore), wmask = 0xff.U)
+  io.mem.req.bits.vector := DontCare
   io.mem.req.valid := ((state === s_memReadReq || state === s_write_pte) && !ioFlush)
   io.mem.resp.ready := true.B
 

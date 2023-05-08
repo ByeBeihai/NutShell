@@ -43,6 +43,7 @@ class SimpleBus2MemPortConverter(outType: MemPortIo) extends Module {
 
   io.in.resp.bits.rdata := io.out.resp.bits.data
   io.in.resp.bits.cmd := SimpleBusCmd.readLast
+  io.in.resp.bits.vector := DontCare
 }
 
 object SimpleBus2MemPortConverter {
