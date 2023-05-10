@@ -115,7 +115,7 @@ class SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegF
     difftest.io.gpr    := VecInit((0 to NRReg-1).map(i => rf.read(i.U)))
   }
 }
-class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegFileParameter{
+class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegFileParameter with HasLSUConst{
   val io = IO(new Bundle {
     val in = Vec(Commit_num,Flipped(Decoupled(new SIMD_CommitIO)))
     val wb = new new_SIMD_WriteBackIO
@@ -132,11 +132,27 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   //forward
   for(i <- 0 to Commit_num-1){
     io.wb.rfWen(i) := io.in(i).bits.decode.ctrl.rfWen && io.in(i).valid 
+    io.wb.rfVector(i) := io.in(i).bits.decode.ctrl.rfVector
     io.wb.rfDest(i) := io.in(i).bits.decode.ctrl.rfDest
     io.wb.WriteData(i) := io.in(i).bits.commits
     io.wb.valid(i) :=io.in(i).valid
     io.wb.InstNo(i) := io.in(i).bits.decode.InstNo
   }
+
+  val WriteDataVec = WireInit(0.U.asTypeOf(io.wb.ReadDataVec))
+  val WriteDestVec = WireInit(0.U.asTypeOf(io.wb.rfSrcVec))
+  val vec_num = WireInit(0.U(log2Up(NRReg).W))
+  val vec_no = WireInit(0.U.asTypeOf(io.wb.VecInstNo))
+  for(i <- 0 to Commit_num-1){
+      when(io.in(i).valid && io.in(i).bits.decode.ctrl.rfVector && io.in(i).bits.decode.ctrl.rfWen){
+        vec_no       := io.in(i).bits.decode.InstNo
+        vec_num      := 1.U(log2Up(NRReg).W) << io.in(i).bits.decode.ctrl.fuOpType(3,2)
+        WriteDataVec := io.in(i).bits.vector_commits.asTypeOf(io.wb.ReadDataVec)
+        WriteDestVec := (0 to vector_rdata_width/XLEN-1).map(j => Mux(j.U < vec_num,io.wb.rfDest(i)+j.U(log2Up(NRReg).W),0.U))
+      }
+  }
+  io.wb.WriteDestVec := WriteDestVec
+  io.wb.VecInstNo    := vec_no
 
   //register (banks)
   if(Polaris_RegBanks){
@@ -149,6 +165,10 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     }
     for(i<-0 to Commit_num-1){
       when (io.wb.rfWen(i) && !FronthasRedirect(i)) {(0 to Issue_Num-1).map(m => ((0 to (2 + bool2int(Polaris_SIMDU_WAY_NUM != 0) - 1)).map(n => rf_banks(m)(n).write(io.wb.rfDest(i), io.wb.WriteData(i)))))}
+    }
+    for(i <- 0 to vector_rdata_width/XLEN-1){
+      io.wb.ReadDataVec(i):=rf_banks(0)(0).read(io.wb.rfSrcVec(i))
+      (0 to Issue_Num-1).map(m => ((0 to (2 + bool2int(Polaris_SIMDU_WAY_NUM != 0) - 1)).map(n => rf_banks(m)(n).write(WriteDestVec(i), WriteDataVec(i)))))
     }
     for(i <- 0 to Issue_Num-1){
       io.wb.ReadData1(i):=rf_banks(i)(0).read(io.wb.rfSrc1(i))
@@ -179,6 +199,11 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
         io.wb.ReadData3(i):=rf.read(io.wb.rfSrc3(i))
       }
     }
+    for(i <- 0 to vector_rdata_width/XLEN-1){
+      io.wb.ReadDataVec(i):=rf.read(io.wb.rfSrcVec(i))
+      rf.write(WriteDestVec(i), WriteDataVec(i))
+    }
+    
     if (!p.FPGAPlatform) {
       when(reset.asBool){(0 to NRReg-1).map(k => rf.write(k.U, 0.U))}
       val difftest = Module(new DifftestArchIntRegState)

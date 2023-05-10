@@ -90,6 +90,8 @@ trait HasLSUConst {
   val IndependentAddrCalcState = false
   val moqSize = 8
   val storeQueueSize = 8
+  def vector_wdata_width = 256
+  def vector_rdata_width = 256
 }
 
 class LSUIO extends FunctionUnitIO {

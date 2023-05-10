@@ -497,7 +497,7 @@ class IFU_SIMD extends NutCoreModule with HasResetVector {
   BoringUtils.addSource(io.flushVec.orR, "perfCntCondMifuFlush")
 
   //io.imem.resp.bits.vector := DontCare
-  io.imem.req.bits.vector := DontCare
+  io.imem.req.bits.vector := 0.U.asTypeOf(io.imem.req.bits.vector)
 }
 
 

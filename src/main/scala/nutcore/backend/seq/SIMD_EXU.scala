@@ -203,6 +203,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     io.out(i).bits.decode.ctrl.rfWen := io.in(i).bits.ctrl.rfWen
     io.out(i).bits.decode.cf.redirect <> empty_RedirectIO
     io.out(i).bits.commits:= DontCare
+    io.out(i).bits.vector_commits:= DontCare
     io.in(i).ready := !io.in(i).valid || io.out(i).fire()
   }
 
@@ -298,6 +299,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   val lsu = Module(new pipeline_lsu_atom)
   lsu.io.DecodeIn := io.in(lsuidx).bits
   val lsuOut = lsu.access(valid = io.in(lsuidx).valid && !BeforeLSUhasRedirect, src1 = src1(lsuidx), src2 = io.in(lsuidx).bits.data.imm, func = fuOpType(lsuidx))
+  val lsuVectorOut = lsu.v_access(io.in(lsuidx).bits.data.src_vector)
   lsu.io.wdata := src2(lsuidx)
   for(i <- 0 to FuType.num-1){
     io.out(i).bits.isMMIO := i.U === lsuidx && (lsu.io.isMMIO && io.out(i).valid)
@@ -376,6 +378,9 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   io.out(FuType.csr).bits.commits := csrOut
   io.out(FuType.mdu).bits.commits := mduOut
   io.out(FuType.alu1).bits.commits:= alu1Out
+
+  for(i <- 0 to FuType.num-1){io.out(i).bits.vector_commits := 0.U}
+  io.out(FuType.lsu).bits.vector_commits := lsuVectorOut
 
   io.in(lsuidx).ready := lsu.io.in.ready && !BeforeLSUhasRedirect
 

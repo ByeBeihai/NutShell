@@ -336,6 +336,14 @@ object SIMDUOpType {
   def smxds32 ="b0111100".U
   def fsrw    ="b0111011".U
   def rev     ="b0110101".U
+  def ldlr    ="b0000000".U
+  def ldli    ="b0010000".U
+  def ldsr    ="b0100000".U
+  def ldsi    ="b0110000".U
+  def stlr    ="b1000000".U
+  def stli    ="b1010000".U
+  def stsr    ="b1100000".U
+  def stsi    ="b1110000".U
 }
 
 class SIMDU_IO extends FunctionUnitIO {

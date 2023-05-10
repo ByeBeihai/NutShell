@@ -44,7 +44,7 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
   io.out.bits := DontCare
 
   io.out.bits.ctrl.fuType := fuType
-  io.out.bits.ctrl.fuOpType := fuOpType
+  io.out.bits.ctrl.fuOpType := Mux(isInstrPLS(instrType),instr(31,25),fuOpType)
 
   io.out.bits.ctrl.funct3 := instr(14,12)
   io.out.bits.ctrl.func24 := instr(24)
@@ -64,6 +64,10 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
     InstrPB-> (SrcType.reg, SrcType.imm),
     InstrPM-> (SrcType.reg, SrcType.reg),
     InstrPRD->(SrcType.reg, SrcType.reg),
+    InstrPLDR->(SrcType.reg, SrcType.reg),
+    InstrPSTR->(SrcType.reg, SrcType.reg),
+    InstrPLDI->(SrcType.reg, SrcType.imm),
+    InstrPSTI->(SrcType.reg, SrcType.imm),
     InstrIZ-> (SrcType.reg, SrcType.imm)
   )
   val src1Type = LookupTree(instrType, SrcTypeTable.map(p => (p._1, p._2._1)))
@@ -110,6 +114,7 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
   io.out.bits.ctrl.rfSrc2 := Mux(src2Type === SrcType.reg, rfSrc2, 0.U)
   io.out.bits.ctrl.rfSrc3 := rfSrc3
   io.out.bits.ctrl.rfWen  := isrfWen(instrType)
+  io.out.bits.ctrl.rfVector := isInstrPLS(instrType)
   io.out.bits.ctrl.rfDest := Mux(isrfWen(instrType), rfDest, 0.U)
 
   io.out.bits.data := DontCare
@@ -122,6 +127,8 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
     InstrJ  -> SignExt(Cat(instr(31), instr(19, 12), instr(20), instr(30, 21), 0.U(1.W)), XLEN),
     InstrPI -> SignExt(instr(25,20),XLEN),
     InstrPB -> SignExt(instr(25,20),XLEN),
+    InstrPLDI -> SignExt(instr(24,20),XLEN),
+    InstrPSTI -> SignExt(instr(24,20),XLEN),
     InstrIZ -> ZeroExt(instr(31,15), XLEN)
   ))
   val immrvc = LookupTree(rvcImmType, List(

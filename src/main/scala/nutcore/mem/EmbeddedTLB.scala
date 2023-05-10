@@ -517,7 +517,7 @@ class SIMD_TLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasTLBI
     io.out.req.bits.wmask := io.in.req.bits.wmask
     io.out.req.bits.wdata := io.in.req.bits.wdata
     io.out.req.bits.user.map(_ := io.in.req.bits.user.getOrElse(0.U))
-    io.out.req.bits.vector := DontCare
+    io.out.req.bits.vector := io.in.req.bits.vector
     when(io.flush){state := s_idle}
     out_req.valid := false.B
     out_req.ready := false.B
@@ -619,6 +619,7 @@ class SIMD_TLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasTLBI
     ismmio := out_req.fire() && AddressSpace.isMMIO(out_req.bits.addr)
   }
   io.in.resp <> io.out.resp
+  //io.in.resp.bits.vector := 0.U.asTypeOf(io.in.resp.bits.vector)
   //Debug("state:%x \n",state)
 
   // lsu need dtlb signals

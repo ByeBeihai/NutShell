@@ -917,25 +917,8 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   isu.io.flush := io.flush(0)
   exu.io.flush := io.flush(1)
 
-  for(i <- 0 to Commit_num-1){
-    isu.io.wb.rfWen(i) := wbu.io.wb.rfWen(i)
-    isu.io.wb.rfDest(i):= wbu.io.wb.rfDest(i)
-    isu.io.wb.WriteData(i):=wbu.io.wb.WriteData(i)
-    isu.io.wb.valid(i):=wbu.io.wb.valid(i)
-    isu.io.wb.InstNo(i):=wbu.io.wb.InstNo(i)
-  }
-  for(i <- 0 to Issue_Num-1){
-    isu.io.wb.ReadData1(i):=wbu.io.wb.ReadData1(i)
-    isu.io.wb.ReadData2(i):=wbu.io.wb.ReadData2(i)
-    wbu.io.wb.rfSrc1(i):=isu.io.wb.rfSrc1(i)
-    wbu.io.wb.rfSrc2(i):=isu.io.wb.rfSrc2(i)
-    isu.io.wb.ReadData3(i):= DontCare
-    wbu.io.wb.rfSrc3(i):= DontCare
-    if(Polaris_SIMDU_WAY_NUM!=0){
-      isu.io.wb.ReadData3(i):=wbu.io.wb.ReadData3(i)
-      wbu.io.wb.rfSrc3(i):=isu.io.wb.rfSrc3(i)
-    }
-  }
+  isu.io.wb <> wbu.io.wb
+
   val redirect = WireInit(exu.io.out(redirct_index).bits.decode.cf.redirect)
   redirect.valid := exu.io.out(redirct_index).bits.decode.cf.redirect.valid && exu.io.out(redirct_index).fire()
   io.redirect <> redirect
