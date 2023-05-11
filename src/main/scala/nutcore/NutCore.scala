@@ -25,7 +25,7 @@ import bus.axi4._
 import utils._
 import top.Settings
 
-trait HasNutCoreParameter {
+trait HasNutCoreParameter extends HasLSUConst{
   // General Parameter for NutShell
   val XLEN = if (Settings.get("IsRV32")) 32 else 64
   val HasMExtension = true
@@ -50,10 +50,10 @@ trait HasNutCoreParameter {
   val EnableOutOfOrderMemAccess = false // enable out of order mem access will improve OoO backend's performance
   //parameter for SIMD backend
   val Issue_Num = Settings.getInt("Issue_Num")
-  val Queue_num = 32
+  val Queue_num = 32 //必须为2的幂指数
   val Polaris_Independent_Bru = Settings.getInt("Polaris_Independent_Bru") //0 or 1
   val Polaris_SIMDU_WAY_NUM = Settings.getInt("Polaris_SIMDU_WAY_NUM")   //1 or 2
-  val Forward_num = 4 + Polaris_SIMDU_WAY_NUM
+  val Forward_num = 4 + Polaris_SIMDU_WAY_NUM + vector_rdata_width/XLEN -1 + vector_rdata_width/XLEN -1
   val Commit_num = 3
   val Polaris_RegBanks = Settings.get("Polaris_RegBanks") //0 or 1
 }
@@ -69,7 +69,7 @@ trait HasNutCoreLog { this: RawModule =>
   implicit val moduleName: String = this.name
 }
 
-abstract class NutCoreModule extends Module with HasNutCoreParameter with HasNutCoreConst with HasExceptionNO with HasBackendConst with HasNutCoreLog
+abstract class NutCoreModule extends Module with HasNutCoreParameter with HasNutCoreConst with HasExceptionNO with HasBackendConst with HasNutCoreLog with HasLSUConst
 abstract class NutCoreBundle extends Bundle with HasNutCoreParameter with HasNutCoreConst with HasBackendConst
 
 case class NutCoreConfig (

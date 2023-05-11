@@ -106,12 +106,13 @@ class SIMD_WriteBackIO() extends NutCoreBundle with HasNutCoreParameter{
   val valid = Vec(Issue_Num,Output(Bool()))
   val InstNo = Vec(Issue_Num,Output(UInt(log2Up(Queue_num).W)))
 }
-class new_SIMD_WriteBackIO() extends NutCoreBundle with HasNutCoreParameter with HasLSUConst{
+class new_SIMD_WriteBackIO() extends NutCoreBundle with HasNutCoreParameter with HasLSUConst with HasRegFileParameter{
   val rfWen = Vec(Commit_num,Output(Bool()))
   val rfDest = Vec(Commit_num,Output(UInt(5.W)))
   val rfVector = Vec(Commit_num,Output(Bool()))
   val WriteData = Vec(Commit_num,Output(UInt(XLEN.W)))
-  val WriteDestVec = Vec(vector_rdata_width/XLEN,Output(UInt(XLEN.W)))
+  val WriteDataVec= Vec(vector_rdata_width/XLEN,Output(UInt(XLEN.W)))
+  val WriteDestVec = Vec(vector_rdata_width/XLEN,Output(UInt(log2Up(NRReg).W)))
   val rfSrc1 = Vec(Issue_Num,Input(UInt(5.W)))
   val rfSrc2 = Vec(Issue_Num,Input(UInt(5.W)))
   val rfSrc3 = Vec(Issue_Num,Input(UInt(5.W)))

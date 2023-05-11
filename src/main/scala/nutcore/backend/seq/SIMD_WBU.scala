@@ -152,6 +152,7 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
       }
   }
   io.wb.WriteDestVec := WriteDestVec
+  io.wb.WriteDataVec := WriteDataVec
   io.wb.VecInstNo    := vec_no
 
   //register (banks)

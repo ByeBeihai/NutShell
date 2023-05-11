@@ -309,13 +309,46 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
     q.io.flush  := io.flush
     q.io.clearnum:=io.num_enterwbu
     for(i <- 0 to Issue_Num-1){
-        val mightbeInstNo = q.io.HeadPtr +& i.U
-        val startNewQueue = mightbeInstNo >= Queue_num.U
-        io.out(i).bits.InstNo := Mux(startNewQueue,mightbeInstNo-Queue_num.U,mightbeInstNo)
+        val newInstNo = q.io.HeadPtr + i.U
+        val startNewQueue = newInstNo < q.io.HeadPtr
+        io.out(i).bits.InstNo := q.io.HeadPtr + i.U
         io.out(i).bits.InstFlag:= Mux(startNewQueue,!q.io.Flag,q.io.Flag)
     }
     io.TailPtr := q.io.TailPtr
 
+    InstBoard.io.Wen := 0.U.asTypeOf(InstBoard.io.Wen)
+    InstBoard.io.WInstNo := 0.U.asTypeOf(InstBoard.io.WInstNo)
+    InstBoard.io.clear := 0.U.asTypeOf(InstBoard.io.clear)
+    InstBoard.io.flush   := io.flush
+
+    for(i <- 0 to Issue_Num-1){
+        when(io.out(i).fire() && rfWen(i)){
+            InstBoard.io.Wen(rfDest(i)) := true.B
+            InstBoard.io.WInstNo(rfDest(i)) := io.out(i).bits.InstNo
+            if(i == 0){
+                when(io.out(i).bits.ctrl.rfVector){
+                    for(j <- 1 to vector_rdata_width/XLEN -1){
+                        when(j.U < vec_num){
+                            val dest = rfDest(i)+j.U(log2Up(NRReg).W)
+                            InstBoard.io.Wen(dest) := true.B
+                            InstBoard.io.WInstNo(dest) := io.out(i).bits.InstNo
+                        }
+                    }
+                }
+            }
+        }
+    }
+    for(i <- 0 to Commit_num-1){
+        when(io.wb.rfWen(i) && io.wb.InstNo(i) === InstBoard.io.RInstNo(io.wb.rfDest(i))){
+            InstBoard.io.clear(io.wb.rfDest(i)) := true.B
+        }
+    }
+    for(i <- 0 to vector_rdata_width/XLEN -1){
+        when(io.wb.VecInstNo === InstBoard.io.RInstNo(io.wb.WriteDestVec(i))){
+            InstBoard.io.clear(io.wb.WriteDestVec(i)) := true.B
+        }
+    }
+    /*
     InstBoard.io.Wen     := VecInit((0 to NRReg-1).map(i => VecInit((0 to Issue_Num-1).map(j => i.U === rfDest(j)&&io.out(j).fire()&&rfWen(j))).reduce(_|_) | InstBoardVecWen(i))) 
     InstBoard.io.WInstNo := VecInit((0 to NRReg-1).map(i => {val raw = Wire(UInt(log2Up(Queue_num).W))
                                                                  raw:= 0.U
@@ -327,13 +360,13 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
                                                                     raw := io.out(j).bits.InstNo
                                                                 }}
                                                             raw}))
+                                                            
     InstBoard.io.clear   := VecInit((0 to NRReg-1).map(i => VecInit((0 to Commit_num-1).map(j => io.wb.rfWen(j) && i.U === io.wb.rfDest(j) && io.wb.InstNo(j) === InstBoard.io.RInstNo(i))).reduce(_|_)))
-    InstBoard.io.flush   := io.flush
-
     for(i <- 0 to vector_rdata_width/XLEN -1){
         InstBoard.io.clear(io.wb.WriteDestVec(i)) := io.wb.VecInstNo === InstBoard.io.RInstNo(io.wb.WriteDestVec(i))
     }
-
+    */
+    
     for(i <- 0 to Issue_Num-1){
     Debug("[SIMD_ISU] issue %x valid %x rfSrc1 %x rfSrc2 %x rfdata1 %x rfdata2 %x rfsrc1ready %x rfsrc2ready %x\n", i.U,io.in(i).valid,rfSrc1(i),rfSrc2(i), io.out(i).bits.data.src1,io.out(i).bits.data.src2,src1Ready(i),src2Ready(i))
     Debug("[SIMD_ISU] issue %x outvalid %x InstNo %x pc %x inst %x futype %x futypeop %x src1ex %x src2ex %x src1wb %x src2wb %x \n",i.U,io.out(i).valid,io.out(i).bits.InstNo,io.in(i).bits.cf.pc,io.in(i).bits.cf.instr,io.in(i).bits.ctrl.fuType,io.in(i).bits.ctrl.fuOpType,src1DependEX(i).reduce(_|_),src2DependEX(i).reduce(_|_),src1DependWB(i).reduce(_|_),src2DependWB(i).reduce(_|_))

@@ -667,7 +667,7 @@ class Backend_ooo(implicit val p: NutCoreConfig) extends NutCoreModule with HasR
   
 }
 
-class Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
+class Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegFileParameter {
   val io = IO(new Bundle {
     val in = Vec(2, Flipped(Decoupled(new DecodeIO)))
     val flush = Input(UInt(2.W))
@@ -711,7 +711,7 @@ class Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   io.memMMU.dmem <> exu.io.memMMU.dmem
   io.dmem <> exu.io.dmem
 }
-class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
+class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegFileParameter{
   val io = IO(new Bundle {
     val in = Vec(2, Flipped(Decoupled(new DecodeIO)))
     val flush = Input(UInt(2.W))
@@ -847,8 +847,6 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
 
   val TailPtr = isu.io.TailPtr
   val ptrleft = (Queue_num).U-TailPtr
-  val enoughspace = ptrleft>=(Commit_num).U
-  val space = Mux(enoughspace,(Commit_num).U,(Commit_num).U-ptrleft)
   val continusfire = (0 to Commit_num-1).map(i => {if(i == 0){
                                                     true.B 
                                                   }else{
@@ -863,7 +861,7 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
                                             match_exuwbu(i)(k)
                                             }}).reduce(_||_)
       val front_wbu_matched = {if(i == 0){true.B}else{match_exuwbu(i-1).reduce(_||_)}}
-      when(Mux((i+1).U <= ptrleft,exu.io.out(j).bits.decode.InstNo === (TailPtr +& i.U),exu.io.out(j).bits.decode.InstNo +& ptrleft === i.U) && (if(p.FPGAPlatform){exu.io.out(j).valid}else{true.B}) && front_wbu_matched && !wbu_matched){
+      when(exu.io.out(j).bits.decode.InstNo === (TailPtr + i.U) && (if(p.FPGAPlatform){exu.io.out(j).valid}else{true.B}) && front_wbu_matched && !wbu_matched){
         if(p.FPGAPlatform){
           exu.io.out(j).ready := true.B
           wbu_bits_next(i) := exu.io.out(j).bits
@@ -882,7 +880,7 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   }
   if(p.FPGAPlatform){
     val lsuoutready = WireInit(true.B)
-    val lsuInstNo = Mux(exu.io.out(FuType.lsu).bits.decode.InstNo >= TailPtr, exu.io.out(FuType.lsu).bits.decode.InstNo - TailPtr,exu.io.out(FuType.lsu).bits.decode.InstNo + ptrleft)
+    val lsuInstNo = exu.io.out(FuType.lsu).bits.decode.InstNo - TailPtr
     for(i <- 0 to Commit_num-1){
       when(i.U < lsuInstNo && !wbu_valid_next(i)){
         lsuoutready :=false.B
@@ -896,6 +894,7 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
     exu.io.out(FuType.lsu).ready := lsuoutready
     Debug("lsuready %x lsuInstNo %x wbu_valid_next(0) %x fpga %x \n",exu.io.out(FuType.lsu).ready,lsuInstNo,wbu_valid_next(0),p.FPGAPlatform.B)
   }
+  Debug("match_exuwbu %x ptrleft %x queuenum %x\n",match_exuwbu(0).asUInt,ptrleft,Queue_num.U)
 
   val num_enterwbu = exu.io.out.map(i => i.fire().asUInt).reduce(_+&_)
   when(reset.asBool){
@@ -917,12 +916,15 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   isu.io.flush := io.flush(0)
   exu.io.flush := io.flush(1)
 
+  //forward logic of wbu
   isu.io.wb <> wbu.io.wb
 
+  //redirect logic
   val redirect = WireInit(exu.io.out(redirct_index).bits.decode.cf.redirect)
   redirect.valid := exu.io.out(redirct_index).bits.decode.cf.redirect.valid && exu.io.out(redirct_index).fire()
   io.redirect <> redirect
-  // forward
+
+  // forward logic of exu and vector-ldst
   isu.io.forward(0+Polaris_SIMDU_WAY_NUM) <> exu.io.forward(FuType.aluint)  
   isu.io.forward(1+Polaris_SIMDU_WAY_NUM) <> exu.io.forward(FuType.alu1int)  
   isu.io.forward(2+Polaris_SIMDU_WAY_NUM) <> exu.io.forward(FuType.lsuint)  
@@ -933,13 +935,28 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   if(Polaris_SIMDU_WAY_NUM == 2){
     isu.io.forward(1) <> exu.io.forward(FuType.simdu1int)  
   }
-  
+  for(i <- 1 to vector_rdata_width/XLEN-1){
+    val index = 3+Polaris_SIMDU_WAY_NUM+i
+    isu.io.forward(index) <> exu.io.forward(FuType.lsuint)
+    isu.io.forward(index).wb.rfWen := exu.io.forward(FuType.lsuint).wb.rfWen && exu.io.out(FuType.lsuint).bits.decode.ctrl.rfVector
+    isu.io.forward(index).wb.rfDest:= exu.io.forward(FuType.lsuint).wb.rfDest + i.U(log2Up(NRReg).W)
+    isu.io.forward(index).wb.rfData:= exu.io.out(FuType.lsuint).bits.vector_commits((i+1)*XLEN-1,i*XLEN)
+  }
+  for(i <- 1 to vector_rdata_width/XLEN-1){
+    val index = 3+Polaris_SIMDU_WAY_NUM+vector_rdata_width/XLEN-1+i
+    isu.io.forward(index) := 0.U.asTypeOf(isu.io.forward(index))
+    isu.io.forward(index).valid := wbu.io.wb.WriteDestVec(i) =/= 0.U
+    isu.io.forward(index).InstNo := wbu.io.wb.VecInstNo
+    isu.io.forward(index).wb.rfWen := isu.io.forward(index).valid
+    isu.io.forward(index).wb.rfDest:= wbu.io.wb.WriteDestVec(i)
+    isu.io.forward(index).wb.rfData:= wbu.io.wb.WriteDataVec(i)
+  }
 
 
   io.memMMU.imem <> exu.io.memMMU.imem
   io.memMMU.dmem <> exu.io.memMMU.dmem
   io.dmem <> exu.io.dmem
 
-  Debug("exu.io.out(j).bits.decode.InstNo === TailPtr +& i.U %x exu.io.out(j).valid %x continusfire(i) %x \n",exu.io.out(0).bits.decode.InstNo === TailPtr +& 0.U,exu.io.out(0).valid,continusfire(0))
+  Debug("exu.io.out(6).bits.decode.InstNo === TailPtr +& i.U %x exu.io.out(6).valid %x continusfire(i) %x \n",exu.io.out(6).bits.decode.InstNo === TailPtr +& 0.U,exu.io.out(6).valid,continusfire(0))
   Debug("[new_BackEnd] redirectvalid %x target %x flush(0) %x flush(1) %x \n",io.redirect.valid,io.redirect.target,io.flush(0),io.flush(1) )
 }

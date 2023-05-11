@@ -56,56 +56,38 @@ class InstQueue extends NutCoreModule with HasRegFileParameter{
         val flush      = Input(Bool())
     })
   val QueueValid = Reg(Vec(32,UInt(1.W)))
-  val QueueFlag  = Reg(Vec(32,UInt(1.W)))
+  //val QueueFlag  = Reg(Vec(32,UInt(1.W)))
   val HeadPtr = RegInit(0.U(log2Up(Queue_num).W))
   val TailPtr = RegInit(0.U(log2Up(Queue_num).W))
   val FlagNow = RegInit(0.U(1.W))
   def update(setnum: UInt,clearnum:UInt) = {
-    val newHeadPtr = setnum +& HeadPtr
-    val newTailPtr = clearnum +& TailPtr
-    when(newTailPtr >= Queue_num.U){
-      TailPtr := newTailPtr - Queue_num.U
-    }otherwise{
-      TailPtr := newTailPtr
+    val newHeadPtr = setnum + HeadPtr
+    val newTailPtr = clearnum + TailPtr
+    val startNewQueue = newHeadPtr < HeadPtr
+
+    TailPtr := newTailPtr
+    HeadPtr := newHeadPtr
+    when(startNewQueue){
+      FlagNow := !FlagNow
     }
+
     for(i <- 0 to Queue_num-1){
-      when(newTailPtr >= Queue_num.U){
-        when(i.U >= TailPtr && i.U <= (Queue_num-1).U || i.U < newTailPtr - Queue_num.U){
-          QueueValid(i) := false.B
-        }
-      }.otherwise{
-        when(i.U >= TailPtr && i.U<newTailPtr){
-          QueueValid(i) := false.B
-        }
+      when(i.U >= TailPtr && i.U<newTailPtr){
+        QueueValid(i) := false.B
       }
     }
-    when(newHeadPtr >= Queue_num.U){
-      HeadPtr := newHeadPtr-Queue_num.U
-      FlagNow := !FlagNow
-    }otherwise{
-      HeadPtr := newHeadPtr
-    }  
+
     for(i <- 0 to Queue_num-1){
-      when(newHeadPtr >= Queue_num.U){
-        when(i.U >= HeadPtr && i.U <= (Queue_num-1).U){
-          QueueValid(i) := true.B
-          QueueFlag(i) := FlagNow
-        }.elsewhen(i.U < newHeadPtr - Queue_num.U){
-          QueueValid(i) := true.B
-          QueueFlag(i) := !FlagNow
-        }
-      }.otherwise{
-        when(i.U >= HeadPtr && i.U<newHeadPtr){
-          QueueValid(i) := true.B
-          QueueFlag(i) := FlagNow
-        }
+      when(i.U >= HeadPtr && i.U<newHeadPtr){
+        QueueValid(i) := true.B
+        //QueueFlag(i) := Mux(i.U < HeadPtr,!FlagNow,FlagNow)
       }
     }
   }
   def flushqueue() = {
     for(i <- 0 to Queue_num-1){
       QueueValid(i) := 0.U
-      QueueFlag(i) := 0.U
+      //QueueFlag(i) := 0.U
       HeadPtr := 0.U
       TailPtr := 0.U
       FlagNow := 0.U
