@@ -303,7 +303,7 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
         l = List.concat(List(res) ,l)
     }
     io.out(0).bits.data.src_vector := l.dropRight(1).reduce(Cat(_,_))
-    (0 to Issue_Num-1).map(i => if(i == 0){srcVecReady(0) := Mux(io.in(0).bits.ctrl.rfVector,Mux(io.in(0).bits.ctrl.rfWen,true.B,vec_ready.reduce(_&&_)),true.B)}else{srcVecReady(i) := !io.in(i).bits.ctrl.rfVector})
+    (0 to Issue_Num-1).map(i => if(i == 0){srcVecReady(0) := Mux(io.in(0).bits.ctrl.rfVector,Mux(io.in(0).bits.ctrl.rfWen,true.B,vec_ready.reduce(_&&_)),true.B)}else{srcVecReady(i) := !io.in(i).bits.ctrl.rfVector && !io.in(0).bits.ctrl.rfVector})
 
     q.io.setnum := io.out.map(i => i.fire().asUInt).reduce(_+&_)
     q.io.flush  := io.flush
