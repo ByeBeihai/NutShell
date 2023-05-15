@@ -266,7 +266,7 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     difftest_commit.io.valid    := RegNext(io.in(i).valid && !FronthasRedirect(i))
     difftest_commit.io.pc       := RegNext(SignExt(io.in(i).bits.decode.cf.pc, AddrBits))
     difftest_commit.io.instr    := RegNext(io.in(i).bits.decode.cf.instr)
-    difftest_commit.io.skip     := RegNext(io.in(i).bits.isMMIO)
+    difftest_commit.io.skip     := RegNext(io.in(i).bits.isMMIO /*|| io.in(i).bits.decode.ctrl.rfVector*/)
     difftest_commit.io.isRVC    := RegNext(io.in(i).bits.decode.cf.instr(1,0)=/="b11".U)
     difftest_commit.io.rfwen    := RegNext(io.wb.rfWen(i) && io.wb.rfDest(i) =/= 0.U) // && valid(ringBufferTail)(i) && commited(ringBufferTail)(i)
     difftest_commit.io.fpwen    := false.B

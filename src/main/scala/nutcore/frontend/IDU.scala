@@ -115,7 +115,7 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
   io.out.bits.ctrl.rfSrc3 := rfSrc3
   io.out.bits.ctrl.rfWen  := isrfWen(instrType)
   io.out.bits.ctrl.rfVector := isInstrPLS(instrType)
-  io.out.bits.ctrl.rfDest := Mux(isrfWen(instrType), rfDest, 0.U)
+  io.out.bits.ctrl.rfDest := Mux(isrfWen(instrType) || isInstrPLS(instrType), rfDest, 0.U)
 
   io.out.bits.data := DontCare
   val imm = LookupTree(instrType, List(

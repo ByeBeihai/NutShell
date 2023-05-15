@@ -287,7 +287,7 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
         when(i.U < vec_num){
             val DependEX = VecInit((0 to Forward_num-1).map(j => isLatestData(rfdest,io.forward(j).InstNo) && isDepend(rfdest, io.forward(j).wb.rfDest, forwardRfWen(j))))
             val DependWB = VecInit((0 to Commit_num-1).map(j => isLatestData(rfdest,io.wb.InstNo(j)) && isDepend(rfdest, io.wb.rfDest(j), io.wb.rfWen(j))))
-            vec_ready(i) := !InstBoard.io.valid(SrcVec+i.U) || DependEX.reduce(_||_) || DependWB.reduce(_||_)
+            vec_ready(i) := !InstBoard.io.valid(rfdest) || DependEX.reduce(_||_) || DependWB.reduce(_||_)
             res := PriorityMux(Seq(
                 DependEX.reduce(_||_) -> io.forward(PriorityMux(DependEX.zipWithIndex.map{case(a,b)=>(a,b.U)})).wb.rfData, //io.forward.wb.rfData,
                 DependWB.reduce(_||_) -> io.wb.WriteData(PriorityMux(DependWB.zipWithIndex.map{case(a,b)=>(a,b.U)})), //io.wb.rfData,
@@ -297,6 +297,7 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
                 InstBoardVecWen(rfdest) := true.B
                 InstBoardVecNo(rfdest)  := io.out(0).bits.InstNo
             }
+            Debug("!!!vec!!! %x rfdest %x InstBoardvalid %x DependEX %x DependWB %x\n",i.U,rfdest,InstBoard.io.valid(rfdest),DependEX.asUInt,DependWB.asUInt)
         }.otherwise{
             vec_ready(i) := true.B
         }
@@ -304,7 +305,8 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
     }
     io.out(0).bits.data.src_vector := l.dropRight(1).reduce(Cat(_,_))
     (0 to Issue_Num-1).map(i => if(i == 0){srcVecReady(0) := Mux(io.in(0).bits.ctrl.rfVector,Mux(io.in(0).bits.ctrl.rfWen,true.B,vec_ready.reduce(_&&_)),true.B)}else{srcVecReady(i) := !io.in(i).bits.ctrl.rfVector && !io.in(0).bits.ctrl.rfVector})
-
+    Debug("!!!vec!!! srcVecReady0 %x vec_ready %x SrcVec %x vec_num %x\n",srcVecReady(0),vec_ready.asUInt,SrcVec,vec_num)
+    
     q.io.setnum := io.out.map(i => i.fire().asUInt).reduce(_+&_)
     q.io.flush  := io.flush
     q.io.clearnum:=io.num_enterwbu
