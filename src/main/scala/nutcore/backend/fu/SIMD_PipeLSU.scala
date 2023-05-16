@@ -88,6 +88,7 @@ class pipeline_lsu_stage1 extends NutCoreModule with HasLSUConst with HasNutCore
       }
     } 
   }
+  Debug("exec_addr %x src1 %x src2 %x rfVector %x func %x\n",exec_addr,src1,src2,rfVector,func)
 
   Debug("[stage1] state %x inv %x inr %x func %x\n", state, io.in.valid, io.in.ready,func)
 

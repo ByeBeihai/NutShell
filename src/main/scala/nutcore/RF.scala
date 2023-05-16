@@ -130,6 +130,7 @@ class InstBoard extends NutCoreModule with HasRegFileParameter{
         validBoard(i) := false.B
       }
     }
+    validBoard(0):=false.B
   }
 
   when(io.flush || reset.asBool){

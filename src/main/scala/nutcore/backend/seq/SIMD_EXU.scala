@@ -298,7 +298,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   val BeforeLSUhasRedirect = notafter(io.in(bruidx).bits.InstNo,io.in(lsuidx).bits.InstNo,io.in(bruidx).bits.InstFlag,io.in(lsuidx).bits.InstFlag)&&io.out(bruidx).bits.decode.cf.redirect.valid
   val lsu = Module(new pipeline_lsu_atom)
   lsu.io.DecodeIn := io.in(lsuidx).bits
-  val lsuOut = lsu.access(valid = io.in(lsuidx).valid && !BeforeLSUhasRedirect, src1 = src1(lsuidx), src2 = io.in(lsuidx).bits.data.imm, func = fuOpType(lsuidx))
+  val lsuOut = lsu.access(valid = io.in(lsuidx).valid && !BeforeLSUhasRedirect, src1 = src1(lsuidx), src2 = Mux(io.in(lsuidx).bits.ctrl.rfVector,src2(lsuidx),io.in(lsuidx).bits.data.imm), func = fuOpType(lsuidx))
   val lsuVectorOut = lsu.v_access(io.in(lsuidx).bits.data.src_vector)
   lsu.io.wdata := src2(lsuidx)
   for(i <- 0 to FuType.num-1){

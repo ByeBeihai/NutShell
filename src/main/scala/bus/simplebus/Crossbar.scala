@@ -47,6 +47,7 @@ class SimpleBusCrossbar1toN(addressSpace: List[(Long, Long)]) extends Module {
     }
   }
   assert(!reqInvalidAddr, "address decode error, bad addr = 0x%x\n", addr)
+  //Debug(){printf("ERROR %x\n",!reqInvalidAddr)}
 
   switch (state) {
     is (s_idle) {
