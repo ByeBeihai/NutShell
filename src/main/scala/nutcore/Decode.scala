@@ -108,7 +108,9 @@ object Instructions extends HasInstrType with HasNutCoreParameter {
     RVPBInstr.table ++
     RVPRDInstr.table 
     }else Nil) ++
+    (if(Polaris_Vector_LDST){
     RVPLSInstr.table
+    }else Nil) 
 }
 
 object CInstructions extends HasInstrType with HasNutCoreParameter{

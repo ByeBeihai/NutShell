@@ -274,12 +274,12 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
     }
 
     //logic of rfvec for instr0, instr1 ignored
+    io.wb.rfSrcVec :=DontCare
     val vec_num = 1.U(log2Up(NRReg).W) << io.in(0).bits.ctrl.fuOpType(3,2)
+    if(Polaris_Vector_LDST){
     val vec_ready = VecInit((0 to vector_rdata_width/XLEN -1).map(i => false.B))
     val SrcVec = rfSrcVec(0)
     var l = List(0.U)
-    val InstBoardVecWen = VecInit((0 to NRReg-1).map(i => false.B))
-    val InstBoardVecNo  = VecInit((0 to NRReg-1).map(i => 0.U(log2Up(Queue_num).W)))
     for(i <- 0 to vector_rdata_width/XLEN -1){
         val res = WireInit(0.U(XLEN.W))
         val rfdest = SrcVec+i.U(log2Up(NRReg).W)
@@ -293,10 +293,6 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
                 DependWB.reduce(_||_) -> io.wb.WriteData(PriorityMux(DependWB.zipWithIndex.map{case(a,b)=>(a,b.U)})), //io.wb.rfData,
                 true.B -> io.wb.ReadDataVec(i))
             )
-            when(io.out(0).fire() && io.in(0).bits.ctrl.rfVector && io.in(0).bits.ctrl.rfWen){
-                InstBoardVecWen(rfdest) := true.B
-                InstBoardVecNo(rfdest)  := io.out(0).bits.InstNo
-            }
             Debug("!!!vec!!! %x rfdest %x InstBoardvalid %x DependEX %x DependWB %x\n",i.U,rfdest,InstBoard.io.valid(rfdest),DependEX.asUInt,DependWB.asUInt)
         }.otherwise{
             vec_ready(i) := true.B
@@ -306,6 +302,7 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
     io.out(0).bits.data.src_vector := l.dropRight(1).reduce(Cat(_,_))
     (0 to Issue_Num-1).map(i => if(i == 0){srcVecReady(0) := Mux(io.in(0).bits.ctrl.rfVector,Mux(io.in(0).bits.ctrl.rfWen,true.B,vec_ready.reduce(_&&_)),true.B)}else{srcVecReady(i) := !io.in(i).bits.ctrl.rfVector && !io.in(0).bits.ctrl.rfVector})
     Debug("!!!vec!!! srcVecReady0 %x vec_ready %x SrcVec %x vec_num %x\n",srcVecReady(0),vec_ready.asUInt,SrcVec,vec_num)
+    }
     
     q.io.setnum := io.out.map(i => i.fire().asUInt).reduce(_+&_)
     q.io.flush  := io.flush
@@ -327,7 +324,7 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
         when(io.out(i).fire() && rfWen(i)){
             InstBoard.io.Wen(rfDest(i)) := true.B
             InstBoard.io.WInstNo(rfDest(i)) := io.out(i).bits.InstNo
-            if(i == 0){
+            if(i == 0 && Polaris_Vector_LDST){
                 when(io.out(i).bits.ctrl.rfVector){
                     for(j <- 1 to vector_rdata_width/XLEN -1){
                         when(j.U < vec_num){
@@ -345,29 +342,13 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
             InstBoard.io.clear(io.wb.rfDest(i)) := true.B
         }
     }
-    for(i <- 0 to vector_rdata_width/XLEN -1){
-        when(io.wb.VecInstNo === InstBoard.io.RInstNo(io.wb.WriteDestVec(i))){
-            InstBoard.io.clear(io.wb.WriteDestVec(i)) := true.B
+    if(Polaris_Vector_LDST){
+        for(i <- 0 to vector_rdata_width/XLEN -1){
+            when(io.wb.VecInstNo === InstBoard.io.RInstNo(io.wb.WriteDestVec(i))){
+                InstBoard.io.clear(io.wb.WriteDestVec(i)) := true.B
+            }
         }
     }
-    /*
-    InstBoard.io.Wen     := VecInit((0 to NRReg-1).map(i => VecInit((0 to Issue_Num-1).map(j => i.U === rfDest(j)&&io.out(j).fire()&&rfWen(j))).reduce(_|_) | InstBoardVecWen(i))) 
-    InstBoard.io.WInstNo := VecInit((0 to NRReg-1).map(i => {val raw = Wire(UInt(log2Up(Queue_num).W))
-                                                                 raw:= 0.U
-                                                            for(j <- 0 to Issue_Num-1){
-                                                                if(j == 0){when(InstBoardVecWen(i)){
-                                                                    raw := InstBoardVecNo(i)
-                                                                }}
-                                                                when(i.U === rfDest(j) && io.out(j).fire() && rfWen(j)){
-                                                                    raw := io.out(j).bits.InstNo
-                                                                }}
-                                                            raw}))
-                                                            
-    InstBoard.io.clear   := VecInit((0 to NRReg-1).map(i => VecInit((0 to Commit_num-1).map(j => io.wb.rfWen(j) && i.U === io.wb.rfDest(j) && io.wb.InstNo(j) === InstBoard.io.RInstNo(i))).reduce(_|_)))
-    for(i <- 0 to vector_rdata_width/XLEN -1){
-        InstBoard.io.clear(io.wb.WriteDestVec(i)) := io.wb.VecInstNo === InstBoard.io.RInstNo(io.wb.WriteDestVec(i))
-    }
-    */
     
     for(i <- 0 to Issue_Num-1){
     Debug("[SIMD_ISU] issue %x valid %x rfSrc1 %x rfSrc2 %x rfdata1 %x rfdata2 %x rfsrc1ready %x rfsrc2ready %x\n", i.U,io.in(i).valid,rfSrc1(i),rfSrc2(i), io.out(i).bits.data.src1,io.out(i).bits.data.src2,src1Ready(i),src2Ready(i))

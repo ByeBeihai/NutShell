@@ -935,28 +935,29 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule w
   if(Polaris_SIMDU_WAY_NUM == 2){
     isu.io.forward(1) <> exu.io.forward(FuType.simdu1int)  
   }
-  for(i <- 1 to vector_rdata_width/XLEN-1){
-    val index = 3+Polaris_SIMDU_WAY_NUM+i
-    isu.io.forward(index) <> exu.io.forward(FuType.lsuint)
-    isu.io.forward(index).wb.rfWen := exu.io.forward(FuType.lsuint).wb.rfWen && exu.io.out(FuType.lsuint).bits.decode.ctrl.rfVector
-    isu.io.forward(index).wb.rfDest:= exu.io.forward(FuType.lsuint).wb.rfDest + i.U(log2Up(NRReg).W)
-    isu.io.forward(index).wb.rfData:= exu.io.out(FuType.lsuint).bits.vector_commits((i+1)*XLEN-1,i*XLEN)
+  if(Polaris_Vector_LDST){
+    for(i <- 1 to vector_rdata_width/XLEN-1){
+      val index = 3+Polaris_SIMDU_WAY_NUM+i
+      isu.io.forward(index) <> exu.io.forward(FuType.lsuint)
+      isu.io.forward(index).wb.rfWen := exu.io.forward(FuType.lsuint).wb.rfWen && exu.io.out(FuType.lsuint).bits.decode.ctrl.rfVector
+      isu.io.forward(index).wb.rfDest:= exu.io.forward(FuType.lsuint).wb.rfDest + i.U(log2Up(NRReg).W)
+      isu.io.forward(index).wb.rfData:= exu.io.out(FuType.lsuint).bits.vector_commits((i+1)*XLEN-1,i*XLEN)
+    }
+    for(i <- 1 to vector_rdata_width/XLEN-1){
+      val index = 3+Polaris_SIMDU_WAY_NUM+vector_rdata_width/XLEN-1+i
+      isu.io.forward(index) := 0.U.asTypeOf(isu.io.forward(index))
+      isu.io.forward(index).valid := wbu.io.wb.WriteDestVec(i) =/= 0.U
+      isu.io.forward(index).InstNo := wbu.io.wb.VecInstNo
+      isu.io.forward(index).wb.rfWen := isu.io.forward(index).valid
+      isu.io.forward(index).wb.rfDest:= wbu.io.wb.WriteDestVec(i)
+      isu.io.forward(index).wb.rfData:= wbu.io.wb.WriteDataVec(i)
+    }
   }
-  for(i <- 1 to vector_rdata_width/XLEN-1){
-    val index = 3+Polaris_SIMDU_WAY_NUM+vector_rdata_width/XLEN-1+i
-    isu.io.forward(index) := 0.U.asTypeOf(isu.io.forward(index))
-    isu.io.forward(index).valid := wbu.io.wb.WriteDestVec(i) =/= 0.U
-    isu.io.forward(index).InstNo := wbu.io.wb.VecInstNo
-    isu.io.forward(index).wb.rfWen := isu.io.forward(index).valid
-    isu.io.forward(index).wb.rfDest:= wbu.io.wb.WriteDestVec(i)
-    isu.io.forward(index).wb.rfData:= wbu.io.wb.WriteDataVec(i)
-  }
-
 
   io.memMMU.imem <> exu.io.memMMU.imem
   io.memMMU.dmem <> exu.io.memMMU.dmem
   io.dmem <> exu.io.dmem
 
-  Debug("exu.io.out(6).bits.decode.InstNo === TailPtr +& i.U %x exu.io.out(6).valid %x continusfire(i) %x \n",exu.io.out(6).bits.decode.InstNo === TailPtr +& 0.U,exu.io.out(6).valid,continusfire(0))
+  //Debug("exu.io.out(6).bits.decode.InstNo === TailPtr +& i.U %x exu.io.out(6).valid %x continusfire(i) %x \n",exu.io.out(6).bits.decode.InstNo === TailPtr +& 0.U,exu.io.out(6).valid,continusfire(0))
   Debug("[new_BackEnd] redirectvalid %x target %x flush(0) %x flush(1) %x \n",io.redirect.valid,io.redirect.target,io.flush(0),io.flush(1) )
 }

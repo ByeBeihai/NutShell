@@ -53,7 +53,8 @@ trait HasNutCoreParameter extends HasLSUConst{
   val Queue_num = 32 //必须为2的幂指数
   val Polaris_Independent_Bru = Settings.getInt("Polaris_Independent_Bru") //0 or 1
   val Polaris_SIMDU_WAY_NUM = Settings.getInt("Polaris_SIMDU_WAY_NUM")   //1 or 2
-  val Forward_num = 4 + Polaris_SIMDU_WAY_NUM + vector_rdata_width/XLEN -1 + vector_rdata_width/XLEN -1
+  val Polaris_Vector_LDST = Settings.get("Polaris_Vector_LDST")
+  val Forward_num = 4 + Polaris_SIMDU_WAY_NUM + (if(Polaris_Vector_LDST)(vector_rdata_width/XLEN -1 + vector_rdata_width/XLEN -1)else(0))
   val Commit_num = 3
   val Polaris_RegBanks = Settings.get("Polaris_RegBanks") //0 or 1
 }

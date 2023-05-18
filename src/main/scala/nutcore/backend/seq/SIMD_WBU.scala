@@ -138,22 +138,27 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     io.wb.valid(i) :=io.in(i).valid
     io.wb.InstNo(i) := io.in(i).bits.decode.InstNo
   }
-
+  io.wb.ReadDataVec := DontCare
+  io.wb.WriteDestVec:= DontCare
+  io.wb.WriteDataVec:= DontCare
+  io.wb.VecInstNo   := DontCare
   val WriteDataVec = WireInit(0.U.asTypeOf(io.wb.ReadDataVec))
   val WriteDestVec = WireInit(0.U.asTypeOf(io.wb.rfSrcVec))
   val vec_num = WireInit(0.U(log2Up(NRReg).W))
   val vec_no = WireInit(0.U.asTypeOf(io.wb.VecInstNo))
-  for(i <- 0 to Commit_num-1){
-      when(io.in(i).valid && io.in(i).bits.decode.ctrl.rfVector && io.in(i).bits.decode.ctrl.rfWen){
-        vec_no       := io.in(i).bits.decode.InstNo
-        vec_num      := 1.U(log2Up(NRReg).W) << io.in(i).bits.decode.ctrl.fuOpType(3,2)
-        WriteDataVec := io.in(i).bits.vector_commits.asTypeOf(io.wb.ReadDataVec)
-        WriteDestVec := (0 to vector_rdata_width/XLEN-1).map(j => Mux(j.U < vec_num,io.wb.rfDest(i)+j.U(log2Up(NRReg).W),0.U))
-      }
+  if(Polaris_Vector_LDST){
+    for(i <- 0 to Commit_num-1){
+        when(io.in(i).valid && io.in(i).bits.decode.ctrl.rfVector && io.in(i).bits.decode.ctrl.rfWen){
+          vec_no       := io.in(i).bits.decode.InstNo
+          vec_num      := 1.U(log2Up(NRReg).W) << io.in(i).bits.decode.ctrl.fuOpType(3,2)
+          WriteDataVec := io.in(i).bits.vector_commits.asTypeOf(io.wb.ReadDataVec)
+          WriteDestVec := (0 to vector_rdata_width/XLEN-1).map(j => Mux(j.U < vec_num,io.wb.rfDest(i)+j.U(log2Up(NRReg).W),0.U))
+        }
+    }
+    io.wb.WriteDestVec := WriteDestVec
+    io.wb.WriteDataVec := WriteDataVec
+    io.wb.VecInstNo    := vec_no
   }
-  io.wb.WriteDestVec := WriteDestVec
-  io.wb.WriteDataVec := WriteDataVec
-  io.wb.VecInstNo    := vec_no
 
   //register (banks)
   if(Polaris_RegBanks){
@@ -167,16 +172,18 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     for(i<-0 to Commit_num-1){
       when (io.wb.rfWen(i) && !FronthasRedirect(i)) {(0 to Issue_Num-1).map(m => ((0 to (2 + bool2int(Polaris_SIMDU_WAY_NUM != 0) - 1)).map(n => rf_banks(m)(n).write(io.wb.rfDest(i), io.wb.WriteData(i)))))}
     }
-    for(i <- 0 to vector_rdata_width/XLEN-1){
-      io.wb.ReadDataVec(i):=rf_banks(0)(0).read(io.wb.rfSrcVec(i))
-      (0 to Issue_Num-1).map(m => ((0 to (2 + bool2int(Polaris_SIMDU_WAY_NUM != 0) - 1)).map(n => rf_banks(m)(n).write(WriteDestVec(i), WriteDataVec(i)))))
-    }
     for(i <- 0 to Issue_Num-1){
       io.wb.ReadData1(i):=rf_banks(i)(0).read(io.wb.rfSrc1(i))
       io.wb.ReadData2(i):=rf_banks(i)(1).read(io.wb.rfSrc2(i))
       io.wb.ReadData3(i):=DontCare
       if(Polaris_SIMDU_WAY_NUM!=0){
         io.wb.ReadData3(i):=rf_banks(i)(2).read(io.wb.rfSrc3(i))
+      }
+    }
+    if(Polaris_Vector_LDST){
+      for(i <- 0 to vector_rdata_width/XLEN-1){
+        io.wb.ReadDataVec(i):=rf_banks(0)(0).read(io.wb.rfSrcVec(i))
+        (0 to Issue_Num-1).map(m => ((0 to (2 + bool2int(Polaris_SIMDU_WAY_NUM != 0) - 1)).map(n => rf_banks(m)(n).write(WriteDestVec(i), WriteDataVec(i)))))
       }
     }
     if (!p.FPGAPlatform) {
@@ -200,11 +207,12 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
         io.wb.ReadData3(i):=rf.read(io.wb.rfSrc3(i))
       }
     }
-    for(i <- 0 to vector_rdata_width/XLEN-1){
-      io.wb.ReadDataVec(i):=rf.read(io.wb.rfSrcVec(i))
-      rf.write(WriteDestVec(i), WriteDataVec(i))
-    }
-    
+    if(Polaris_Vector_LDST){
+      for(i <- 0 to vector_rdata_width/XLEN-1){
+        io.wb.ReadDataVec(i):=rf.read(io.wb.rfSrcVec(i))
+        rf.write(WriteDestVec(i), WriteDataVec(i))
+      }
+    }    
     if (!p.FPGAPlatform) {
       when(reset.asBool){(0 to NRReg-1).map(k => rf.write(k.U, 0.U))}
       val difftest = Module(new DifftestArchIntRegState)
