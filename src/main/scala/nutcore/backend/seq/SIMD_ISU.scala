@@ -189,8 +189,10 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
 
     val RAWinIssue = VecInit((0 to Issue_Num-1).map(i => {val raw = Wire(Vec(Issue_Num,Bool())) 
                                                         for(j <- 0 to i-1){
-                                                                raw(j) := io.in(j).valid && (isDepend(rfSrc1(i),rfDest(j),rfWen(j))||isDepend(rfSrc2(i),rfDest(j),rfWen(j))||(if(Polaris_SIMDU_WAY_NUM != 0){isDepend(rfSrc3(i),rfDest(j),rfWen(j))}else{false.B}))
-                                                        }
+                                                                val ReadAfterWrite = isDepend(rfSrc1(i),rfDest(j),rfWen(j))||isDepend(rfSrc2(i),rfDest(j),rfWen(j))||(if(Polaris_SIMDU_WAY_NUM != 0){isDepend(rfSrc3(i),rfDest(j),rfWen(j))}else{false.B})
+                                                                val VecLDSTraw     = if(Polaris_Vector_LDST){io.in(j).bits.ctrl.rfWen && Mux(io.in(i).bits.ctrl.rfVector,Mux(io.in(i).bits.ctrl.rfWen,io.in(j).bits.ctrl.rfVector,true.B),io.in(j).bits.ctrl.rfVector)}else{false.B}
+                                                                raw(j) := io.in(j).valid && (ReadAfterWrite || VecLDSTraw)
+                                                            }
                                                         for(j <- i to Issue_Num-1){
                                                                 raw(j) := false.B 
                                                         }
@@ -275,10 +277,11 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
 
     //logic of rfvec for instr0, instr1 ignored
     io.wb.rfSrcVec :=DontCare
-    val vec_num = 1.U(log2Up(NRReg).W) << io.in(0).bits.ctrl.fuOpType(3,2)
+    val vec_no  = PriorityMux((0 to Issue_Num-1).map(i => io.in(i).bits.ctrl.rfVector && !io.in(i).bits.ctrl.rfWen).zipWithIndex.map{case(a,b)=>(a,b.U)})
+    val vec_num = 1.U(log2Up(NRReg).W) << io.in(vec_no).bits.ctrl.fuOpType(3,2)
     if(Polaris_Vector_LDST){
     val vec_ready = VecInit((0 to vector_rdata_width/XLEN -1).map(i => false.B))
-    val SrcVec = rfSrcVec(0)
+    val SrcVec = rfSrcVec(vec_no)
     var l = List(0.U)
     for(i <- 0 to vector_rdata_width/XLEN -1){
         val res = WireInit(0.U(XLEN.W))
@@ -299,9 +302,9 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
         }
         l = List.concat(List(res) ,l)
     }
-    io.out(0).bits.data.src_vector := l.dropRight(1).reduce(Cat(_,_))
-    (0 to Issue_Num-1).map(i => if(i == 0){srcVecReady(0) := Mux(io.in(0).bits.ctrl.rfVector,Mux(io.in(0).bits.ctrl.rfWen,true.B,vec_ready.reduce(_&&_)),true.B)}else{srcVecReady(i) := !io.in(i).bits.ctrl.rfVector && !io.in(0).bits.ctrl.rfVector})
-    Debug("!!!vec!!! srcVecReady0 %x vec_ready %x SrcVec %x vec_num %x\n",srcVecReady(0),vec_ready.asUInt,SrcVec,vec_num)
+    io.out(vec_no).bits.data.src_vector := l.dropRight(1).reduce(Cat(_,_))
+    (0 to Issue_Num-1).map(i => srcVecReady(i) := Mux(io.in(i).bits.ctrl.rfVector && !io.in(i).bits.ctrl.rfWen,Mux(i.U === vec_no,vec_ready.reduce(_&&_),false.B),true.B))
+    Debug("!!!vec!!! srcVecReady0 %x srcVecReady1 %x vec_ready %x SrcVec %x vec_no %x vec_num %x\n",srcVecReady(0),srcVecReady(1),vec_ready.asUInt,SrcVec,vec_no,vec_num)
     }
     
     q.io.setnum := io.out.map(i => i.fire().asUInt).reduce(_+&_)
@@ -324,10 +327,11 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
         when(io.out(i).fire() && rfWen(i)){
             InstBoard.io.Wen(rfDest(i)) := true.B
             InstBoard.io.WInstNo(rfDest(i)) := io.out(i).bits.InstNo
-            if(i == 0 && Polaris_Vector_LDST){
+            if(Polaris_Vector_LDST){
                 when(io.out(i).bits.ctrl.rfVector){
+                    val vec_num_write = 1.U(log2Up(NRReg).W) << io.in(i).bits.ctrl.fuOpType(3,2)
                     for(j <- 1 to vector_rdata_width/XLEN -1){
-                        when(j.U < vec_num){
+                        when(j.U < vec_num_write){
                             val dest = rfDest(i)+j.U(log2Up(NRReg).W)
                             InstBoard.io.Wen(dest) := true.B
                             InstBoard.io.WInstNo(dest) := io.out(i).bits.InstNo
