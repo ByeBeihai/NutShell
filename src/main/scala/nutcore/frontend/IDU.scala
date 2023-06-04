@@ -68,7 +68,8 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
     InstrPSTR->(SrcType.reg, SrcType.reg),
     InstrPLDI->(SrcType.reg, SrcType.imm),
     InstrPSTI->(SrcType.reg, SrcType.imm),
-    InstrIZ-> (SrcType.reg, SrcType.imm)
+    InstrIZ-> (SrcType.reg, SrcType.imm),
+    InstrSNN->(SrcType.reg, SrcType.reg)
   )
   val src1Type = LookupTree(instrType, SrcTypeTable.map(p => (p._1, p._2._1)))
   val src2Type = LookupTree(instrType, SrcTypeTable.map(p => (p._1, p._2._2)))
