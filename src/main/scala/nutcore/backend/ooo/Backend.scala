@@ -796,10 +796,10 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule w
     }
   }
 
-  def MultiOperatorMatch(futype1:UInt,futype2:UInt,isBru:Bool):Bool =(((futype1 === FuType.alu) && (futype2 ===FuType.alu || futype2 === FuType.alu1) && !isBru)
+  def MultiOperatorMatch(futype1:UInt,futype2:UInt,isBru:Bool):Bool =(((futype1 === FuType.alu) && (futype2 === FuType.alu1) && !isBru)
                                                                     ||((futype1 === FuType.mou) && (futype2 ===FuType.csr))
-                                                                    ||(if(Polaris_SIMDU_WAY_NUM == 2){(futype1 === FuType.simdu) && (futype2 ===FuType.simdu || futype2 === FuType.simdu1)}else{false.B})
-                                                                    ||(if(Polaris_SNN_WAY_NUM   == 2){(futype1 === FuType.snnu) && (futype2 === FuType.snnu || futype2 === FuType.snnu1)}else{false.B}))
+                                                                    ||(if(Polaris_SIMDU_WAY_NUM == 2){(futype1 === FuType.simdu) && (futype2 === FuType.simdu1)}else{false.B})
+                                                                    ||(if(Polaris_SNN_WAY_NUM   == 2){(futype1 === FuType.snnu) && (futype2 === FuType.snnu1)}else{false.B}))
   for(i <- 0 to FuType.num-1){
     exu.io.in(i).bits := exu_bits(i)
     exu.io.in(i).valid := exu_valid(i)
@@ -971,16 +971,22 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule w
   if(Polaris_SIMDU_WAY_NUM == 2){
     isu.io.forward(1) <> exu.io.forward(FuType.simdu1int)  
   }
+  if(Polaris_SNN_WAY_NUM>0){
+    isu.io.forward(3+Polaris_SIMDU_WAY_NUM + 1) <> exu.io.forward(FuType.snnuint)  
+  }
+  if(Polaris_SNN_WAY_NUM == 2){
+    isu.io.forward(3+Polaris_SIMDU_WAY_NUM + 2) <> exu.io.forward(FuType.snnu1int)  
+  }
   if(Polaris_Vector_LDST){
     for(i <- 1 to vector_rdata_width/XLEN-1){
-      val index = 3+Polaris_SIMDU_WAY_NUM+i
+      val index = 3+Polaris_SIMDU_WAY_NUM + Polaris_SNN_WAY_NUM + i
       isu.io.forward(index) <> exu.io.forward(FuType.lsuint)
       isu.io.forward(index).wb.rfWen := exu.io.forward(FuType.lsuint).wb.rfWen && exu.io.out(FuType.lsuint).bits.decode.ctrl.rfVector
       isu.io.forward(index).wb.rfDest:= exu.io.forward(FuType.lsuint).wb.rfDest + i.U(log2Up(NRReg).W)
       isu.io.forward(index).wb.rfData:= exu.io.out(FuType.lsuint).bits.vector_commits((i+1)*XLEN-1,i*XLEN)
     }
     for(i <- 1 to vector_rdata_width/XLEN-1){
-      val index = 3+Polaris_SIMDU_WAY_NUM+vector_rdata_width/XLEN-1+i
+      val index = 3+Polaris_SIMDU_WAY_NUM+ + Polaris_SNN_WAY_NUM + vector_rdata_width/XLEN-1+i
       isu.io.forward(index) := 0.U.asTypeOf(isu.io.forward(index))
       isu.io.forward(index).valid := wbu.io.wb.WriteDestVec(i) =/= 0.U
       isu.io.forward(index).InstNo := wbu.io.wb.VecInstNo
