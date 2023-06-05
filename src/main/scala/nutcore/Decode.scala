@@ -65,7 +65,7 @@ object SrcType {
 }
 
 object FuType extends HasNutCoreConst {
-  def addition = if(Polaris_SIMDU_WAY_NUM == 2){2}else{1}
+  def addition = if(Polaris_SNN_WAY_NUM != 0){if(Polaris_SNN_WAY_NUM == 2){2}else{1}}else{0}
   def num = 5 + Polaris_Independent_Bru + Polaris_SIMDU_WAY_NUM + addition
   def width = 4
   def aluint = if(Polaris_Independent_Bru == 1){Polaris_Independent_Bru + 3 + Polaris_SIMDU_WAY_NUM}else{0}
@@ -85,9 +85,9 @@ object FuType extends HasNutCoreConst {
   def simduint = if(Polaris_SIMDU_WAY_NUM != 0){if(Polaris_Independent_Bru == 1){2}else{3}}else{0}
   def simdu1 = simdu1int.U(width.W)
   def simdu1int = if(Polaris_SIMDU_WAY_NUM != 0){if(Polaris_Independent_Bru == 1){3}else{4}}else{0}
-  def snnuint = if(Polaris_SIMDU_WAY_NUM == 2){num-2}else{num-1}
+  def snnuint = if(Polaris_SNN_WAY_NUM != 0){if(Polaris_SNN_WAY_NUM == 2){num-2}else{num-1}}else{0}
   def snnu = snnuint.U(width.W)
-  def snnu1int = if(Polaris_SIMDU_WAY_NUM == 2){num-1}else{0}
+  def snnu1int = if(Polaris_SNN_WAY_NUM != 0){if(Polaris_SNN_WAY_NUM == 2){num-1}else{0}}else{0}
   def snnu1 = snnu1int.U(width.W)
   def apply() = UInt(width.W)
 }
@@ -116,7 +116,9 @@ object Instructions extends HasInstrType with HasNutCoreParameter {
     (if(Polaris_Vector_LDST){
     RVPLSInstr.table
     }else Nil) ++
+    (if(Polaris_SNN_WAY_NUM != 0){
     RVSNNInstr.table 
+    }else Nil)
 }
 
 object CInstructions extends HasInstrType with HasNutCoreParameter{

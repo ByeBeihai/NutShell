@@ -274,7 +274,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   }
 
   //SNNU
-  if(Polaris_SIMDU_WAY_NUM == 2){
+  if(Polaris_SNN_WAY_NUM == 2){
     val snnuidx = FuType.snnu
     val snnu1idx = FuType.snnu1
     val snnu = Module(new SNNU_2WAY)
@@ -303,7 +303,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     io.in(snnu1idx).ready := snnu.io.in(1).ready
     Debug("snnuidx %x \n",snnuidx)
     Debug("snnu1idx %x \n",snnu1idx)
-  }else{
+  }else if(Polaris_SNN_WAY_NUM == 1){
     val snnuidx = FuType.snnu
     val snnu = Module(new SNNU)
     val snnuOut = snnu.access(valid = io.in(snnuidx).valid, src1 = src1(snnuidx), src2 = src2(snnuidx), func = fuOpType(snnuidx))
