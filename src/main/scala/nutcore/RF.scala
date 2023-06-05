@@ -25,6 +25,7 @@ import difftest._
 
 trait HasRegFileParameter {
   val NRReg = 32
+  val NSReg = 4
 }
 
 class RegFile extends HasRegFileParameter with HasNutCoreParameter {
@@ -143,3 +144,8 @@ class InstBoard extends NutCoreModule with HasRegFileParameter{
   io.RInstNo:= InstBoard
 }
 
+class SRegFile extends HasRegFileParameter with HasNutCoreParameter {
+  val srf = Mem(NSReg, UInt(XLEN.W))
+  def read(addr: UInt) : UInt = srf(addr)
+  def write(addr: UInt, data: UInt) = { srf(addr) := data(XLEN-1,0) }
+} 
