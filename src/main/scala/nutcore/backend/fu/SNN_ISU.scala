@@ -28,12 +28,12 @@ class SCtrlIO extends NutCoreBundle with HasNutCoreConst{
 
 class SNNISU(len: Int = 16) extends NutCoreModule{
     val io = IO(new Bundle{
-        val valid = Input(Bool())
+        val validIn = Input(Bool())
         val dcIn = Flipped(new DecodeIO) // input
         val SCtrl= new SCtrlIO // output
-        val res = Output(UInt(XLEN.W))
-        val sumValid = Output(Bool())
         val dcOut = new DecodeIO
+        val LNUsumres = Input(UInt(64.W))
+        val LNUvalid = Input(Bool())
     })
 
     val src1  = io.dcIn.data.src1
@@ -60,30 +60,15 @@ class SNNISU(len: Int = 16) extends NutCoreModule{
         io.SCtrl.DIn2(i) := src2(len * i + len - 1, len * i)
         io.SCtrl.SRF4(i) := srf.read(i.U)
     }
-    io.sumValid := DontCare
     when(io.SCtrl.isSvr){
-        io.res := 1.U
         srf.write(SRFAddr.TAU, ZeroExt(io.SCtrl.DIn1(SRFAddr.TAU), 64))
         srf.write(SRFAddr.VR, ZeroExt(io.SCtrl.DIn1(SRFAddr.VR), 64))
         srf.write(SRFAddr.LR, ZeroExt(io.SCtrl.DIn1(SRFAddr.LR), 64))
         srf.write(SRFAddr.ACC, src2)
-    }.elsewhen(io.SCtrl.isSum){
-        val ksiw03 = RegInit(VecInit(Seq.fill(4)(0.U(16.W))))
-        val sumvalid = RegInit(false.B)
-        sumvalid := io.valid
-        val acc = srf.read(SRFAddr.ACC)
-        for(i <- 0 until XLEN/len){
-          ksiw03(i) := Mux(io.SCtrl.DIn2(i) === 1.U, io.SCtrl.DIn1(i), 0.U(16.W))
-        }
+    }
 
-        io.sumValid := sumvalid && io.valid
-        io.res := Mux(io.SCtrl.hasAcc && io.sumValid, ksiw03.reduce(_ + _) + acc, ksiw03.reduce(_ + _))
-        when(io.sumValid){
-            srf.write(SRFAddr.ACC, io.res)
-        }
-    }.otherwise{
-        io.sumValid := io.valid
-        io.res := 0.U
+    when(io.LNUvalid){
+        srf.write(SRFAddr.ACC, io.LNUsumres)
     }
 
     for(i <- 0 to 3){
