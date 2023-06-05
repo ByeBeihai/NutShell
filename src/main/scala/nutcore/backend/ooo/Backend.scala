@@ -753,31 +753,12 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule w
   //     (0 to FuType.num-1).map(i => {when(exu.io.out(i).fire() && i.U =/= FuType.lsu){exu_valid_next(i) := false.B}})
   // }
 
-  if(Polaris_SIMDU_WAY_NUM != 0){
-    if(Polaris_SNN_WAY_NUM != 0){
-      if(Polaris_SIMDU_WAY_NUM == 2){
-        if(Polaris_SNN_WAY_NUM == 2){
-          (0 to FuType.num-1).map(i => {when(exu.io.out(i).fire() && i.U =/= FuType.lsu && i.U =/= FuType.simdu && i.U =/= FuType.simdu1 && i.U =/= FuType.snnu && i.U =/= FuType.snnu1){exu_valid_next(i) := false.B}})
-        }else{
-          (0 to FuType.num-1).map(i => {when(exu.io.out(i).fire() && i.U =/= FuType.lsu && i.U =/= FuType.simdu && i.U =/= FuType.simdu1 && i.U =/= FuType.snnu){exu_valid_next(i) := false.B}})
-        }
-      }else{
-        if(Polaris_SNN_WAY_NUM == 2){
-          (0 to FuType.num-1).map(i => {when(exu.io.out(i).fire() && i.U =/= FuType.lsu && i.U =/= FuType.simdu && i.U =/= FuType.snnu && i.U =/= FuType.snnu1){exu_valid_next(i) := false.B}})
-        }else{
-          (0 to FuType.num-1).map(i => {when(exu.io.out(i).fire() && i.U =/= FuType.lsu && i.U =/= FuType.simdu && i.U =/= FuType.snnu){exu_valid_next(i) := false.B}})
-        }
-      }
-    }else{
-      if(Polaris_SIMDU_WAY_NUM == 2){
-        (0 to FuType.num-1).map(i => {when(exu.io.out(i).fire() && i.U =/= FuType.lsu && i.U =/= FuType.simdu && i.U =/= FuType.simdu1){exu_valid_next(i) := false.B}})
-      }else{
-        (0 to FuType.num-1).map(i => {when(exu.io.out(i).fire() && i.U =/= FuType.lsu && i.U =/= FuType.simdu){exu_valid_next(i) := false.B}})
-      }
-    }
-  }else{
-    (0 to FuType.num-1).map(i => {when(exu.io.out(i).fire() && i.U =/= FuType.lsu){exu_valid_next(i) := false.B}})
-  }
+  (0 to FuType.num-1).map(i => {when(exu.io.out(i).fire() && i.U =/= FuType.lsu 
+                                                          && (if(Polaris_SIMDU_WAY_NUM != 0){i.U =/= FuType.simdu} else{true.B}) 
+                                                          && (if(Polaris_SIMDU_WAY_NUM == 2){i.U =/= FuType.simdu1}else{true.B})
+                                                          && (if(Polaris_SNN_WAY_NUM != 0)  {i.U =/= FuType.snnu}  else{true.B}) 
+                                                          && (if(Polaris_SNN_WAY_NUM == 2)  {i.U =/= FuType.snnu1} else{true.B})){exu_valid_next(i) := false.B}})
+
 
   val lsu_firststage_fire = WireInit(false.B)
   BoringUtils.addSink(lsu_firststage_fire, "lsu_firststage_fire")
@@ -815,21 +796,10 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule w
     }
   }
 
-  def MultiOperatorMatch(futype1:UInt,futype2:UInt,isBru:Bool):Bool = if(Polaris_SIMDU_WAY_NUM == 2){
-                                                                        if(Polaris_SNN_WAY_NUM == 2){
-                                                                          ((futype1 === FuType.alu) && (futype2 ===FuType.alu || futype2 === FuType.alu1) && !isBru
-                                                                          ||(futype1 === FuType.simdu) && (futype2 ===FuType.simdu || futype2 === FuType.simdu1)
-                                                                          ||(futype1 === FuType.mou) && (futype2 ===FuType.csr)
-                                                                          ||(futype1 === FuType.snnu) && (futype2 === FuType.snnu || futype2 === FuType.snnu1))
-                                                                        }else{
-                                                                          ((futype1 === FuType.alu) && (futype2 ===FuType.alu || futype2 === FuType.alu1) && !isBru
-                                                                          ||(futype1 === FuType.simdu) && (futype2 ===FuType.simdu || futype2 === FuType.simdu1)
-                                                                          ||(futype1 === FuType.mou) && (futype2 ===FuType.csr))
-                                                                        }
-                                                                      }else{
-                                                                        ((futype1 === FuType.alu) && (futype2 ===FuType.alu || futype2 === FuType.alu1) && !isBru
-                                                                        ||(futype1 === FuType.mou) && (futype2 ===FuType.csr))
-                                                                      }
+  def MultiOperatorMatch(futype1:UInt,futype2:UInt,isBru:Bool):Bool =(((futype1 === FuType.alu) && (futype2 ===FuType.alu || futype2 === FuType.alu1) && !isBru)
+                                                                    ||((futype1 === FuType.mou) && (futype2 ===FuType.csr))
+                                                                    ||(if(Polaris_SIMDU_WAY_NUM == 2){(futype1 === FuType.simdu) && (futype2 ===FuType.simdu || futype2 === FuType.simdu1)}else{false.B})
+                                                                    ||(if(Polaris_SNN_WAY_NUM   == 2){(futype1 === FuType.snnu) && (futype2 === FuType.snnu || futype2 === FuType.snnu1)}else{false.B}))
   for(i <- 0 to FuType.num-1){
     exu.io.in(i).bits := exu_bits(i)
     exu.io.in(i).valid := exu_valid(i)

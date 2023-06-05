@@ -45,7 +45,7 @@ object DefaultSettings {
     "Polaris_SIMDU_WAY_NUM" -> 2,  //1 or 2
     "Polaris_Vector_LDST" -> true,
     "Polaris_RegBanks" -> false,
-    "Polaris_SNN_WAY_NUM" -> 2 // 1 or 2
+    "Polaris_SNN_WAY_NUM" -> 1 // 1 or 2
   )
 }
 
