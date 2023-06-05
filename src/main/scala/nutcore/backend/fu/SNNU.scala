@@ -35,28 +35,28 @@ class SNNU extends NutCoreModule{
         this.func := func
         io.out.bits
     }
-    val funct3 = io.dcIn.ctrl.funct3
-
     val SNNISU = Module(new SNNISU)
-    val LNU = Module(new LNU)
+    val LNU = Module(new LNU_NEW)
     val SU = Module(new SU)
 
-    def isSU(func: UInt): Bool = func =/= "b000".U && func =/= "b111".U && !(func === "b101".U)
-    def isISU(func: UInt): Bool = func === "b111".U || func === "b101".U
+    def isSU(func: UInt): Bool = func === SNNOpType.bpo || func === SNNOpType.tdr || func === SNNOpType.exp
 
 
     // output connection
     io.in.ready := !valid || io.FirstStageFire// Mux(isISU(func), !valid, Mux(isSU(func), SU.io.in.ready, LNU.io.in.ready))
-    io.out.bits := Mux(isISU(funct3), SNNISU.io.res, Mux(isSU(funct3), SU.io.out.bits.res, LNU.io.out.bits.res))
-    io.dcOut := Mux(isISU(funct3), SNNISU.io.dcOut, Mux(isSU(funct3), SU.io.out.bits.dcOut, LNU.io.out.bits.dcOut))// io.dcIn
-    io.FirstStageFire := valid && ((LNU.io.in.ready && !isSU(funct3) && !isISU(funct3)) || (SU.io.in.ready && isSU(funct3))) 
-    LNU.io.out.ready := Mux(isSU(funct3), false.B, io.out.ready)
-    SU.io.out.ready := Mux(isSU(funct3), io.out.ready, false.B)
-    io.out.valid := Mux(isISU(funct3), Mux(func === SNNOpType.sum, SNNISU.io.sumValid, valid), Mux(isSU(funct3), SU.io.out.valid, LNU.io.out.valid))
+    io.out.bits := Mux(isSU(func), SU.io.out.bits.res, LNU.io.out.bits.res)
+    io.dcOut := Mux(isSU(func), SU.io.out.bits.dcOut, LNU.io.out.bits.dcOut)// io.dcIn
+    // io.FirstStageFire := valid && ((LNU.io.in.ready && !isSU(funct3) && !isISU(funct3)) || (SU.io.in.ready && isSU(funct3))) 
+    LNU.io.out.ready := Mux(isSU(func), false.B, io.out.ready)
+    SU.io.out.ready := Mux(isSU(func), io.out.ready, false.B)
+    io.out.valid := Mux(isSU(func), SU.io.out.valid, LNU.io.out.valid)
+    io.FirstStageFire := false.B
 
     // connect SNNISU
     SNNISU.io.dcIn := io.dcIn
-    SNNISU.io.valid := valid
+    SNNISU.io.validIn := valid
+    SNNISU.io.LNUvalid := LNU.io.out.valid && LNU.io.out.bits.dcOut.ctrl.fuOpType === SNNOpType.sum && LNU.io.out.bits.dcOut.cf.instr(25)
+    SNNISU.io.LNUsumres := Mux(LNU.io.out.valid, LNU.io.out.bits.res, 0.U)
 
     // connect SNNISU and LNU
     val LNU_bits_next = Wire(new Bundle{val SCtrl = new SCtrlIO; val dcIn = new DecodeIO})
@@ -66,10 +66,11 @@ class SNNU extends NutCoreModule{
     val LNU_valid_next = Wire(Bool())
     LNU_valid_next := LNU_valid
     when(LNU.io.out.fire()){LNU_valid_next := false.B}
-    when(valid && LNU.io.in.ready && !isSU(funct3) && !isISU(funct3)){
+    when(valid && LNU.io.in.ready && !isSU(func)){
         LNU_valid_next := true.B
         LNU_bits_next.SCtrl := SNNISU.io.SCtrl
         LNU_bits_next.dcIn := SNNISU.io.dcOut
+        io.FirstStageFire := true.B
     }
     when(io.flush){LNU_valid_next := false.B}
     LNU_bits := LNU_bits_next
@@ -86,10 +87,11 @@ class SNNU extends NutCoreModule{
     val SU_valid_next = Wire(Bool())
     SU_valid_next := SU_valid
     when(SU.io.out.fire()){SU_valid_next := false.B}
-    when(valid && SU.io.in.ready && isSU(funct3)){
+    when(valid && SU.io.in.ready && isSU(func)){
         SU_valid_next := true.B
         SU_bits_next.SCtrl := SNNISU.io.SCtrl
         SU_bits_next.dcIn := SNNISU.io.dcOut
+        io.FirstStageFire := true.B
     }
     when(io.flush){SU_valid_next := false.B}
     SU_bits := SU_bits_next
@@ -97,8 +99,8 @@ class SNNU extends NutCoreModule{
     SU.io.in.bits := SU_bits
     SU.io.in.valid := SU_valid
 
-    Debug("[SNNU]flush: %b, instr: %x, valid: %b, src1: %x, src2: %x, isISU: %b, isSU: %b readyin %x\n", io.flush, io.dcIn.cf.instr, valid, src1, src2, isISU(funct3), isSU(funct3), io.in.ready)
-    Debug(SU.io.out.fire() || LNU.io.out.fire(), "[SNNU] out %x io.out %x valid %b\n", Mux(SU.io.out.fire() && isSU(funct3), SU.io.out.bits.res, LNU.io.out.bits.res), io.out.bits, io.out.valid)
+    Debug("[SNNU]flush: %b, instr: %x, valid: %b, src1: %x, src2: %x, isSU: %b readyin %x\n", io.flush, io.dcIn.cf.instr, valid, src1, src2, isSU(func), io.in.ready)
+    Debug(SU.io.out.fire() || LNU.io.out.fire(), "[SNNU] out %x io.out %x valid %b\n", Mux(SU.io.out.fire() && isSU(func), SU.io.out.bits.res, LNU.io.out.bits.res), io.out.bits, io.out.valid)
     
     
 }
