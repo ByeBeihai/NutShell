@@ -667,50 +667,6 @@ class Backend_ooo(implicit val p: NutCoreConfig) extends NutCoreModule with HasR
   
 }
 
-class Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegFileParameter {
-  val io = IO(new Bundle {
-    val in = Vec(2, Flipped(Decoupled(new DecodeIO)))
-    val flush = Input(UInt(2.W))
-    val dmem = new SimpleBusUC(addrBits = VAddrBits)
-    val memMMU = Flipped(new MemMMUIO)
-    val isufire = Vec(2, Output(Bool()))
-    val redirect = new RedirectIO
-  })
-  Debug("------------------------ BACKEND ------------------------\n")
-  val isu  = Module(new SIMD_ISU)
-  val exu  = Module(new SIMD_EXU)
-  val wbu  = Module(new SIMD_WBU)
-
-  wbu.io.in :=DontCare
-
-  PipelineConnect(isu.io.out(0), exu.io.in(0), exu.io.out(0).fire(), io.flush(0))
-  PipelineConnect(exu.io.out(0), wbu.io.in(0), true.B, io.flush(1))
-
-  isu.io.in <> io.in
-  io.isufire(0) := isu.io.out(0).fire
-  io.isufire(1) := DontCare
-  
-  isu.io.flush := io.flush(0)
-  exu.io.flush := io.flush(1)
-
-  isu.io.wb.rfWen(0) := wbu.io.wb.rfWen(0)
-  isu.io.wb.rfDest(0):= wbu.io.wb.rfDest(0)
-  isu.io.wb.WriteData(0):=wbu.io.wb.WriteData(0)
-  isu.io.wb.ReadData1(0):=wbu.io.wb.ReadData1(0)
-  isu.io.wb.ReadData2(0):=wbu.io.wb.ReadData2(0)
-  isu.io.wb.valid(0):=wbu.io.wb.valid(0)
-  isu.io.wb.InstNo(0):=wbu.io.wb.InstNo(0)
-  wbu.io.wb.rfSrc1(0):=isu.io.wb.rfSrc1(0)
-  wbu.io.wb.rfSrc2(0):=isu.io.wb.rfSrc2(0)
-  
-  io.redirect <> wbu.io.redirect
-  // forward
-  isu.io.forward(0) <> exu.io.forward(0)  
-
-  io.memMMU.imem <> exu.io.memMMU.imem
-  io.memMMU.dmem <> exu.io.memMMU.dmem
-  io.dmem <> exu.io.dmem
-}
 class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegFileParameter{
   val io = IO(new Bundle {
     val in = Vec(2, Flipped(Decoupled(new DecodeIO)))
@@ -734,25 +690,6 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule w
   val exu_valid = Reg(Vec(FuType.num,Bool()))
   val exu_valid_next = Wire(Vec(FuType.num,Bool()))
   (0 to FuType.num-1).map(i => exu_valid_next(i) := exu_valid(i))
-  // if(Polaris_SIMDU_WAY_NUM!=0){
-  //   if(Polaris_SIMDU_WAY_NUM == 2){
-  //     (0 to FuType.num-1).map(i => {when(exu.io.out(i).fire() && i.U =/= FuType.lsu && i.U =/= FuType.simdu && i.U =/= FuType.simdu1){exu_valid_next(i) := false.B}})
-  //   }else{
-  //     (0 to FuType.num-1).map(i => {when(exu.io.out(i).fire() && i.U =/= FuType.lsu && i.U =/= FuType.simdu){exu_valid_next(i) := false.B}})
-  //   }
-  // }else{
-  //     (0 to FuType.num-1).map(i => {when(exu.io.out(i).fire() && i.U =/= FuType.lsu){exu_valid_next(i) := false.B}})
-  // }
-  // if(Polaris_SIMDU_WAY_NUM!=0){
-  //   if(Polaris_SIMDU_WAY_NUM == 2){
-  //     (0 to FuType.num-1).map(i => {when(exu.io.out(i).fire() && i.U =/= FuType.lsu && i.U =/= FuType.simdu && i.U =/= FuType.simdu1 && i.U =/= FuType.snnu && i.U =/= FuType.snnu1){exu_valid_next(i) := false.B}})
-  //   }else{
-  //     (0 to FuType.num-1).map(i => {when(exu.io.out(i).fire() && i.U =/= FuType.lsu && i.U =/= FuType.simdu && i.U =/= FuType.snnu){exu_valid_next(i) := false.B}})
-  //   }
-  // }else{
-  //     (0 to FuType.num-1).map(i => {when(exu.io.out(i).fire() && i.U =/= FuType.lsu){exu_valid_next(i) := false.B}})
-  // }
-
   (0 to FuType.num-1).map(i => {when(exu.io.out(i).fire() && i.U =/= FuType.lsu 
                                                           && (if(Polaris_SIMDU_WAY_NUM != 0){i.U =/= FuType.simdu} else{true.B}) 
                                                           && (if(Polaris_SIMDU_WAY_NUM == 2){i.U =/= FuType.simdu1}else{true.B})
@@ -764,16 +701,6 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule w
   BoringUtils.addSink(lsu_firststage_fire, "lsu_firststage_fire")
   when(lsu_firststage_fire){exu_valid_next(FuType.lsu) := false.B}
 
-  // if(Polaris_SIMDU_WAY_NUM!=0){
-  //   val simdu_firststage_fire = WireInit(false.B)
-  //   val simdu1_firststage_fire = WireInit(false.B)
-  //   BoringUtils.addSink(simdu_firststage_fire, "simdu_fs_fire")
-  //   when(simdu_firststage_fire){exu_valid_next(FuType.simdu) := false.B}
-  //   if(Polaris_SIMDU_WAY_NUM == 2){
-  //     BoringUtils.addSink(simdu1_firststage_fire, "simdu1_fs_fire")
-  //     when(simdu1_firststage_fire){exu_valid_next(FuType.simdu1) := false.B}
-  //   }
-  // }
   if(Polaris_SIMDU_WAY_NUM!=0){
     val simdu_firststage_fire = WireInit(false.B)
     val simdu1_firststage_fire = WireInit(false.B)
@@ -818,13 +745,6 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule w
                                                   }else{
                                                     (0 to i-1).map(j => isu.io.out(j).fire() || !isu.io.in(j).valid).reduce(_&_)
                                                   }})
-  val ExuisEmpty   = (0 to FuType.num-1).map(i => {val raw = Wire(Bool())
-                                                  when(i.U === FuType.mou){
-                                                    raw := true.B
-                                                  }.otherwise{
-                                                    raw := exu.io.in(i).ready
-                                                  }
-                                                  raw}).reduce(_&&_)
   Debug("snnu: %d snnu1: %d\n", FuType.snnu, FuType.snnu1)
   for(i <- 0 to Issue_Num-1){
     for(j <- 0 to FuType.num-1){
@@ -838,20 +758,17 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule w
                                                   false.B
                                                 }else{match_operaotr(k)(j)}}).reduce(_||_)
       when(FrontisClear(i) && !operator_matched && !issue_matched && isu.io.out(i).valid && exu.io.in(j).ready && (isu.io.out(i).bits.ctrl.fuType === j.U || MultiOperatorMatch(isu.io.out(i).bits.ctrl.fuType,j.U,isu.io.out(i).bits.ctrl.isBru))){   
-        //when(!((isu.io.in(i).bits.ctrl.fuType === FuType.csr ||isu.io.in(i).bits.ctrl.fuType === FuType.mou) && !ExuisEmpty)){
           isu.io.out(i).ready := true.B
           exu_bits_next(j) := isu.io.out(i).bits
           exu_valid_next(j) := true.B
           match_operaotr(i)(j) := true.B 
           exu_bits_next(j).ctrl.fuType := j.U
-        //}
         Debug("isu.io.out(i).bits.ctrl.fuType %x j %d isu.io.out(i).bits.ctrl.isBru %x\n", isu.io.out(i).bits.ctrl.fuType, j.U, isu.io.out(i).bits.ctrl.isBru)
       }
       Debug("i %x j %x operator_matched %x issue_matched %x isu.io.out.valid %x exu.io.in.ready %x isu.io.out.bits.ctrl.fuType === j.U %x MultiOperatorMatch(isu.io.out(i).bits.ctrl.fuType,j.U) %x \n",i.U,j.U,operator_matched,issue_matched,isu.io.out(i).valid,exu.io.in(j).ready,isu.io.out(i).bits.ctrl.fuType === j.U,MultiOperatorMatch(isu.io.out(i).bits.ctrl.fuType,j.U,isu.io.out(i).bits.ctrl.isBru))
     }
   }
   exu_bits := exu_bits_next
-  //Debug("match_operaotr(0)(5) %x match_operator(0)(0) %x \n",match_operaotr(0)(5),match_operaotr(0)(0))
   
   when(reset.asBool || io.flush(0)){
     (0 to FuType.num-1).map(i => exu_valid(i) := false.B)
@@ -1000,6 +917,5 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule w
   io.memMMU.dmem <> exu.io.memMMU.dmem
   io.dmem <> exu.io.dmem
 
-  //Debug("exu.io.out(6).bits.decode.InstNo === TailPtr +& i.U %x exu.io.out(6).valid %x continusfire(i) %x \n",exu.io.out(6).bits.decode.InstNo === TailPtr +& 0.U,exu.io.out(6).valid,continusfire(0))
   Debug("[new_BackEnd] redirectvalid %x target %x flush(0) %x flush(1) %x \n",io.redirect.valid,io.redirect.target,io.flush(0),io.flush(1) )
 }
