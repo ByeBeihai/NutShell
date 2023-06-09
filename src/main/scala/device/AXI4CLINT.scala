@@ -61,6 +61,7 @@ class AXI4CLINT(sim: Boolean = false) extends AXI4SlaveModule(new AXI4Lite, new 
   RegMap.generate(mapping, getOffset(raddr), in.r.bits.data,
     getOffset(waddr), in.w.fire(), in.w.bits.data, MaskExpand(in.w.bits.strb))
 
-  io.extra.get.mtip := RegNext(mtime >= mtimecmp)
+  io.extra.get.mtip := RegNext(mtime >= mtimecmp && mtimecmp =/= 0.U(64.W))
   io.extra.get.msip := RegNext(msip =/= 0.U)
+  //printf("mtime %x mtimecmp %x\n",mtime,mtimecmp)
 }

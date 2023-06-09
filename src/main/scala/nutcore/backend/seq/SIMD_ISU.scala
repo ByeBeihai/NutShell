@@ -162,9 +162,9 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
     }
     io.out(vec_no).bits.data.src_vector := l.dropRight(1).reduce(Cat(_,_))
     (0 to Issue_Num-1).map(i => srcVecReady(i) := Mux(io.in(i).bits.ctrl.rfVector && !io.in(i).bits.ctrl.rfWen,Mux(i.U === vec_no,vec_ready.reduce(_&&_),false.B),true.B))
-    Debug("!!!vec!!! srcVecReady0 %x srcVecReady1 %x vec_ready %x SrcVec %x vec_no %x vec_num %x\n",srcVecReady(0),srcVecReady(1),vec_ready.asUInt,SrcVec,vec_no,vec_num)
+    //Debug("!!!vec!!! srcVecReady0 %x srcVecReady1 %x vec_ready %x SrcVec %x vec_no %x vec_num %x\n",srcVecReady(0),srcVecReady(1),vec_ready.asUInt,SrcVec,vec_no,vec_num)
     Debug("!!!vec!!! io.in(0).bits.ctrl.rfVector %x io.in(0).bits.ctrl.rfWen %x\n",io.in(0).bits.ctrl.rfVector,io.in(0).bits.ctrl.rfWen)
-    Debug("!!!vec!!! io.in(1).bits.ctrl.rfVector %x io.in(1).bits.ctrl.rfWen %x\n",io.in(1).bits.ctrl.rfVector,io.in(1).bits.ctrl.rfWen)
+    //Debug("!!!vec!!! io.in(1).bits.ctrl.rfVector %x io.in(1).bits.ctrl.rfWen %x\n",io.in(1).bits.ctrl.rfVector,io.in(1).bits.ctrl.rfWen)
     }
     
     q.io.setnum := io.out.map(i => i.fire().asUInt).reduce(_+&_)
