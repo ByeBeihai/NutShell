@@ -770,7 +770,7 @@ class pipeline_lsu_atom extends NutCoreModule with HasLSUConst {
     io.isMMIO   := stage2.io.out.bits.isMMIO
     io.DecodeOut:= stage2.io.out.bits.Decode
     vrdata      := stage2.io.out.bits.vrdata
-    when(!stage2.io.in.valid){io.DecodeOut.InstNo := stage1.io.out.bits.Decode.InstNo}
+    //when(!stage2.io.in.valid){io.DecodeOut.InstNo := stage1.io.out.bits.Decode.InstNo}
   }
 
   when(atomstage.io.in.valid){
