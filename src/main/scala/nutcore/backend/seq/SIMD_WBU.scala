@@ -152,7 +152,7 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   }
 
   for(i <- 0 to Commit_num-1){
-    Debug("[SIMD_WBU] issue %x valid %x pc %x wen %x wdata %x wdest %x futype %x instno %x isMMIO %x redirectvalid %x redirecttarget %x \n",i.U,io.in(i).valid,io.in(i).bits.decode.cf.pc,io.wb.rfWen(i),io.wb.WriteData(i),io.wb.rfDest(i),io.in(i).bits.decode.ctrl.fuType,io.in(i).bits.decode.InstNo,io.in(i).bits.isMMIO,io.in(i).bits.decode.cf.redirect.valid,io.in(i).bits.decode.cf.redirect.target)
+    Debug("[SIMD_WBU] issue %x valid %x pc %x wen %x wdata %x wdest %x futype %x instno %x isMMIO %x OV %x redirectvalid %x redirecttarget %x \n",i.U,io.in(i).valid,io.in(i).bits.decode.cf.pc,io.wb.rfWen(i),io.wb.WriteData(i),io.wb.rfDest(i),io.in(i).bits.decode.ctrl.fuType,io.in(i).bits.decode.InstNo,io.in(i).bits.isMMIO,io.in(i).bits.decode.pext.OV,io.in(i).bits.decode.cf.redirect.valid,io.in(i).bits.decode.cf.redirect.target)
   }
   Debug("[SIMD_WBU] redirctindex %x redirctvalid %x redircttarget %x \n",redirct_index,io.redirect.valid,io.redirect.target)
   if (!p.FPGAPlatform) {

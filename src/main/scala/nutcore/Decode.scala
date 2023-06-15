@@ -20,21 +20,21 @@ import chisel3._
 import chisel3.util._
 
 trait HasInstrType {
-  def InstrN  = "b0000".U
-  def InstrI  = "b0100".U
-  def InstrIZ = "b1100".U
-  def InstrR  = "b0101".U
-  def InstrS  = "b0010".U
-  def InstrB  = "b0001".U
-  def InstrU  = "b0110".U
-  def InstrJ  = "b0111".U
-  def InstrA  = "b1110".U
-  def InstrSA = "b1111".U // Atom Inst: SC
-  def InstrP  = "b10100".U
-  def InstrPI = "b10101".U
-  def InstrPM = "b10110".U
-  def InstrPB = "b10111".U
-  def InstrPRD= "b11100".U
+  def InstrN  = "b00000".U
+  def InstrI  = "b00100".U
+  def InstrIZ = "b01100".U
+  def InstrR  = "b00101".U
+  def InstrS  = "b00010".U
+  def InstrB  = "b00001".U
+  def InstrU  = "b00110".U
+  def InstrJ  = "b00111".U
+  def InstrA  = "b01110".U
+  def InstrSA = "b01111".U // Atom Inst: SC
+  def InstrP  = "b010100".U
+  def InstrPI = "b010101".U
+  def InstrPM = "b010110".U
+  def InstrPB = "b010111".U
+  def InstrPRD= "b011100".U
   def InstrPLDR= "b11101".U
   def InstrPSTR= "b11001".U
   def InstrPLDI= "b11111".U

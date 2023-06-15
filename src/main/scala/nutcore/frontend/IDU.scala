@@ -44,7 +44,7 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
   io.out.bits := DontCare
 
   io.out.bits.ctrl.fuType := fuType
-  io.out.bits.ctrl.fuOpType := Mux(isInstrPLS(instrType),instr(31,25),fuOpType)
+  io.out.bits.ctrl.fuOpType := (if(Polaris_Vector_LDST){Mux(isInstrPLS(instrType),instr(31,25),fuOpType)}else{fuOpType})
 
   io.out.bits.ctrl.funct3 := instr(14,12)
   io.out.bits.ctrl.func24 := instr(24)
@@ -115,8 +115,8 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
   io.out.bits.ctrl.rfSrc2 := Mux(src2Type === SrcType.reg, rfSrc2, 0.U)
   io.out.bits.ctrl.rfSrc3 := rfSrc3
   io.out.bits.ctrl.rfWen  := isrfWen(instrType)
-  io.out.bits.ctrl.rfVector := isInstrPLS(instrType)
-  io.out.bits.ctrl.rfDest := Mux(isrfWen(instrType) || isInstrPLS(instrType), rfDest, 0.U)
+  io.out.bits.ctrl.rfVector := (if(Polaris_Vector_LDST){isInstrPLS(instrType)}else{false.B})
+  io.out.bits.ctrl.rfDest := (if(Polaris_Vector_LDST){Mux(isrfWen(instrType) || isInstrPLS(instrType), rfDest, 0.U)}else{Mux(isrfWen(instrType), rfDest, 0.U)})
 
   io.out.bits.data := DontCare
   val imm = LookupTree(instrType, List(
