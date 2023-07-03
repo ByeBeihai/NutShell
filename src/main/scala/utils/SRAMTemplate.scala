@@ -130,3 +130,33 @@ class SRAMTemplateWithArbiter[T <: Data](nRead: Int, gen: T, set: Int, way: Int 
     r.resp.data := HoldUnless(ram.io.r.resp.data, RegNext(r.req.fire()))
   }}
 }
+
+
+class DataSRAMTemplateWithArbiter[T <: Data](nRead: Int, gen: T, set: Int, way: Int = 1,
+                                             shouldReset: Boolean = false) extends Module {
+  val io = IO(new Bundle {
+    val r = Flipped(Vec(nRead, new SRAMReadBus(gen, set, way)))
+    val w = Flipped(new SRAMWriteBus(gen, set, way))
+  })
+
+  //  val ram = if (isData) Module(new DataSRAMTemplate(gen, set, way, shouldReset, holdRead = false, singlePort = true))
+  //  else Module(new MetaSRAMTemplate(gen, set, way, shouldReset, holdRead = false, singlePort = true))
+  //  when(isData.asBool()) {
+  //val ram = Module(new DataSRAMTemplate(gen, set, way, shouldReset, holdRead = false, singlePort = false))
+  val ram = Module(new SRAMTemplate(gen, set, way, shouldReset, holdRead = false, singlePort = false))
+  //  }.otherwise {
+  //    val ram = Module(new MetaSRAMTemplate(gen, set, way, shouldReset, holdRead = false, singlePort = true))
+  //  }
+  println("len: %d, set: %d, way: %d\n", gen.getWidth.W, set, way)
+  ram.io.w <> io.w
+
+  val readArb = Module(new Arbiter(chiselTypeOf(io.r(0).req.bits), nRead))
+  readArb.io.in <> io.r.map(_.req)
+  ram.io.r.req <> readArb.io.out
+
+  // latch read results
+  io.r.map{ case r => {
+    r.resp.data := HoldUnless(ram.io.r.resp.data, RegNext(r.req.fire))
+  }}
+}
+
