@@ -138,10 +138,10 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
     val vec_no  = PriorityMux((0 to Issue_Num-1).map(i => io.in(i).bits.ctrl.rfVector && !io.in(i).bits.ctrl.rfWen).zipWithIndex.map{case(a,b)=>(a,b.U)})
     val vec_num = 1.U(log2Up(NRReg).W) << io.in(vec_no).bits.ctrl.fuOpType(3,2)
     if(Polaris_Vector_LDST){
-    val vec_ready = VecInit((0 to vector_rdata_width/XLEN -1).map(i => false.B))
+    val vec_ready = VecInit((0 to vector_wdata_width/XLEN -1).map(i => false.B))
     val SrcVec = rfSrcVec(vec_no)
     var l = List(0.U)
-    for(i <- 0 to vector_rdata_width/XLEN -1){
+    for(i <- 0 to vector_wdata_width/XLEN -1){
         val res = WireInit(0.U(XLEN.W))
         val rfdest = SrcVec+i.U(log2Up(NRReg).W)
         io.wb.rfSrcVec(i) := rfdest

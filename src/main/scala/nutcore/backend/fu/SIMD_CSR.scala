@@ -891,7 +891,7 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
 
   //connect exu
   io.in.ready := true.B
-  io.out.valid := valid
+  io.out.valid := valid && !io.ctrlIn.isNutCoreTrap
   io.out.bits := rdata
   io.wenFix := raiseException && valid && !isMou
   io.redirect.valid := (valid && (JumpType || isMou)) || raiseExceptionIntr || resetSatp
