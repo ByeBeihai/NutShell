@@ -154,6 +154,9 @@ class Divider(len: Int = 64) extends NutCoreModule {
 
   io.out.valid := (if (HasDiv) (state === s_finish) else io.in.valid) // FIXME: should deal with ready = 0
   io.in.ready := (state === s_idle)
+
+  val divtime = io.in.valid
+  BoringUtils.addSource(divtime, "divtime")
 }
 
 class MDUIO extends FunctionUnitIO {
