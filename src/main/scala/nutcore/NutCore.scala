@@ -50,13 +50,13 @@ trait HasNutCoreParameter extends HasLSUConst{
   val EnableOutOfOrderMemAccess = false // enable out of order mem access will improve OoO backend's performance
   //parameter for SIMD backend
   val Issue_Num = Settings.getInt("Issue_Num")
-  val Queue_num = 32 //必须为2的幂指数
+  val Queue_num = 16 //必须为2的幂指数
   val Polaris_Independent_Bru = Settings.getInt("Polaris_Independent_Bru") //0 or 1
   val Polaris_SIMDU_WAY_NUM = Settings.getInt("Polaris_SIMDU_WAY_NUM")   //1 or 2
   val Polaris_Vector_LDST = Settings.get("Polaris_Vector_LDST")
   val Polaris_SNN_WAY_NUM = Settings.getInt("Polaris_SNN_WAY_NUM")         // 1 or 2
   val Forward_num = 4 + Polaris_SIMDU_WAY_NUM + Polaris_SNN_WAY_NUM +(if(Polaris_Vector_LDST)(vector_rdata_width/XLEN -1 + vector_rdata_width/XLEN -1)else(0))
-  val Commit_num = 3
+  val Commit_num = 2
   val Polaris_RegBanks = Settings.get("Polaris_RegBanks") //0 or 1
 }
 
@@ -169,7 +169,7 @@ class NutCore(implicit val p: NutCoreConfig) extends NutCoreModule {
     io.imem <> MBCache(in = itlb.io.out, mmio = mmioXbar.io.in.take(1), flush = Fill(2, frontend.io.flushVec(0) | frontend.io.bpFlush), empty = itlb.io.cacheEmpty, enable = HasIcache)(MBCacheConfig(ro = true, name = "icache", userBits = ICacheUserBundleWidth))
     
     // dtlb
-    val dtlb = EmbeddedTLB(in = backend.io.dmem, mem = dmemXbar.io.in(2), flush = backend.io.flush(0), csrMMU = backend.io.memMMU.dmem, enable = HasDTLB)(TLBConfig(name = "dtlb", totalEntry = 128))
+    val dtlb = EmbeddedTLB(in = backend.io.dmem, mem = dmemXbar.io.in(2), flush = backend.io.flush(0), csrMMU = backend.io.memMMU.dmem, enable = HasDTLB)(TLBConfig(name = "dtlb", totalEntry = 32))
     dmemXbar.io.in(0) <> dtlb.io.out
     // io.dmem <> Cache(in = dmemXbar.io.out, mmio = mmioXbar.io.in.drop(1), flush = "b00".U, empty = dtlb.io.cacheEmpty, enable = HasDcache)(CacheConfig(ro = false, name = "dcache"))
     io.dmem <> MBCache(in = dmemXbar.io.out, mmio = mmioXbar.io.in.drop(1), flush = "b00".U, empty = dtlb.io.cacheEmpty, enable = HasDcache)(MBCacheConfig(ro = false, name = "dcache"))

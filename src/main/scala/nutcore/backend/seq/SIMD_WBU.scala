@@ -118,6 +118,10 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     io.in(i).ready := true.B
   }
 
+  val freq = WireInit(0.U(64.W))
+  BoringUtils.addSink(freq,"freq");
+  Debug("[SIMD_WBU] freq:%d\n",freq)
+
   //P-EXT
   if(Polaris_SIMDU_WAY_NUM!=0){
     val bool_wire = WireInit(false.B)
@@ -129,6 +133,7 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     BoringUtils.addSource(bool_wire,"OVWEN")
   }
   
+  if(!p.FPGAPlatform){
   val runahead_redirect = Module(new DifftestRunaheadRedirectEvent)
   runahead_redirect.io.clock := clock
   runahead_redirect.io.coreid := 0.U
@@ -139,6 +144,7 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   // when(runahead_redirect.io.valid) {
   //   printf("DUT pc %x redirect to %x cpid %x\n", runahead_redirect.io.pc, runahead_redirect.io.target_pc, runahead_redirect.io.checkpoint_id)
   // }
+  }
 
   val commit_num = (0 to Commit_num-1).map(i => (io.in(i).valid && !FronthasRedirect(i)).asUInt).reduce(_+&_)
   for(i <- 0 to 0){

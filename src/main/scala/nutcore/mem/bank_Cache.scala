@@ -483,21 +483,21 @@ sealed class MBCacheStage2(implicit val cacheConfig: MBCacheConfig) extends MBCa
 
   when(debugon(req.addr) ||  (debugon(io.mem.req.bits.addr) && io.mem.req.valid) || ((getMetaIdx(req.addr) === getMetaIdx("h807331e8".U)) && metaHitWriteBus.req.fire() && meta.tag === "h807331e8".U.asTypeOf(addrBundle).tag ))
   {
-    Debug("\n S3 !! addr= %x metaidx=%x dataidx=%x tag= %x index= %x wordIndex= %x \n",req.addr, getMetaIdx(req.addr), getDataIdx(req.addr), req.addr.asTypeOf(addrBundle).tag,req.addr.asTypeOf(addrBundle).index,req.addr.asTypeOf(addrBundle).wordIndex)
-    Debug(" metaread idx %x addr.tag %x  metas valid dirty:tag %x%x:%x %x%x:%x %x%x:%x %x%x:%x \n", getMetaIdx(req.addr),req.addr.asTypeOf(addrBundle).tag, metaWay(3).valid, metaWay(3).dirty, metaWay(3).tag, metaWay(2).valid, metaWay(2).dirty, metaWay(2).tag, metaWay(1).valid, metaWay(1).dirty, metaWay(1).tag, metaWay(0).valid, metaWay(0).dirty, metaWay(0).tag)
-    Debug("waymask = %b, victimWaymask = %b \n", waymask.asUInt ,victimWaymask)
-    Debug("hit = %d, hitvec = %b \n",hit,tagHitVec)
-    Debug( io.metaWriteBus.req.fire(), "%d: [" + cacheName + " S3]: metawrite idx %x wmask %b meta %x%x:%x\n", GTimer(), io.metaWriteBus.req.bits.setIdx, io.metaWriteBus.req.bits.waymask.get, io.metaWriteBus.req.bits.data.valid, io.metaWriteBus.req.bits.data.dirty, io.metaWriteBus.req.bits.data.tag)
-    Debug(" ioin in.ready = %d, in.valid = %d, hit = %x, state = %d, addr = %x cmd:%d probe:%d isFinish:%d\n", io.in.ready, io.in.valid, hit, state, req.addr, req.cmd, probe, io.isFinish)
-    Debug(" ioout out.valid:%d rdata:%x cmd:%d user:%x id:%x \n", io.out.valid, io.out.bits.rdata, io.out.bits.cmd, io.out.bits.user.getOrElse(0.U), io.out.bits.id.getOrElse(0.U))
+    //Debug("\n S3 !! addr= %x metaidx=%x dataidx=%x tag= %x index= %x wordIndex= %x \n",req.addr, getMetaIdx(req.addr), getDataIdx(req.addr), req.addr.asTypeOf(addrBundle).tag,req.addr.asTypeOf(addrBundle).index,req.addr.asTypeOf(addrBundle).wordIndex)
+    //Debug(" metaread idx %x addr.tag %x  metas valid dirty:tag %x%x:%x %x%x:%x %x%x:%x %x%x:%x \n", getMetaIdx(req.addr),req.addr.asTypeOf(addrBundle).tag, metaWay(3).valid, metaWay(3).dirty, metaWay(3).tag, metaWay(2).valid, metaWay(2).dirty, metaWay(2).tag, metaWay(1).valid, metaWay(1).dirty, metaWay(1).tag, metaWay(0).valid, metaWay(0).dirty, metaWay(0).tag)
+    //Debug("waymask = %b, victimWaymask = %b \n", waymask.asUInt ,victimWaymask)
+    //Debug("hit = %d, hitvec = %b \n",hit,tagHitVec)
+    //Debug( io.metaWriteBus.req.fire(), "%d: [" + cacheName + " S3]: metawrite idx %x wmask %b meta %x%x:%x\n", GTimer(), io.metaWriteBus.req.bits.setIdx, io.metaWriteBus.req.bits.waymask.get, io.metaWriteBus.req.bits.data.valid, io.metaWriteBus.req.bits.data.dirty, io.metaWriteBus.req.bits.data.tag)
+    //Debug(" ioin in.ready = %d, in.valid = %d, hit = %x, state = %d, addr = %x cmd:%d probe:%d isFinish:%d\n", io.in.ready, io.in.valid, hit, state, req.addr, req.cmd, probe, io.isFinish)
+    //Debug(" ioout out.valid:%d rdata:%x cmd:%d user:%x id:%x \n", io.out.valid, io.out.bits.rdata, io.out.bits.cmd, io.out.bits.user.getOrElse(0.U), io.out.bits.id.getOrElse(0.U))
   for (w <- 0 until databankNum ) {
-    Debug(io.dataWriteBus(w).req.fire()," DHW: (%d, %d), data:%x setIdx:%x MHW:(%d, %d)\n", dataHitWriteBus(w).req.valid, dataHitWriteBus(w).req.ready, dataHitWriteBus(w).req.bits.data.asUInt, dataHitWriteBus(w).req.bits.setIdx, metaHitWriteBus.req.valid, metaHitWriteBus.req.ready)
-    Debug(io.dataWriteBus(w).req.fire(), "[WB] waymask: %b data:%x setIdx:%x\n", io.dataWriteBus(w).req.bits.waymask.get.asUInt, io.dataWriteBus(w).req.bits.data.asUInt, io.dataWriteBus(w).req.bits.setIdx)
-    Debug(io.dataWriteBus(w).req.fire(), "[WB] waymask: %b data:%x setIdx:%x\n", io.dataWriteBus(w).req.bits.waymask.get.asUInt, io.dataWriteBus(w).req.bits.data.asUInt, io.dataWriteBus(w).req.bits.setIdx)
+    //Debug(io.dataWriteBus(w).req.fire()," DHW: (%d, %d), data:%x setIdx:%x MHW:(%d, %d)\n", dataHitWriteBus(w).req.valid, dataHitWriteBus(w).req.ready, dataHitWriteBus(w).req.bits.data.asUInt, dataHitWriteBus(w).req.bits.setIdx, metaHitWriteBus.req.valid, metaHitWriteBus.req.ready)
+    //Debug(io.dataWriteBus(w).req.fire(), "[WB] waymask: %b data:%x setIdx:%x\n", io.dataWriteBus(w).req.bits.waymask.get.asUInt, io.dataWriteBus(w).req.bits.data.asUInt, io.dataWriteBus(w).req.bits.setIdx)
+    //Debug(io.dataWriteBus(w).req.fire(), "[WB] waymask: %b data:%x setIdx:%x\n", io.dataWriteBus(w).req.bits.waymask.get.asUInt, io.dataWriteBus(w).req.bits.data.asUInt, io.dataWriteBus(w).req.bits.setIdx)
   }
-  Debug((state === s_memWriteReq) && io.mem.req.fire(), "[COUTW] cnt %x addr %x data %x cmd %x size %x wmask %x tag %x idx %x waymask %b \n", writeBeatCnt.value, io.mem.req.bits.addr, io.mem.req.bits.wdata, io.mem.req.bits.cmd, io.mem.req.bits.size, io.mem.req.bits.wmask, addr.tag, getMetaIdx(req.addr), waymask)
-  Debug((state === s_memReadReq) && io.mem.req.fire(), "[COUTR] addr %x tag %x idx %x waymask %b \n", io.mem.req.bits.addr, addr.tag, getMetaIdx(req.addr), waymask)
-  Debug((state === s_memReadResp) && io.mem.resp.fire(), "[COUTR] cnt %x data %x tag %x idx %x waymask %b \n", readBeatCnt.value, io.mem.resp.bits.rdata, addr.tag, getMetaIdx(req.addr), waymask)
+  //Debug((state === s_memWriteReq) && io.mem.req.fire(), "[COUTW] cnt %x addr %x data %x cmd %x size %x wmask %x tag %x idx %x waymask %b \n", writeBeatCnt.value, io.mem.req.bits.addr, io.mem.req.bits.wdata, io.mem.req.bits.cmd, io.mem.req.bits.size, io.mem.req.bits.wmask, addr.tag, getMetaIdx(req.addr), waymask)
+  //Debug((state === s_memReadReq) && io.mem.req.fire(), "[COUTR] addr %x tag %x idx %x waymask %b \n", io.mem.req.bits.addr, addr.tag, getMetaIdx(req.addr), waymask)
+  //Debug((state === s_memReadResp) && io.mem.resp.fire(), "[COUTR] cnt %x data %x tag %x idx %x waymask %b \n", readBeatCnt.value, io.mem.resp.bits.rdata, addr.tag, getMetaIdx(req.addr), waymask)
   }
 
 }

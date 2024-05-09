@@ -468,18 +468,18 @@ sealed class CacheStage3(implicit val cacheConfig: CacheConfig) extends CacheMod
   assert(!(metaHitWriteBus.req.valid && metaRefillWriteBus.req.valid))
   assert(!(dataHitWriteBus.req.valid && dataRefillWriteBus.req.valid))
   assert(!(!ro.B && io.flush), "only allow to flush icache")
-  Debug(" metaread idx %x waymask %b metas %x%x:%x %x%x:%x %x%x:%x %x%x:%x %x\n", getMetaIdx(req.addr), io.in.bits.waymask.asUInt, io.in.bits.metas(0).valid, io.in.bits.metas(0).dirty, io.in.bits.metas(0).tag, io.in.bits.metas(1).valid, io.in.bits.metas(1).dirty, io.in.bits.metas(1).tag, io.in.bits.metas(2).valid, io.in.bits.metas(2).dirty, io.in.bits.metas(2).tag, io.in.bits.metas(3).valid, io.in.bits.metas(3).dirty, io.in.bits.metas(3).tag, io.in.bits.datas.asUInt)
-  Debug(io.metaWriteBus.req.fire(), "%d: [" + cacheName + " S3]: metawrite idx %x wmask %b meta %x%x:%x\n", GTimer(), io.metaWriteBus.req.bits.setIdx, io.metaWriteBus.req.bits.waymask.get, io.metaWriteBus.req.bits.data.valid, io.metaWriteBus.req.bits.data.dirty, io.metaWriteBus.req.bits.data.tag)
-  Debug(" in.ready = %d, in.valid = %d, hit = %x, state = %d, addr = %x cmd:%d probe:%d isFinish:%d\n", io.in.ready, io.in.valid, hit, state, req.addr, req.cmd, probe, io.isFinish)
-  Debug(" out.valid:%d rdata:%x cmd:%d user:%x id:%x \n", io.out.valid, io.out.bits.rdata, io.out.bits.cmd, io.out.bits.user.getOrElse(0.U), io.out.bits.id.getOrElse(0.U))
-  Debug(" DHW: (%d, %d), data:%x setIdx:%x MHW:(%d, %d)\n", dataHitWriteBus.req.valid, dataHitWriteBus.req.ready, dataHitWriteBus.req.bits.data.asUInt, dataHitWriteBus.req.bits.setIdx, metaHitWriteBus.req.valid, metaHitWriteBus.req.ready)
-  Debug(" DreadCache: %x \n", io.in.bits.datas.asUInt)
-  Debug(" useFD:%d isFD:%d FD:%x DreadArray:%x dataRead:%x inwaymask:%x FDwaymask:%x \n", useForwardData, io.in.bits.isForwardData, io.in.bits.forwardData.data.data, dataReadArray, dataRead, io.in.bits.waymask, io.in.bits.forwardData.waymask.getOrElse("b1".U))
-  Debug(io.dataWriteBus.req.fire(), "[WB] waymask: %b data:%x setIdx:%x\n", 
-    io.dataWriteBus.req.bits.waymask.get.asUInt, io.dataWriteBus.req.bits.data.asUInt, io.dataWriteBus.req.bits.setIdx)
-  Debug((state === s_memWriteReq) && io.mem.req.fire(), "[COUTW] cnt %x addr %x data %x cmd %x size %x wmask %x tag %x idx %x waymask %b \n", writeBeatCnt.value, io.mem.req.bits.addr, io.mem.req.bits.wdata, io.mem.req.bits.cmd, io.mem.req.bits.size, io.mem.req.bits.wmask, addr.tag, getMetaIdx(req.addr), io.in.bits.waymask)
-  Debug((state === s_memReadReq) && io.mem.req.fire(), "[COUTR] addr %x tag %x idx %x waymask %b \n", io.mem.req.bits.addr, addr.tag, getMetaIdx(req.addr), io.in.bits.waymask)
-  Debug((state === s_memReadResp) && io.mem.resp.fire(), "[COUTR] cnt %x data %x tag %x idx %x waymask %b \n", readBeatCnt.value, io.mem.resp.bits.rdata, addr.tag, getMetaIdx(req.addr), io.in.bits.waymask)
+  //Debug(" metaread idx %x waymask %b metas %x%x:%x %x%x:%x %x%x:%x %x%x:%x %x\n", getMetaIdx(req.addr), io.in.bits.waymask.asUInt, io.in.bits.metas(0).valid, io.in.bits.metas(0).dirty, io.in.bits.metas(0).tag, io.in.bits.metas(1).valid, io.in.bits.metas(1).dirty, io.in.bits.metas(1).tag, io.in.bits.metas(2).valid, io.in.bits.metas(2).dirty, io.in.bits.metas(2).tag, io.in.bits.metas(3).valid, io.in.bits.metas(3).dirty, io.in.bits.metas(3).tag, io.in.bits.datas.asUInt)
+  ///Debug(io.metaWriteBus.req.fire(), "%d: [" + cacheName + " S3]: metawrite idx %x wmask %b meta %x%x:%x\n", GTimer(), io.metaWriteBus.req.bits.setIdx, io.metaWriteBus.req.bits.waymask.get, io.metaWriteBus.req.bits.data.valid, io.metaWriteBus.req.bits.data.dirty, io.metaWriteBus.req.bits.data.tag)
+  //Debug(" in.ready = %d, in.valid = %d, hit = %x, state = %d, addr = %x cmd:%d probe:%d isFinish:%d\n", io.in.ready, io.in.valid, hit, state, req.addr, req.cmd, probe, io.isFinish)
+  //Debug(" out.valid:%d rdata:%x cmd:%d user:%x id:%x \n", io.out.valid, io.out.bits.rdata, io.out.bits.cmd, io.out.bits.user.getOrElse(0.U), io.out.bits.id.getOrElse(0.U))
+  //Debug(" DHW: (%d, %d), data:%x setIdx:%x MHW:(%d, %d)\n", dataHitWriteBus.req.valid, dataHitWriteBus.req.ready, dataHitWriteBus.req.bits.data.asUInt, dataHitWriteBus.req.bits.setIdx, metaHitWriteBus.req.valid, metaHitWriteBus.req.ready)
+  //Debug(" DreadCache: %x \n", io.in.bits.datas.asUInt)
+  //Debug(" useFD:%d isFD:%d FD:%x DreadArray:%x dataRead:%x inwaymask:%x FDwaymask:%x \n", useForwardData, io.in.bits.isForwardData, io.in.bits.forwardData.data.data, dataReadArray, dataRead, io.in.bits.waymask, io.in.bits.forwardData.waymask.getOrElse("b1".U))
+  //Debug(io.dataWriteBus.req.fire(), "[WB] waymask: %b data:%x setIdx:%x\n", 
+    //io.dataWriteBus.req.bits.waymask.get.asUInt, io.dataWriteBus.req.bits.data.asUInt, io.dataWriteBus.req.bits.setIdx)
+  //Debug((state === s_memWriteReq) && io.mem.req.fire(), "[COUTW] cnt %x addr %x data %x cmd %x size %x wmask %x tag %x idx %x waymask %b \n", writeBeatCnt.value, io.mem.req.bits.addr, io.mem.req.bits.wdata, io.mem.req.bits.cmd, io.mem.req.bits.size, io.mem.req.bits.wmask, addr.tag, getMetaIdx(req.addr), io.in.bits.waymask)
+  //Debug((state === s_memReadReq) && io.mem.req.fire(), "[COUTR] addr %x tag %x idx %x waymask %b \n", io.mem.req.bits.addr, addr.tag, getMetaIdx(req.addr), io.in.bits.waymask)
+  //Debug((state === s_memReadResp) && io.mem.resp.fire(), "[COUTR] cnt %x data %x tag %x idx %x waymask %b \n", readBeatCnt.value, io.mem.resp.bits.rdata, addr.tag, getMetaIdx(req.addr), io.in.bits.waymask)
 }
 
 class Cache(implicit val cacheConfig: CacheConfig) extends CacheModule with HasCacheIO {
@@ -487,8 +487,8 @@ class Cache(implicit val cacheConfig: CacheConfig) extends CacheModule with HasC
   val s1 = Module(new CacheStage1)
   val s2 = Module(new CacheStage2)
   val s3 = Module(new CacheStage3)
-  val metaArray = Module(new SRAMTemplateWithArbiter(nRead = 1, new MetaBundle, set = Sets, way = Ways, shouldReset = true))
-  val dataArray = Module(new SRAMTemplateWithArbiter(nRead = 2, new DataBundle, set = Sets * LineBeats, way = Ways))
+  val metaArray = Module(new SRAMTemplateWithArbiter(nRead = 1, new MetaBundle, set = Sets, way = Ways, shouldReset = true,sram_bank_num=1))
+  val dataArray = Module(new SRAMTemplateWithArbiter(nRead = 2, new DataBundle, set = Sets * LineBeats, way = Ways,sram_bank_num=1))
 
   if (cacheName == "icache") {
     // flush icache when executing fence.i
