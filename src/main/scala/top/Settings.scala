@@ -42,10 +42,10 @@ object DefaultSettings {
     "EnableRVC" -> true,
     "Issue_Num" -> 1,
     "Polaris_Independent_Bru" -> 0, //0 or 1
-    "Polaris_SIMDU_WAY_NUM" -> 0,  //1 or 2
+    "Polaris_SIMDU_WAY_NUM" -> 1,  //1 or 2
     "Polaris_Vector_LDST" -> false,
     "Polaris_RegBanks" -> false,
-    "Polaris_SNN_WAY_NUM" -> 0 // 1 or 2
+    "Polaris_SNN_WAY_NUM" -> 1 // 1 or 2
   )
 }
 

@@ -18,7 +18,7 @@ package nutcore
 
 import chisel3._
 import chisel3.util._
-import chisel3.util.experimental.BoringUtils
+import chisel3.util.experimental._
 
 import utils._
 import difftest._

@@ -19,7 +19,7 @@ package system
 import nutcore._
 import bus.axi4.{AXI4, AXI4Lite}
 import bus.simplebus._
-import device.{AXI4CLINT, AXI4PLIC}
+import device.{AXI4CLINT, AXI4PLIC,AXI4ODIN,ODINBlackBox}
 import top.Settings
 
 import chisel3._
@@ -99,6 +99,7 @@ class NutShell(implicit val p: NutCoreConfig) extends Module with HasSoCParamete
   nutcore.io.imem.coh.req.bits := DontCare
 
   val addrSpace = List(
+    (0x37000000L, 0x00200000L), // ODIN
     (0x38000000L, 0x00010000L), // CLINT
     (0x3c000000L, 0x04000000L), // PLIC
     (Settings.getLong("MMIOBase"), Settings.getLong("MMIOSize")), // external devices
@@ -106,19 +107,22 @@ class NutShell(implicit val p: NutCoreConfig) extends Module with HasSoCParamete
   val mmioXbar = Module(new SimpleBusCrossbar1toN(addrSpace))
   mmioXbar.io.in <> nutcore.io.mmio
 
-  val extDev = mmioXbar.io.out(2)
+  val extDev = mmioXbar.io.out(3)
   if (p.FPGAPlatform) { io.mmio <> extDev.toAXI4() }
   else { io.mmio <> extDev }
 
   val clint = Module(new AXI4CLINT(sim = !p.FPGAPlatform))
-  clint.io.in <> mmioXbar.io.out(0).toAXI4Lite()
+  clint.io.in <> mmioXbar.io.out(1).toAXI4Lite()
   val mtipSync = clint.io.extra.get.mtip
   val msipSync = clint.io.extra.get.msip
   BoringUtils.addSource(mtipSync, "mtip")
   BoringUtils.addSource(msipSync, "msip")
 
+  val odin = Module(new AXI4ODIN(sim = !p.FPGAPlatform))
+  odin.io.in <> mmioXbar.io.out(0).toAXI4Lite()
+
   val plic = Module(new AXI4PLIC(nrIntr = Settings.getInt("NrExtIntr"), nrHart = 1))
-  plic.io.in <> mmioXbar.io.out(1).toAXI4Lite()
+  plic.io.in <> mmioXbar.io.out(2).toAXI4Lite()
   plic.io.extra.get.intrVec := RegNext(RegNext(io.meip))
   val meipSync = plic.io.extra.get.meip(0)
   BoringUtils.addSource(meipSync, "meip")
