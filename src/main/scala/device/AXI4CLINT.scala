@@ -92,7 +92,7 @@ trait HasODINIO extends BaseModule{
 
 class ODINBlackBox(val N: Int, val M: Int) extends BlackBox(Map("N" -> N, "M" -> M)) with HasBlackBoxResource with HasODINIO{
  val io = IO(new Bundle{
-   val CLK = Input(Clock())
+    val CLK = Input(Clock())
     val RST = Input(Bool())
     val SCK = Input(Clock())
     val MOSI = Input(UInt(1.W))
@@ -131,7 +131,9 @@ class AXI4ODIN(sim: Boolean = false) extends AXI4SlaveModule(new AXI4Lite) {
   def slow:Int = 4 //spi接口的速度设置为比标准时钟慢4倍
   val odin_impl=Module(new ODINBlackBox(N,M)) //例化黑盒状态的odin
 
-  odin_impl.io.CLK:=clock
+  val clock_odin = WireInit(false.B)
+  BoringUtils.addSink(clock_odin, "clock")
+  odin_impl.io.CLK:=clock_odin.asClock
   odin_impl.io.RST:=reset.asBool
 
   //用MMIO的模式来读写aer端口
@@ -166,7 +168,7 @@ class AXI4ODIN(sim: Boolean = false) extends AXI4SlaveModule(new AXI4Lite) {
   val spi_addr = RegInit(0.U(20.W)) //
   val spi_data = RegInit(0.U(20.W)) //
   val spi_cnt  = RegInit(0.U(log2Up(slow*40).W)) //
-  val spi_rdata= Reg(Vec(40, UInt(40.W))) //
+  val spi_rdata= Reg(Vec(40, UInt(1.W))) //
 
   //单独设置SPI的时钟，以4个标准时钟为一个SPI时钟周期，计数器以1 2 3结尾时为高电平 以0结尾时低电平
   odin_impl.io.SCK:= (spi_cnt(1,0) =/= 0.U).asClock()
@@ -185,6 +187,7 @@ class AXI4ODIN(sim: Boolean = false) extends AXI4SlaveModule(new AXI4Lite) {
   when(spi_cnt === (slow * 39+3).U){ //当计数器处于第39个spi周期的第3个普通时钟时，下一拍结束读写任务
     spi_cnt := 0.U
     spi_finish := Cat(0.U,spi_finish(0))
+    spi_addr := 0.U
   }
 
   when(spi_finish(1) && spi_addr(19)){ //读任务模式
@@ -204,4 +207,12 @@ class AXI4ODIN(sim: Boolean = false) extends AXI4SlaveModule(new AXI4Lite) {
     val rdata = spi_rdata.asUInt        //对于读任务，该10位数据的低8位就是读任务完成后从SPI读出来的8位数据
     in.r.bits.data := Cat(spi_finish,Reverse(rdata(39,32)))
   }
+  when(reset.asBool){
+    spi_rdata := 0.U.asTypeOf(spi_rdata)
+  }
+  Debug() {
+    val rdata = spi_rdata.asUInt 
+    printf("[odin] rdata %x spifinish %x rdata %x\n",in.r.bits.data,spi_finish,Reverse(rdata(39,32)))
+  }
+  //printf("[SPI] sck %x mosi %x miso %x spi_cnt %x spi_addr %x spi_data %x \n",odin_impl.io.SCK.asBool,odin_impl.io.MOSI,odin_impl.io.MISO,spi_cnt,spi_addr,spi_data)
 }

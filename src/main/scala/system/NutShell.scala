@@ -145,4 +145,5 @@ class NutShell(implicit val p: NutCoreConfig) extends Module with HasSoCParamete
     BoringUtilsConnect(ila.WBUrfData  ,"ilaWBUrfData")
     BoringUtilsConnect(ila.InstrCnt   ,"ilaInstrCnt")
   }
+  BoringUtils.addSource(clock.asBool, "clock")
 }
