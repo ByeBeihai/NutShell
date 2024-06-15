@@ -256,7 +256,7 @@ class pipeline_lsu_stage2 extends NutCoreModule with HasLSUConst {
       state := s_idle
     } 
   }
-  Debug("[stage2] state %x invalid %x inready %x func %x\n", state, io.in.valid, io.in.ready,func)
+  
 
   io.out.bits.result := exec_result
   io.out.bits.vrdata := exec_vrdata
@@ -281,7 +281,9 @@ class pipeline_lsu_stage2 extends NutCoreModule with HasLSUConst {
   val vrdataLatch= Mux(req_state === s_wait_fire,vrdatacache,vrdata)
   dmem.resp.ready := true.B
   dmem.req <> DontCare
+  Debug("[stage2] req_state %x invalid %x inready %x func %x\n", req_state, io.in.valid, io.in.ready,func)
   Debug("[stage2] dmemrespvalid %x dmemrespready %x\n", dmem.resp.valid,dmem.resp.ready)
+  Debug("[stage2] rdatacache %x rdata %x partialLoad %x\n", rdatacache,rdata,partialLoad)
   val rdataSel64 = LookupTree(addrLatch(2, 0), List(
     "b000".U -> rdataLatch(63, 0),
     "b001".U -> rdataLatch(63, 8),

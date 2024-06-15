@@ -22,7 +22,7 @@ object DefaultSettings {
     "MemMapRegionBits" -> 0,
     "MMIOBase" -> 0x0000000040000000L,
     "MMIOSize" -> 0x0000000040000000L,
-    "ResetVector" -> 0x80000000L,
+    "ResetVector" -> 0x00000000L,
     "NrExtIntr" -> 1,
 
     "HasL2cache" -> true,

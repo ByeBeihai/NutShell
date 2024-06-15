@@ -154,11 +154,11 @@ class AXI4ODIN(sim: Boolean = false) extends AXI4SlaveModule(new AXI4Lite) {
   //此处为aer转换到mmio后的内存映射地址 0x100000-0x200000用于这段映射
   val mapping = Map(
     MaskedRegMap(0x100000, aeroutreq,MaskedRegMap.UnwritableMask),
-    MaskedRegMap(0X100004, aeroutaddr,MaskedRegMap.UnwritableMask),
-    MaskedRegMap(0x100008, aeroutack),
-    MaskedRegMap(0x10000c, aerinreq),
-    MaskedRegMap(0x100010, aerinaddr),
-    MaskedRegMap(0x100014, aerinack,MaskedRegMap.UnwritableMask))
+    MaskedRegMap(0X100010, aeroutaddr,MaskedRegMap.UnwritableMask),
+    MaskedRegMap(0x100020, aeroutack),
+    MaskedRegMap(0x100030, aerinreq),
+    MaskedRegMap(0x100040, aerinaddr),
+    MaskedRegMap(0x100050, aerinack,MaskedRegMap.UnwritableMask))
   def getOffset(addr: UInt) = addr(23,0)
   MaskedRegMap.generate(mapping, getOffset(raddr), in.r.bits.data,
     getOffset(waddr), in.w.fire(), in.w.bits.data)
@@ -203,7 +203,7 @@ class AXI4ODIN(sim: Boolean = false) extends AXI4SlaveModule(new AXI4Lite) {
     odin_impl.io.MOSI := total_trans_bag((spi_cnt >> 2))
   }
 
-  when(getOffset(raddr) === 0x100018.U){//将spi_finish和spi_rdata拼接为10位的数据，映射到0x100018且是只读状态,处理器可以通过读取这个地址来判断SPI传输任务是否结束（看最高位）
+  when(getOffset(raddr) === 0x100060.U){//将spi_finish和spi_rdata拼接为10位的数据，映射到0x100018且是只读状态,处理器可以通过读取这个地址来判断SPI传输任务是否结束（看最高位）
     val rdata = spi_rdata.asUInt        //对于读任务，该10位数据的低8位就是读任务完成后从SPI读出来的8位数据
     in.r.bits.data := Cat(spi_finish,Reverse(rdata(39,32)))
   }
@@ -211,8 +211,7 @@ class AXI4ODIN(sim: Boolean = false) extends AXI4SlaveModule(new AXI4Lite) {
     spi_rdata := 0.U.asTypeOf(spi_rdata)
   }
   Debug() {
-    val rdata = spi_rdata.asUInt 
-    printf("[odin] rdata %x spifinish %x rdata %x\n",in.r.bits.data,spi_finish,Reverse(rdata(39,32)))
+    printf("[odin] aerinreq %x raddr %x waddr %x rdata %x wdata%x wen %x \n",aerinreq,getOffset(raddr),getOffset(waddr),in.r.bits.data,in.w.bits.data, in.w.fire())
   }
   //printf("[SPI] sck %x mosi %x miso %x spi_cnt %x spi_addr %x spi_data %x \n",odin_impl.io.SCK.asBool,odin_impl.io.MOSI,odin_impl.io.MISO,spi_cnt,spi_addr,spi_data)
 }
