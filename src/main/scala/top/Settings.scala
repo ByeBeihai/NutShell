@@ -45,7 +45,7 @@ object DefaultSettings {
     "Polaris_SIMDU_WAY_NUM" -> 2,  //1 or 2
     "Polaris_Vector_LDST" -> false,
     "Polaris_RegBanks" -> false,
-    "Polaris_SNN_WAY_NUM" -> 1 // 1 or 2
+    "Polaris_SNN_WAY_NUM" -> 2 // 1 or 2
   )
 }
 
@@ -55,9 +55,9 @@ object PynqSettings {
     "NrExtIntr" -> 3,
     "ResetVector" -> 0x80000000L,
     "MemMapBase" -> 0x0000000080000000L,
-    "MemMapRegionBits" -> 28,
-    "MMIOBase" -> 0x0000000040600000L,
-    "MMIOSize" -> 0x0000000001000000L
+    "MemMapRegionBits" -> 0,
+    "MMIOBase" -> 0x0000000040000000L,
+    "MMIOSize" -> 0x0000000000000000L
   )
 }
 
