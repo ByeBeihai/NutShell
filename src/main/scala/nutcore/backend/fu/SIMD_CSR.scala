@@ -924,6 +924,10 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     lrAddr := setLrAddr
   }
 
+  when(raiseExceptionIntr || isRet){
+    lr := false.B
+  }
+
   if (!p.FPGAPlatform) {
 
     // for differential testing
