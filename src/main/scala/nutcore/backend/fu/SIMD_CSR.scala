@@ -742,7 +742,7 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     rdata := vxsat & 1.U
     when(RegWen){vxsat := (wdata & 1.U)}
   }.elsewhen(addr === Sip.U){
-    rdata := mipWire.asUInt | mipReg
+    rdata := (mipWire.asUInt | mipReg) & sipMask
     when(RegWen){mipReg := (wdata & sipMask) | (mipReg & ~sipMask)}
   }.elsewhen(addr === Mip.U){
     rdata := mipWire.asUInt | mipReg

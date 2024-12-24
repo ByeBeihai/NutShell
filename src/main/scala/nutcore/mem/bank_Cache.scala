@@ -518,6 +518,13 @@ class MBCache(implicit val cacheConfig: MBCacheConfig) extends MBCacheModule wit
     ))
   }
 
+  if (cacheName == "icache") {
+    // flush icache when executing fence.i
+    val flushICache = WireInit(false.B)
+    BoringUtils.addSink(flushICache, "MOUFlushICache")
+    metaArray.reset := reset.asBool || flushICache
+  }
+
   val arb = Module(new Arbiter(new SimpleBusReqBundle(userBits = userBits, idBits = idBits), hasCohInt + 1))
   arb.io.in(hasCohInt + 0) <> io.in.req
 
