@@ -482,10 +482,17 @@ class SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with SIMD_Ha
 
 }
 
+class FpuCsrIO extends Bundle {
+  val fflags = Output(Valid(UInt(5.W)))
+  val dirty_fs = Output(Bool())
+  val frm = Input(UInt(3.W))
+}
+
 class new_CSRIO extends FunctionUnitIO {
   val cfIn = Flipped(new CtrlFlowIO)
   val ctrlIn = Flipped(new CtrlSignalIO)
   val redirect = new RedirectIO
+  val fpu = Flipped(new FpuCsrIO)
   // for exception check
   val instrValid = Input(Bool())
   //val isBackendException = Input(Bool())
@@ -496,16 +503,18 @@ class new_CSRIO extends FunctionUnitIO {
   val wenFix = Output(Bool())
 }
 
+
 class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val io = IO(new new_CSRIO)
 
-  val (valid, src1, src2, func, isMou) = (io.in.valid, io.in.bits.src1, io.in.bits.src2, io.in.bits.func,io.ctrlIn.isMou)
+  val (valid, src1, src2, src3, func, isMou) = (io.in.valid, io.in.bits.src1, io.in.bits.src2, io.in.bits.src3, io.in.bits.func,io.ctrlIn.isMou)
   def access(valid: Bool, src1: UInt, src2: UInt, func: UInt, isMou:UInt): UInt = {
     this.valid := valid
     this.src1 := src1
     this.src2 := src2
+    this.src3 := DontCare
     this.func := func
-    this.isMou :=isMou
+    this.isMou:= isMou
     io.out.bits
   }
 
@@ -569,7 +578,7 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   var extList = List('a', 's', 'i', 'u')
   if(HasMExtension){ extList = extList :+ 'm'}
   if(HasCExtension){ extList = extList :+ 'c'}
-  val misaInitVal = 1.U << 63 | 0x141105.U //getMisaMxl(2) | extList.foldLeft(0.U)((sum, i) => sum | getMisaExt(i)) //"h8000000000141105".U 
+  val misaInitVal = 1.U << 63 | 0x14112d.U //getMisaMxl(2) | extList.foldLeft(0.U)((sum, i) => sum | getMisaExt(i)) //"h8000000000141112".U
   val misa = RegInit(UInt(XLEN.W), misaInitVal) 
   // MXL = 2          | 0 | EXT = b 00 0000 0100 0001 0001 0000 0101
   // (XLEN-1, XLEN-2) |   |(25, 0)  ZY XWVU TSRQ PONM LKJI HGFE DCBA
@@ -616,6 +625,40 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
 
   // User-Level CSRs
   val uepc = Reg(UInt(XLEN.W))
+
+  // fcsr
+  class FcsrStruct extends Bundle {
+    val reserved = UInt((XLEN - 3 - 5).W)
+    val frm = UInt(3.W)
+    val fflags = UInt(5.W)
+    assert(this.getWidth == XLEN)
+  }
+  val fcsr = RegInit(0.U(XLEN.W))
+  // set mstatus->sd and mstatus->fs when true
+  val csrw_dirty_fp_state = WireInit(false.B)
+  def frm_wfn(wdata: UInt): UInt = {
+    val fcsrOld = WireInit(fcsr.asTypeOf(new FcsrStruct))
+    csrw_dirty_fp_state := true.B
+    fcsrOld.frm := wdata(2, 0)
+    fcsrOld.asUInt
+  }
+  def fflags_wfn(update: Boolean)(wdata: UInt): UInt = {
+    val fcsrOld = fcsr.asTypeOf(new FcsrStruct)
+    val fcsrNew = WireInit(fcsrOld)
+    csrw_dirty_fp_state := true.B
+    if (update) {
+      fcsrNew.fflags := wdata(4, 0) | fcsrOld.fflags
+    } else {
+      fcsrNew.fflags := wdata(4, 0)
+    }
+    fcsrNew.asUInt
+  }
+  def fcsr_wfn(wdata: UInt): UInt = {
+    val fcsrOld = WireInit(fcsr.asTypeOf(new FcsrStruct))
+    csrw_dirty_fp_state := true.B
+    Cat(fcsrOld.reserved, wdata.asTypeOf(fcsrOld).frm, wdata.asTypeOf(fcsrOld).fflags)
+  }
+
 
   // Hart Priviledge Mode
   val priviledgeMode = RegInit(UInt(2.W), ModeM)
@@ -747,10 +790,31 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   }.elsewhen(addr === Mip.U){
     rdata := mipWire.asUInt | mipReg
     when(RegWen){mipReg:= (wdata & mipFixMask) | (mipReg & ~mipFixMask)}
+  }.elsewhen(addr === Fcsr.U) {
+    rdata := fcsr
+    when(RegWen) {fcsr := fcsr_wfn(wdata)}
+  }.elsewhen(addr === Frm.U) {
+    rdata := fcsr(7,5)
+    when(RegWen) {fcsr := frm_wfn(wdata)}
+  }.elsewhen(addr === Fflags.U) {
+    rdata := fcsr(4,0)
+    when(RegWen) {fcsr := fflags_wfn(update = false)(wdata)}
   }.otherwise{
     rdata := 0.U
     isIllegalAddr:= wen
   }
+
+  when(io.fpu.fflags.valid) {
+    fcsr := fflags_wfn(update = true)(io.fpu.fflags.bits)
+  }
+  // set fs and sd in mstatus
+  when(csrw_dirty_fp_state || io.fpu.dirty_fs) {
+    val mstatusNew = WireInit(mstatus.asTypeOf(new MstatusStruct))
+    mstatusNew.fs := "b11".U
+    mstatusNew.sd := true.B
+    mstatus := mstatusNew.asUInt
+  }
+  io.fpu.frm := fcsr.asTypeOf(new FcsrStruct).frm
 
   //p-ext
   val OVWEN = WireInit(false.B)

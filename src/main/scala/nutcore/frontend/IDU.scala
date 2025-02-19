@@ -39,12 +39,21 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
   // val instrType :: fuType :: fuOpType :: Nil = ListLookup(instr, Instructions.DecodeDefault, Instructions.DecodeTable)
   val isRVC = if (HasCExtension) instr(1,0) =/= "b11".U else false.B
   val rvcImmType :: rvcSrc1Type :: rvcSrc2Type :: rvcDestType :: Nil =
-    ListLookup(instr, CInstructions.DecodeDefault, CInstructions.CExtraDecodeTable) 
+    ListLookup(instr, CInstructions.CExtraDecodeDefault, CInstructions.CExtraDecodeTable)
+  val rvcSrc2FpRen :: rvcFpWen :: Nil =
+    ListLookup(instr, CInstructions.CFpCtrlDefault, CInstructions.CFpCtrlTable)
+  val src1fpRen :: src2fpRen :: src3fpRen :: fpWen :: Nil =
+    ListLookup(instr, FInstructions.DecodeDefault, FInstructions.FExtraDecodeTable)
+
 
   io.out.bits := DontCare
 
   io.out.bits.ctrl.fuType := fuType
   io.out.bits.ctrl.fuOpType := (if(Polaris_Vector_LDST){Mux(isInstrPLS(instrType),instr(31,25),fuOpType)}else{fuOpType})
+  io.out.bits.ctrl.fReg.wen := Mux(isRVC, rvcFpWen, fpWen)
+  io.out.bits.ctrl.fReg.src1Ren := src1fpRen
+  io.out.bits.ctrl.fReg.src2Ren := Mux(isRVC, rvcSrc2FpRen, src2fpRen)
+  io.out.bits.ctrl.fReg.src3Ren := src3fpRen
 
   io.out.bits.ctrl.funct3 := instr(14,12)
   io.out.bits.ctrl.func24 := instr(24)
@@ -64,6 +73,8 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
     InstrPB-> (SrcType.reg, SrcType.imm),
     InstrPM-> (SrcType.reg, SrcType.reg),
     InstrPRD->(SrcType.reg, SrcType.reg),
+    InstrIZ-> (SrcType.reg, SrcType.imm),
+    InstrR4 ->(SrcType.reg, SrcType.reg),
     InstrPLDR->(SrcType.reg, SrcType.reg),
     InstrPSTR->(SrcType.reg, SrcType.reg),
     InstrPLDI->(SrcType.reg, SrcType.imm),
@@ -103,6 +114,7 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
 
   val src3fromhead = (instr(14,12) === "b001".U && instr(6,0) === "b0110011".U && instr(26,25) === "b11".U
                     ||instr(26,25) === "b10".U  && instr(14,12) === "b101".U   && instr(6,0) === "b0111011".U //fsrw
+                    ||instrType === InstrR4
                     )
   val insb         = fuOpType === "b1010110".U && instr(24,23) === "b00".U && instr(14,12) === "b000".U
   val rfSrc1 = Mux(isRVC, rvc_src1, rs)
@@ -167,6 +179,7 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
   // fix LUI
   io.out.bits.ctrl.src1Type := Mux(instr(6,0) === "b0110111".U, SrcType.reg, src1Type)
   io.out.bits.ctrl.src2Type := src2Type
+  io.out.bits.ctrl.src3Type := SrcType.reg
 
   val NoSpecList = Seq(
     FuType.csr
@@ -240,6 +253,7 @@ class IDU(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstrType
   // debug runahead
   if (!p.FPGAPlatform) {
   val runahead = Module(new DifftestRunaheadEvent)
+  runahead.io := DontCare
   runahead.io.clock         := clock
   runahead.io.coreid        := 0.U
   runahead.io.valid         := io.out(0).fire()

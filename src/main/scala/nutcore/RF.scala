@@ -30,7 +30,7 @@ trait HasRegFileParameter {
 
 class RegFile extends HasRegFileParameter with HasNutCoreParameter {
   val rf = Mem(NRReg, UInt(XLEN.W))
-  def read(addr: UInt) : UInt = Mux(addr === 0.U, 0.U, rf(addr))
+  def read(addr: UInt, fp: Boolean = false): UInt = if(fp) rf(addr) else Mux(addr === 0.U, 0.U, rf(addr))
   def write(addr: UInt, data: UInt) = { rf(addr) := data(XLEN-1,0) }
 } 
 

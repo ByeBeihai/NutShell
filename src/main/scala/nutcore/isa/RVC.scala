@@ -70,7 +70,7 @@ trait HasRVCConst {
 object RVCInstr extends HasInstrType with HasRVCConst {
 
   // RVC 00
-//   def C_XX    = BitPat("b????????????????_???_?_10_987_65_432_10")
+//  def C_XX    = BitPat("b????????????????_fed_c_ba_987_65_432_10")
   def C_ILLEGAL  = BitPat("b0000000000000000_000_0_00_000_00_000_00")
   def C_ADDI4SPN = BitPat("b????????????????_000_?_??_???_??_???_00")
   def C_FLD      = BitPat("b????????????????_001_?_??_???_??_???_00")
@@ -116,7 +116,7 @@ object RVCInstr extends HasInstrType with HasRVCConst {
   def C_FLDSP   = BitPat("b????????????????_001_?_??_???_??_???_10")
 //   def C_LQSP    = BitPat("b????????????????_001_?_??_???_??_???_10")
   def C_LWSP    = BitPat("b????????????????_010_?_??_???_??_???_10")
-  def C_FLWSP   = BitPat("b????????????????_011_?_??_???_??_???_10")
+  //def C_FLWSP   = BitPat("b????????????????_011_?_??_???_??_???_10")
   def C_LDSP    = BitPat("b????????????????_011_?_??_???_??_???_10")
   def C_JR      = BitPat("b????????????????_100_0_??_???_00_000_10")
   def C_MV      = BitPat("b????????????????_100_0_??_???_??_???_10")
@@ -126,7 +126,7 @@ object RVCInstr extends HasInstrType with HasRVCConst {
   def C_FSDSP   = BitPat("b????????????????_101_?_??_???_??_???_10")
 //   def C_SQSP    = BitPat("b????????????????_101_?_??_???_??_???_10")
   def C_SWSP    = BitPat("b????????????????_110_?_??_???_??_???_10")
-  def C_FSWSP   = BitPat("b????????????????_111_?_??_???_??_???_10")
+  //def C_FSWSP   = BitPat("b????????????????_111_?_??_???_??_???_10")
   def C_SDSP    = BitPat("b????????????????_111_?_??_???_??_???_10")
 
   // TODO: HINT
@@ -137,10 +137,10 @@ object RVCInstr extends HasInstrType with HasRVCConst {
   val table = Array(
     C_ILLEGAL    -> List(InstrN, FuType.csr, CSROpType.jmp),
     C_ADDI4SPN   -> List(InstrI, FuType.alu, ALUOpType.add),
-    // C_FLD        -> List(InstrI, FuType.alu, ALUOpType.add),
+    C_FLD        -> List(InstrI, FuType.lsu, LSUOpType.ld),
     C_LW         -> List(InstrI, FuType.lsu, LSUOpType.lw),
     C_LD         -> List(InstrI, FuType.lsu, LSUOpType.ld),
-    // C_FSD        -> List(InstrI, FuType.alu, ALUOpType.add),
+    C_FSD        -> List(InstrS, FuType.lsu, LSUOpType.sd),
     C_SW         -> List(InstrS, FuType.lsu, LSUOpType.sw),
     C_SD         -> List(InstrS, FuType.lsu, LSUOpType.sd),
     C_NOP        -> List(InstrI, FuType.alu, ALUOpType.add),
@@ -163,7 +163,7 @@ object RVCInstr extends HasInstrType with HasRVCConst {
     C_BEQZ       -> List(InstrB, FuType.bru, ALUOpType.beq),
     C_BNEZ       -> List(InstrB, FuType.bru, ALUOpType.bne),
     C_SLLI       -> List(InstrI, FuType.alu, ALUOpType.sll),
-    // C_FLDSP      -> List(InstrI, FuType.alu, ALUOpType.add),
+    C_FLDSP      -> List(InstrI, FuType.lsu, LSUOpType.ld),
     C_LWSP       -> List(InstrI, FuType.lsu, LSUOpType.lw),
     // C_FLWSP      -> List(InstrI, FuType.alu, ALUOpType.add),
     C_LDSP       -> List(InstrI, FuType.lsu, LSUOpType.ld),
@@ -172,7 +172,7 @@ object RVCInstr extends HasInstrType with HasRVCConst {
     C_EBREAK     -> List(InstrI, FuType.csr, CSROpType.jmp),
     C_JALR       -> List(InstrI, FuType.bru, ALUOpType.jalr),
     C_ADD        -> List(InstrR, FuType.alu, ALUOpType.add),
-    // C_FSDSP      -> List(InstrI, FuType.alu, ALUOpType.add),
+    C_FSDSP      -> List(InstrS, FuType.lsu, LSUOpType.sd),
     C_SWSP       -> List(InstrS, FuType.lsu, LSUOpType.sw),
     // C_FSWSP      -> List(InstrI, FuType.alu, ALUOpType.add),
     C_SDSP       -> List(InstrS, FuType.lsu, LSUOpType.sd)
@@ -180,10 +180,10 @@ object RVCInstr extends HasInstrType with HasRVCConst {
 
    val cExtraTable = Array(
     C_ADDI4SPN   -> List(ImmADD4SPN, REGx2, DtCare, REGrs2p),
-    // C_FLD        -> List(),
+    C_FLD        -> List(ImmLD, REGrs1p, DtCare, REGrs2p),
     C_LW         -> List(ImmLW, REGrs1p, DtCare, REGrs2p),
     C_LD         -> List(ImmLD, REGrs1p, DtCare, REGrs2p),
-    // C_FSD        -> List(),
+    C_FSD        -> List(ImmSD, REGrs1p, REGrs2p, DtCare),
     C_SW         -> List(ImmSW, REGrs1p, REGrs2p, DtCare),
     C_SD         -> List(ImmSD, REGrs1p, REGrs2p, DtCare),
     C_NOP        -> List(ImmNone, DtCare, DtCare, DtCare),
@@ -206,7 +206,7 @@ object RVCInstr extends HasInstrType with HasRVCConst {
     C_BEQZ       -> List(ImmB, REGrs1p, DtCare, DtCare), // rd: x0
     C_BNEZ       -> List(ImmB, REGrs1p, DtCare, DtCare), // rd: x0
     C_SLLI       -> List(ImmLI, REGrd, DtCare, REGrd),
-    // C_FLDSP      -> List(),
+     C_FLDSP     -> List(ImmLDSP, REGx2, DtCare, REGrd),
     // C_LQSP       -> List(),
     C_LWSP       -> List(ImmLWSP, REGx2, DtCare, REGrd),
     // C_FLWSP      -> List(),
@@ -216,7 +216,7 @@ object RVCInstr extends HasInstrType with HasRVCConst {
     C_EBREAK     -> List(ImmCBREAK, DtCare, DtCare, DtCare), //not implemented
     C_JALR       -> List(ImmNone, REGrs1, DtCare, REGx1),
     C_ADD        -> List(ImmNone, REGrd, REGrs2, REGrd),
-    // C_FSDSP      -> List(),
+    C_FSDSP      -> List(ImmSDSP, REGx2, REGrs2, DtCare),
     // C_SQSP       -> List(),
     C_SWSP       -> List(ImmSWSP, REGx2, REGrs2, DtCare),
     // C_FSWSP      -> List(),
@@ -225,4 +225,13 @@ object RVCInstr extends HasInstrType with HasRVCConst {
 
    //TODO: support pc = 2 aligned address
    //TODO: branch predictor support pc = 2 align 
+   val cFpCtrlTable = Array(
+    //              Sr2_fpRen
+    //              |  fpWen
+    //              |  |
+    C_FLD   -> List(N, Y),
+    C_FSD   -> List(Y, N),
+    C_FLDSP -> List(N, Y),
+    C_FSDSP -> List(Y, N)
+  )
 }

@@ -47,7 +47,7 @@ trait HasCSRConst {
   val Utval         = 0x043
   val Uip           = 0x044
 
-  // User Floating-Point CSRs (not implemented)
+  // User Floating-Point CSRs
   val Fflags        = 0x001
   val Frm           = 0x002
   val Fcsr          = 0x003

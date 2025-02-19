@@ -814,13 +814,7 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule w
                                             match_exuwbu(i)(k)
                                             }}).reduce(_||_)
       val front_wbu_matched = {if(i == 0){true.B}else{match_exuwbu(i-1).reduce(_||_)}}
-      when(exu.io.out(j).bits.decode.InstNo === (TailPtr + i.U) && (if(p.FPGAPlatform){exu.io.out(j).valid}else{true.B}) && front_wbu_matched && !wbu_matched){
-        if(p.FPGAPlatform){
-          exu.io.out(j).ready := true.B
-          wbu_bits_next(i) := exu.io.out(j).bits
-          wbu_valid_next(i) := true.B
-          match_exuwbu(i)(j) := true.B
-        }else{
+      when(exu.io.out(j).bits.decode.InstNo === (TailPtr + i.U) && front_wbu_matched && !wbu_matched){
           exu.io.out(j).ready := true.B
           when(exu.io.out(j).valid){
             wbu_bits_next(i) := exu.io.out(j).bits
@@ -830,23 +824,8 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule w
         }
       }
     }
-  }
-  if(p.FPGAPlatform){
-    val lsuoutready = WireInit(true.B)
-    val lsuInstNo = exu.io.out(FuType.lsu).bits.decode.InstNo - TailPtr
-    for(i <- 0 to Commit_num-1){
-      when(i.U < lsuInstNo && !wbu_valid_next(i)){
-        lsuoutready :=false.B
-      }
-    }
-    if(Commit_num < FuType.num){
-      when(lsuInstNo > (Commit_num-1).U){
-        lsuoutready :=false.B
-      }
-    }
-    exu.io.out(FuType.lsu).ready := lsuoutready
-    Debug("lsuready %x lsuInstNo %x wbu_valid_next(0) %x fpga %x \n",exu.io.out(FuType.lsu).ready,lsuInstNo,wbu_valid_next(0),p.FPGAPlatform.B)
-  }
+  
+  
   Debug("match_exuwbu %x ptrleft %x queuenum %x\n",match_exuwbu(0).asUInt,ptrleft,Queue_num.U)
 
   val num_enterwbu = exu.io.out.map(i => i.fire().asUInt).reduce(_+&_)
@@ -882,6 +861,10 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule w
   isu.io.forward(1+Polaris_SIMDU_WAY_NUM) <> exu.io.forward(FuType.alu1int)  
   isu.io.forward(2+Polaris_SIMDU_WAY_NUM) <> exu.io.forward(FuType.lsuint)  
   isu.io.forward(3+Polaris_SIMDU_WAY_NUM) <> exu.io.forward(FuType.mduint)
+  isu.io.forward(4+Polaris_SIMDU_WAY_NUM) <> exu.io.forward(FuType.fmaint)
+  isu.io.forward(5+Polaris_SIMDU_WAY_NUM) <> exu.io.forward(FuType.fdivsqrtint)
+  isu.io.forward(6+Polaris_SIMDU_WAY_NUM) <> exu.io.forward(FuType.fconvint)
+  isu.io.forward(7+Polaris_SIMDU_WAY_NUM) <> exu.io.forward(FuType.fcompint)
   if(Polaris_SIMDU_WAY_NUM>0){
     isu.io.forward(0) <> exu.io.forward(FuType.simduint)  
   }

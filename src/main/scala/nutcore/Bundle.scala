@@ -19,9 +19,17 @@ package nutcore
 import chisel3._
 import chisel3.util._
 
+class floatRegCtrl extends Bundle {
+  val wen = Output(Bool())
+  val src1Ren = Output(Bool())
+  val src2Ren = Output(Bool())
+  val src3Ren = Output(Bool())
+}
+
 class CtrlSignalIO extends NutCoreBundle {
   val src1Type = Output(SrcType())
   val src2Type = Output(SrcType())
+  val src3Type = Output(SrcType())
   val fuType = Output(FuType())
   val fuOpType = Output(FuOpType())
   val funct3 = Output(UInt(3.W))
@@ -36,10 +44,12 @@ class CtrlSignalIO extends NutCoreBundle {
   val isNutCoreTrap = Output(Bool())
   val isSrc1Forward = Output(Bool())
   val isSrc2Forward = Output(Bool())
+  val isSrc3Forward = Output(Bool())
   val noSpecExec = Output(Bool())  // This inst can not be speculated
   val isBlocked = Output(Bool())   // This inst requires pipeline to be blocked
   val isBru = Output(Bool())
   val isMou = Output(Bool())
+  val fReg = new floatRegCtrl
 }
 
 class DataSrcIO extends NutCoreBundle with HasLSUConst{
@@ -91,12 +101,14 @@ class DecodeIO extends NutCoreBundle with HasNutCoreParameter{
 
 class WriteBackIO extends NutCoreBundle {
   val rfWen = Output(Bool())
+   val toFReg = Output(Bool())
   val rfDest = Output(UInt(5.W))
   val rfData = Output(UInt(XLEN.W))
 }
 
 class SIMD_WriteBackIO() extends NutCoreBundle with HasNutCoreParameter{
   val rfWen = Vec(Issue_Num,Output(Bool()))
+  val toFReg = Output(Bool())
   val rfDest = Vec(Issue_Num,Output(UInt(5.W)))
   val WriteData = Vec(Issue_Num,Output(UInt(XLEN.W)))
   val rfSrc1 = Vec(Issue_Num,Input(UInt(5.W)))
@@ -108,6 +120,7 @@ class SIMD_WriteBackIO() extends NutCoreBundle with HasNutCoreParameter{
 }
 class new_SIMD_WriteBackIO() extends NutCoreBundle with HasNutCoreParameter with HasLSUConst with HasRegFileParameter{
   val rfWen = Vec(Commit_num,Output(Bool()))
+  val toFReg = Vec(Commit_num, Output(Bool()))
   val rfDest = Vec(Commit_num,Output(UInt(5.W)))
   val rfVector = Vec(Commit_num,Output(Bool()))
   val WriteData = Vec(Commit_num,Output(UInt(XLEN.W)))
@@ -116,6 +129,9 @@ class new_SIMD_WriteBackIO() extends NutCoreBundle with HasNutCoreParameter with
   val rfSrc1 = Vec(Issue_Num,Input(UInt(5.W)))
   val rfSrc2 = Vec(Issue_Num,Input(UInt(5.W)))
   val rfSrc3 = Vec(Issue_Num,Input(UInt(5.W)))
+  val src1fpRen = Vec(Issue_Num,Input(Bool()))
+  val src2fpRen = Vec(Issue_Num,Input(Bool()))
+  val src3fpRen = Vec(Issue_Num,Input(Bool()))
   val rfSrcVec  = Vec(vector_wdata_width/XLEN,Input(UInt(5.W)))
   val ReadData1 = Vec(Issue_Num,Output(UInt(XLEN.W)))
   val ReadData2 = Vec(Issue_Num,Output(UInt(XLEN.W)))
@@ -155,6 +171,7 @@ class FunctionUnitIO extends NutCoreBundle {
   val in = Flipped(Decoupled(new Bundle {
     val src1 = Output(UInt(XLEN.W))
     val src2 = Output(UInt(XLEN.W))
+    val src3 = Output(UInt(XLEN.W))
     val func = Output(FuOpType())
   }))
   val out = Decoupled(Output(UInt(XLEN.W)))
