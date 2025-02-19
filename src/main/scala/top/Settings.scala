@@ -43,7 +43,7 @@ object DefaultSettings {
     "Issue_Num" -> 2,
     "Polaris_Independent_Bru" -> 1, //0 or 1
     "Polaris_SIMDU_WAY_NUM" -> 2,  //1 or 2
-    "Polaris_Vector_LDST" -> true,
+    "Polaris_Vector_LDST" -> false,
     "Polaris_RegBanks" -> false,
     "Polaris_SNN_WAY_NUM" -> 2 // 1 or 2
   )

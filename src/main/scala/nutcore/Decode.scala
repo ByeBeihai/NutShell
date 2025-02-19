@@ -78,7 +78,7 @@ object FuType extends HasNutCoreConst {
   def mdu = mduint.U(width.W)
   def csrint = 1
   def csr = csrint.U(width.W)
-  def mou = "b1001".U
+  def mou = "b1111".U
   def bruint = if(Polaris_Independent_Bru == 1){0}else{alu1int}
   def bru = bruint.U(width.W)
   def simdu = simduint.U(width.W)

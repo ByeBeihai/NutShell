@@ -39,6 +39,8 @@ class ILABundle extends NutCoreBundle {
   val WBUrfDest = UInt(5.W)
   val WBUrfData = UInt(XLEN.W)
   val InstrCnt = UInt(64.W)
+  val Mode = UInt(2.W)
+  val Instr = UInt(VAddrBits.W)
 }
 
 class NutShell(implicit val p: NutCoreConfig) extends Module with HasSoCParameter {
@@ -144,6 +146,8 @@ class NutShell(implicit val p: NutCoreConfig) extends Module with HasSoCParamete
     BoringUtilsConnect(ila.WBUrfDest  ,"ilaWBUrfDest")
     BoringUtilsConnect(ila.WBUrfData  ,"ilaWBUrfData")
     BoringUtilsConnect(ila.InstrCnt   ,"ilaInstrCnt")
+    BoringUtilsConnect(ila.Mode       ,"ilaMode")
+    BoringUtilsConnect(ila.Instr      ,"ilaInstr")
   }
   BoringUtils.addSource(clock.asBool, "clock")
 }

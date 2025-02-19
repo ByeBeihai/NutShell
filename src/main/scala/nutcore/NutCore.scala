@@ -50,7 +50,7 @@ trait HasNutCoreParameter extends HasLSUConst{
   val EnableOutOfOrderMemAccess = false // enable out of order mem access will improve OoO backend's performance
   //parameter for SIMD backend
   val Issue_Num = Settings.getInt("Issue_Num")
-  val Queue_num = 16 //必须为2的幂指数
+  val Queue_num = 32 //必须为2的幂指数
   val Polaris_Independent_Bru = Settings.getInt("Polaris_Independent_Bru") //0 or 1
   val Polaris_SIMDU_WAY_NUM = Settings.getInt("Polaris_SIMDU_WAY_NUM")   //1 or 2
   val Polaris_Vector_LDST = Settings.get("Polaris_Vector_LDST")
@@ -87,7 +87,7 @@ object AddressSpace extends HasNutCoreParameter {
   // address out of MMIO will be considered as DRAM
   def mmio = List(
     //(0x02000000L,0x00010000L),
-    (0x30000000L, 0x40000000L),  // internal devices, such as CLINT and PLIC
+    (0x30000000L, 0x10000000L),  // internal devices, such as CLINT and PLIC
     (Settings.getLong("MMIOBase"), Settings.getLong("MMIOSize")) // external devices
   )
 

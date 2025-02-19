@@ -489,7 +489,8 @@ class SIMD_TLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasTLBI
   //}
   val tlbexec_inbundle = Wire(Decoupled(new SIMD_TLBEXEC_INBUNDLE))
   tlbexec_inbundle.bits := 0.U.asTypeOf(new SIMD_TLBEXEC_INBUNDLE)
-  PipelineConnectTLB(tlbexec_inbundle, tlbExec.io.in, mdUpdate, tlbExec.io.isFinish, io.flush, vmEnable)
+  val req_cancel = WireInit(false.B)
+  PipelineConnectTLB(tlbexec_inbundle, tlbExec.io.in, mdUpdate, tlbExec.io.isFinish, io.flush || req_cancel, vmEnable)
 
   val out_req = Wire(Decoupled(new SimpleBusReqBundle(userBits = userBits, addrBits = VAddrBits)))
   out_req.bits := tlbExec.io.out.bits
@@ -599,6 +600,7 @@ class SIMD_TLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasTLBI
         when(!io.in.req.valid){
           state := s_idle
           tlbExec.io.flush := true.B
+          req_cancel := true.B
         }
       }
     }
@@ -894,7 +896,7 @@ class SIMD_TLBEXEC(implicit val tlbConfig: TLBConfig) extends TlbModule{
   io.out.bits.addr := Mux(hit, maskPaddr(hitData.ppn, req.addr(PAddrBits-1, 0), hitMask), maskPaddr(memRespStore.asTypeOf(pteBundle).ppn, req.addr(PAddrBits-1, 0), missMaskStore))
   io.out.valid := !ioFlush && io.in.valid && Mux(false.B, !(io.pf.isPF() || loadPF || storePF || missLPF || missSPF), state === s_wait_resp && !(io.pf.isPF() || loadPF || storePF || missLPF || missSPF || io.ipf))// && !alreadyOutFire
   
-  io.in.ready := !io.in.valid || io.out.fire() && io.mdReady
+  io.in.ready := (!io.in.valid && (state === s_idle) || io.out.fire()) && io.mdReady
 
   io.ipf := Mux(hit, hitinstrPF, missIPF)
   io.isFinish := io.out.fire() //|| io.pf.isPF()

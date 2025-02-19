@@ -204,6 +204,7 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     BoringUtils.addSource(io.wb.rfWen(i), "ilaWBUrfWen")
     BoringUtils.addSource(io.wb.rfDest(i), "ilaWBUrfDest")
     BoringUtils.addSource(io.wb.WriteData(i), "ilaWBUrfData")
+    BoringUtils.addSource(io.in(i).bits.decode.cf.instr,"ilaInstr")
     }
   }
 }

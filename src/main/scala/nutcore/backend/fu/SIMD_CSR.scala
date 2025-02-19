@@ -789,7 +789,7 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   csrExceptionVec(loadPageFault) := io.dmemMMU.loadPF || io.cfIn.exceptionVec(loadPageFault)
   csrExceptionVec(storePageFault) := io.dmemMMU.storePF || io.cfIn.exceptionVec(storePageFault)
   val raiseException = csrExceptionVec.asUInt.orR 
-  val exceptionNO = ExcPriority.map(i => i.U).reduceLeft((x,y)=>Mux(csrExceptionVec(x),x,y))
+  val exceptionNO = ExcPriority.foldRight(0.U)((i: Int, sum: UInt)=>Mux(csrExceptionVec(i), i.U, sum))
 
   //merge interrupts and exceptions
   val raiseExceptionIntr = (raiseException || raiseIntr) && io.instrValid && !isMou
@@ -961,6 +961,8 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     difftestArchEvent.io.exceptionPC := RegNext(RegNext(SignExt(io.cfIn.pc, XLEN)))
     difftestArchEvent.io.exceptionInst := RegNext(RegNext(io.cfIn.instr))
 
+  }else{
+    BoringUtils.addSource(priviledgeMode,"ilaMode")
   }
 
 }
