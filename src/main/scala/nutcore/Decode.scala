@@ -68,8 +68,7 @@ object SrcType {
 }
 
 object FuType extends HasNutCoreConst {
-  def addition = if(Polaris_SNN_WAY_NUM != 0){if(Polaris_SNN_WAY_NUM == 2){2}else{1}}else{0}
-  def num = 5 + Polaris_Independent_Bru + Polaris_SIMDU_WAY_NUM + 4 + addition 
+  def num = 5 + Polaris_Independent_Bru + Polaris_SIMDU_WAY_NUM + Polaris_SNN_WAY_NUM + 4
   def width = 4
   def aluint = if(Polaris_Independent_Bru == 1){Polaris_Independent_Bru + 3 + Polaris_SIMDU_WAY_NUM}else{0}
   def alu = aluint.U(width.W)
@@ -90,17 +89,17 @@ object FuType extends HasNutCoreConst {
   def simdu1int = if(Polaris_SIMDU_WAY_NUM != 0){if(Polaris_Independent_Bru == 1){3}else{4}}else{0}
   //fpu
   def fma = fmaint.U(width.W)
-  def fmaint = if(Polaris_Independent_Bru == 1){Polaris_Independent_Bru + 3 + Polaris_SIMDU_WAY_NUM + 2}else{5+Polaris_SIMDU_WAY_NUM}
+  def fmaint = 5 + Polaris_Independent_Bru + Polaris_SIMDU_WAY_NUM + Polaris_SNN_WAY_NUM
   def fdivsqrt = fdivsqrtint.U(width.W)
-  def fdivsqrtint = if(Polaris_Independent_Bru == 1){Polaris_Independent_Bru + 3 + Polaris_SIMDU_WAY_NUM + 3}else{6+Polaris_SIMDU_WAY_NUM}
+  def fdivsqrtint = 5 + Polaris_Independent_Bru + Polaris_SIMDU_WAY_NUM + Polaris_SNN_WAY_NUM + 1
   def fconv = fconvint.U(width.W)
-  def fconvint = if(Polaris_Independent_Bru == 1){Polaris_Independent_Bru + 3 + Polaris_SIMDU_WAY_NUM + 4}else{7+Polaris_SIMDU_WAY_NUM}
+  def fconvint = 5 + Polaris_Independent_Bru + Polaris_SIMDU_WAY_NUM + Polaris_SNN_WAY_NUM + 2
   def fcomp = fcompint.U(width.W)
-  def fcompint = if(Polaris_Independent_Bru == 1){Polaris_Independent_Bru + 3 + Polaris_SIMDU_WAY_NUM + 5}else{8+Polaris_SIMDU_WAY_NUM}
+  def fcompint = 5 + Polaris_Independent_Bru + Polaris_SIMDU_WAY_NUM + Polaris_SNN_WAY_NUM + 3
   //snn
-  def snnuint = if(Polaris_SNN_WAY_NUM != 0){if(Polaris_SNN_WAY_NUM == 2){num-2}else{num-1}}else{0}
+  def snnuint = if(Polaris_SNN_WAY_NUM != 0){5 + Polaris_Independent_Bru + Polaris_SIMDU_WAY_NUM}else{0}
   def snnu = snnuint.U(width.W)
-  def snnu1int = if(Polaris_SNN_WAY_NUM != 0){if(Polaris_SNN_WAY_NUM == 2){num-1}else{0}}else{0}
+  def snnu1int = if(Polaris_SNN_WAY_NUM != 0){if(Polaris_SNN_WAY_NUM == 2){5 + Polaris_Independent_Bru + Polaris_SIMDU_WAY_NUM + 1}else{0}}else{0}
   def snnu1 = snnu1int.U(width.W)
   def apply() = UInt(width.W)
 }

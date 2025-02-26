@@ -1016,7 +1016,7 @@ class new_SIMD_CSR(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     difftest.io.sscratch := RegNext(sscratch)
     difftest.io.mideleg := RegNext(mideleg)
     difftest.io.medeleg := RegNext(medeleg)
-    difftest.io.vxsat := vxsat
+    //difftest.io.vxsat := vxsat
 
     val difftestArchEvent = Module(new DifftestArchEvent)
     difftestArchEvent.io.clock := clock

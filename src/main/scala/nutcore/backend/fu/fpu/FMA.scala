@@ -160,7 +160,7 @@ class FMA(implicit val p:NutCoreConfig) extends Module with FMAOpType {
     state := s_exec
   }.elsewhen(io.out.fire) {
     state := s_idle
-  }.elsewhen(io.out.valid && !io.out.fire()) {
+  }.elsewhen((sfma.io.out.valid || dfma.io.out.valid)) {
     state := s_wait
   }.elsewhen(state === s_wait && io.out.fire()) {
     state := s_idle
@@ -168,14 +168,17 @@ class FMA(implicit val p:NutCoreConfig) extends Module with FMAOpType {
     state := state
   }
 
+  val outresult = RegNext(Mux(isSingle(func), box(sfma.io.out.bits.result, D), dfma.io.out.bits.result))
+  val outfflags = RegNext(Mux(isSingle(func), sfma.io.out.bits.fflags, dfma.io.out.bits.fflags))
+
   io.in.ready := state === s_idle
-  io.out.valid := sfma.io.out.valid || dfma.io.out.valid
-  io.out.bits.result := Mux(isSingle(func), box(sfma.io.out.bits.result, D), dfma.io.out.bits.result)
-  io.out.bits.fflags := Mux(isSingle(func), sfma.io.out.bits.fflags, dfma.io.out.bits.fflags)
+  io.out.valid := state === s_wait
+  io.out.bits.result := outresult
+  io.out.bits.fflags := outfflags
   
-  if(p.FPGAPlatform){
+  //if(p.FPGAPlatform){
     //BoringUtils.addSource(dfma.io.out.valid,"ilaDFMAoutValid")
     //BoringUtils.addSource(sfma.io.out.valid,"ilaSFMAoutValid")
-  }
+  //}
 }
 
