@@ -154,6 +154,7 @@ class new_SIMD_ISU(implicit val p:NutCoreConfig)extends NutCoreModule with HasRe
     val vec_ready = VecInit((0 to vector_wdata_width/XLEN -1).map(i => false.B))
     val SrcVec = rfSrcVec(vec_no)
     var l = List(0.U)
+    io.wb.rfVector :=DontCare
     /*
     for(i <- 0 to vector_wdata_width/XLEN -1){
         val res = WireInit(0.U(XLEN.W))

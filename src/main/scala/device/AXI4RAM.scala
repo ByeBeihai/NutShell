@@ -20,7 +20,7 @@ import chisel3._
 import chisel3.util._
 import chisel3.util.experimental.loadMemoryFromFile
 
-import nutcore._
+import nutcore.HasNutCoreParameter
 import bus.axi4._
 import utils._
 

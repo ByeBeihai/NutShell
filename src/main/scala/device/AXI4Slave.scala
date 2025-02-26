@@ -19,7 +19,7 @@ package device
 import chisel3._
 import chisel3.util._
 
-import nutcore._
+import nutcore.HasNutCoreParameter
 import bus.axi4._
 import utils._
 

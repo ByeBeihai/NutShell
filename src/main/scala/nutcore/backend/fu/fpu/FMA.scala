@@ -92,15 +92,15 @@ class FMA_impl(ftype: FType)(implicit val p:NutCoreConfig)extends Module {
 
   if(p.FPGAPlatform){
     if(ftype == fp32){
-      BoringUtils.addSource(io.out.valid,"ilafp32outvalid")
+      //BoringUtils.addSource(io.out.valid,"ilafp32outvalid")
     }else{
-      BoringUtils.addSource(io.out.valid,"ilafp64outvalid")
-      BoringUtils.addSource(io.in.valid, "ilafp64invalid")
-      BoringUtils.addSource(mul2add_valid, "ilafp64mul2add_valid")
-      BoringUtils.addSource(handshaked, "ilafp64handshaked")
-      BoringUtils.addSource(useAdd, "ilafp64useadd")
-      BoringUtils.addSource(useMul, "ilafp64usemul")
-      BoringUtils.addSource(faddOutValid, "ilafp64faddOutValid")
+      //BoringUtils.addSource(io.out.valid,"ilafp64outvalid")
+      //BoringUtils.addSource(io.in.valid, "ilafp64invalid")
+      //BoringUtils.addSource(mul2add_valid, "ilafp64mul2add_valid")
+      //BoringUtils.addSource(handshaked, "ilafp64handshaked")
+      //BoringUtils.addSource(useAdd, "ilafp64useadd")
+      //BoringUtils.addSource(useMul, "ilafp64usemul")
+      //BoringUtils.addSource(faddOutValid, "ilafp64faddOutValid")
       //BoringUtils.addSource(fmulOutValid, "ilafp64fmulOutValid")
       //BoringUtils.addSource(faddInReady, "ilafp64faddInReady")
     }
@@ -174,8 +174,8 @@ class FMA(implicit val p:NutCoreConfig) extends Module with FMAOpType {
   io.out.bits.fflags := Mux(isSingle(func), sfma.io.out.bits.fflags, dfma.io.out.bits.fflags)
   
   if(p.FPGAPlatform){
-    BoringUtils.addSource(dfma.io.out.valid,"ilaDFMAoutValid")
-    BoringUtils.addSource(sfma.io.out.valid,"ilaSFMAoutValid")
+    //BoringUtils.addSource(dfma.io.out.valid,"ilaDFMAoutValid")
+    //BoringUtils.addSource(sfma.io.out.valid,"ilaSFMAoutValid")
   }
 }
 

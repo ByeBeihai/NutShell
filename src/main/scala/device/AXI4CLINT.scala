@@ -24,9 +24,6 @@ import chisel3.util.experimental.BoringUtils
 import bus.axi4._
 import utils._
 
-import bus.simplebus._
-import difftest._
-
 class ClintIO extends Bundle {
   val mtip = Output(Bool())
   val msip = Output(Bool())
@@ -67,8 +64,6 @@ class AXI4CLINT(sim: Boolean = false) extends AXI4SlaveModule(new AXI4Lite, new 
 
   io.extra.get.mtip := RegNext(mtime >= mtimecmp && mtimecmp =/= 0.U(64.W))
   io.extra.get.msip := RegNext(msip =/= 0.U)
-  //printf("mtime %x mtimecmp %x freq %x\n",mtime,mtimecmp,freq);
-  BoringUtils.addSource(freq, "freq")
 }
 
 class ODINIO(val N: Int, val M: Int) extends Bundle {
@@ -215,3 +210,4 @@ class AXI4ODIN(sim: Boolean = false) extends AXI4SlaveModule(new AXI4Lite) {
   }
   //printf("[SPI] sck %x mosi %x miso %x spi_cnt %x spi_addr %x spi_data %x \n",odin_impl.io.SCK.asBool,odin_impl.io.MOSI,odin_impl.io.MISO,spi_cnt,spi_addr,spi_data)
 }
+

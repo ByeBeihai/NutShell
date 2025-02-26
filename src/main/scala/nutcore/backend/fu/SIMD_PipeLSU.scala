@@ -678,11 +678,12 @@ class lsu_for_atom extends NutCoreModule with HasLSUConst {
 
 class pipeline_lsu_atom extends NutCoreModule with HasLSUConst {
   val io = IO(new new_SIMD_LSU_IO)
-  val (valid, src1, src2, func) = (io.in.valid, io.in.bits.src1, io.in.bits.src2, io.in.bits.func)
+  val (valid, src1, src2,src3, func) = (io.in.valid, io.in.bits.src1, io.in.bits.src2,  io.in.bits.src3, io.in.bits.func)
   def access(valid: Bool, src1: UInt, src2: UInt, func: UInt): UInt = {
     this.valid := valid
     this.src1 := src1
     this.src2 := src2
+    this.src3 := DontCare
     this.func := func
     io.out.bits
   }

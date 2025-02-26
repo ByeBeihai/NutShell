@@ -54,8 +54,6 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   //register (banks)
   val rf = new RegFile
   val fpRf = new RegFile
-  val src1FromFloatRegFile = Wire(Vec(Issue_Num, Bool()))
-  val src2FromFloatRegFile = Wire(Vec(Issue_Num, Bool()))
   if(Polaris_RegBanks){
     val rf_banks = for (i <- 0 until Issue_Num) yield {
       val rf_unit = for (j <- 0 until 2 + bool2int(Polaris_SIMDU_WAY_NUM != 0)) yield {
@@ -168,6 +166,7 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   BoringUtils.addSource(commit_num===5.U, "perfCntCondMultiCommit5")
   BoringUtils.addSource(commit_num===6.U, "perfCntCondMultiCommit6")
   }
+  io.wb.rfVector :=DontCare
 
   for(i <- 0 to Commit_num-1){
     Debug("[SIMD_WBU] issue %x valid %x pc %x wen %x wdata %x wdest %x futype %x instno %x isMMIO %x OV %x redirectvalid %x redirecttarget %x \n",i.U,io.in(i).valid,io.in(i).bits.decode.cf.pc,io.wb.rfWen(i),io.wb.WriteData(i),io.wb.rfDest(i),io.in(i).bits.decode.ctrl.fuType,io.in(i).bits.decode.InstNo,io.in(i).bits.isMMIO,io.in(i).bits.decode.pext.OV,io.in(i).bits.decode.cf.redirect.valid,io.in(i).bits.decode.cf.redirect.target)

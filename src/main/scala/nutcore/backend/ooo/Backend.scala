@@ -857,14 +857,15 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule w
   io.redirect <> redirect
 
   // forward logic of exu and vector-ldst
-  isu.io.forward(0+Polaris_SIMDU_WAY_NUM) <> exu.io.forward(FuType.aluint)  
-  isu.io.forward(1+Polaris_SIMDU_WAY_NUM) <> exu.io.forward(FuType.alu1int)  
-  isu.io.forward(2+Polaris_SIMDU_WAY_NUM) <> exu.io.forward(FuType.lsuint)  
-  isu.io.forward(3+Polaris_SIMDU_WAY_NUM) <> exu.io.forward(FuType.mduint)
-  isu.io.forward(4+Polaris_SIMDU_WAY_NUM) <> exu.io.forward(FuType.fmaint)
-  isu.io.forward(5+Polaris_SIMDU_WAY_NUM) <> exu.io.forward(FuType.fdivsqrtint)
-  isu.io.forward(6+Polaris_SIMDU_WAY_NUM) <> exu.io.forward(FuType.fconvint)
-  isu.io.forward(7+Polaris_SIMDU_WAY_NUM) <> exu.io.forward(FuType.fcompint)
+  isu.io.forward(0+0) <> exu.io.forward(FuType.aluint)  
+  isu.io.forward(1+0) <> exu.io.forward(FuType.alu1int)  
+  isu.io.forward(2+0) <> exu.io.forward(FuType.lsuint)  
+  isu.io.forward(3+0) <> exu.io.forward(FuType.mduint)
+  /*
+  isu.io.forward(3+Polaris_SIMDU_WAY_NUM + Polaris_SNN_WAY_NUM + 1 ) <> exu.io.forward(FuType.fmaint)
+  isu.io.forward(3+Polaris_SIMDU_WAY_NUM + Polaris_SNN_WAY_NUM + 2) <> exu.io.forward(FuType.fdivsqrtint)
+  isu.io.forward(3+Polaris_SIMDU_WAY_NUM + Polaris_SNN_WAY_NUM + 3) <> exu.io.forward(FuType.fconvint)
+  isu.io.forward(3+Polaris_SIMDU_WAY_NUM + Polaris_SNN_WAY_NUM + 4) <> exu.io.forward(FuType.fcompint)
   if(Polaris_SIMDU_WAY_NUM>0){
     isu.io.forward(0) <> exu.io.forward(FuType.simduint)  
   }
@@ -895,6 +896,7 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule w
       isu.io.forward(index).wb.rfData:= wbu.io.wb.WriteDataVec(i)
     }
   }
+  */
 
   io.memMMU.imem <> exu.io.memMMU.imem
   io.memMMU.dmem <> exu.io.memMMU.dmem
