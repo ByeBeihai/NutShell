@@ -72,14 +72,14 @@ class FMA_impl(ftype: FType)(implicit val p:NutCoreConfig)extends Module {
     mul2add_valid := false.B
   }
 
-  val faddInValid = (!useMul && io.in.valid) || mul2add_valid
+  val faddInValid = RegNext(!useMul && io.in.valid) && io.in.valid || mul2add_valid
   val a_inter_fflags = RegEnable(fmulResult.tofadd.inter_flags, handshaked)
 
   val mul2add_width = ftype.expWidth + 2 * ftype.sigWidth
   def padd_tail(x: UInt, w: Int): UInt = Cat(x, 0.U((w - x.getWidth).W))
   val faddIn = Wire(Vec(2, UInt(mul2add_width.W)))
-  faddIn(0) := Mux(useMul, RegEnable(fmulResult.tofadd.fp_prod, handshaked), padd_tail(a, mul2add_width))
-  faddIn(1) := padd_tail(Mux(useMul, c, b), mul2add_width)
+  faddIn(0) := Mux(useMul, RegEnable(fmulResult.tofadd.fp_prod, handshaked), RegNext(padd_tail(a, mul2add_width)))
+  faddIn(1) := RegNext(padd_tail(Mux(useMul, c, b), mul2add_width))
   val fadd = FADD(faddIn(0), faddIn(1), rm, isSub, isInv, ftype.expWidth, 2 * ftype.sigWidth, ftype.sigWidth,
     faddInValid, io.out.ready, mul2add_valid, false.B, Some(a_inter_fflags))
   faddOutValid := fadd._3
@@ -141,14 +141,14 @@ class FMA(implicit val p:NutCoreConfig) extends Module with FMAOpType {
   sfma.io.in.bits.rm := io.in.bits.rm
   sfma.io.in.valid := isSingle(func) && io.in.valid
   sfma.io.ctrl := fma_ctrl
-  sfma.io.out.ready := io.out.ready
+  sfma.io.out.ready := io.out.fire()
   sfma.io.flush := io.flush
 
   val dfma = Module(new FMA_impl(D))
   dfma.io.in.bits := io.in.bits
   dfma.io.in.valid := !isSingle(func) && io.in.valid
   dfma.io.ctrl := fma_ctrl
-  dfma.io.out.ready := io.out.ready
+  dfma.io.out.ready := io.out.fire()
   dfma.io.flush := io.flush
 
   val s_idle :: s_exec :: s_wait :: Nil = Enum(3)

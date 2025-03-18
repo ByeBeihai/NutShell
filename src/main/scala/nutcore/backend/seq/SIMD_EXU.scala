@@ -170,7 +170,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   //fma
   val fmaidx = FuType.fma
   val fma = Module(new FMA)
-  val fmaOut = fma.access(valid = io.in(fmaidx).valid, src1 = src1(fmaidx), src2 = src2(fmaidx), src3 = io.in(fmaidx).bits.data.src3, func = fuOpType(fmaidx))
+  val fmaOut = fma.access(valid = io.in(fmaidx).valid && io.in(fmaidx).bits.ctrl.fuType === fmaidx, src1 = src1(fmaidx), src2 = src2(fmaidx), src3 = io.in(fmaidx).bits.data.src3, func = fuOpType(fmaidx))
   val fma_fflags = fmaOut.fflags & fflags_mask(fma.io.out.valid) | Cat(rmInvalid(fma.io.in.bits.rm), 0.U(4.W))
   fma.io.out.ready := io.out(fmaidx).ready
   fma.io.flush := io.flush
@@ -178,27 +178,27 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   //fdivsqrt
   val fdivsqrtidx = FuType.fdivsqrt
   val fdivsqrt = Module(new FDivSqrt)
-  val fdivsqrtOut = fdivsqrt.access(valid = io.in(fdivsqrtidx).valid, src1 = src1(fdivsqrtidx), src2 = src2(fdivsqrtidx), func = fuOpType(fdivsqrtidx))
+  val fdivsqrtOut = fdivsqrt.access(valid = io.in(fmaidx).valid && io.in(fmaidx).bits.ctrl.fuType === fdivsqrtidx, src1 = src1(fmaidx), src2 = src2(fmaidx), func = fuOpType(fmaidx))
   val fdivsqrt_fflags = fdivsqrtOut.fflags & fflags_mask(fdivsqrt.io.out.valid) | Cat(rmInvalid(fdivsqrt.io.in.bits.rm), 0.U(4.W))
-  fdivsqrt.io.out.ready := io.out(fdivsqrtidx).ready
+  fdivsqrt.io.out.ready := io.out(fmaidx).ready
   fdivsqrt.io.flush := io.flush
-  fdivsqrt.io.in.bits.rm := getRM(io.in(fdivsqrtidx).bits.ctrl.funct3, csr_rm)
+  fdivsqrt.io.in.bits.rm := getRM(io.in(fmaidx).bits.ctrl.funct3, csr_rm)
   //fconv
   val fconvidx = FuType.fconv
   val fconv = Module(new FCONV)
-  val fconvOut = fconv.access(valid = io.in(fconvidx).valid, src1 = src1(fconvidx), src2 = src2(fconvidx), func = fuOpType(fconvidx))
+  val fconvOut = fconv.access(valid = io.in(fmaidx).valid && io.in(fmaidx).bits.ctrl.fuType === fconvidx, src1 = src1(fmaidx), src2 = src2(fmaidx), func = fuOpType(fmaidx))
   val fconv_fflags = fconvOut.fflags & fflags_mask(fconv.io.out.valid) | Cat(rmInvalid(fconv.io.in.bits.rm), 0.U(4.W))
-  fconv.io.out.ready := io.out(fconvidx).ready
+  fconv.io.out.ready := io.out(fmaidx).ready
   fconv.io.flush := io.flush
-  fconv.io.in.bits.rm := getRM(io.in(fconvidx).bits.ctrl.funct3, csr_rm)
+  fconv.io.in.bits.rm := getRM(io.in(fmaidx).bits.ctrl.funct3, csr_rm)
   //fcomp
   val fcompidx = FuType.fcomp
   val fcomp = Module(new FCOMP)
-  val fcompOut = fcomp.access(valid = io.in(fcompidx).valid, src1 = src1(fcompidx), src2 = src2(fcompidx), func = fuOpType(fcompidx))
+  val fcompOut = fcomp.access(valid = io.in(fmaidx).valid && io.in(fmaidx).bits.ctrl.fuType === fcompidx, src1 = src1(fmaidx), src2 = src2(fmaidx), func = fuOpType(fmaidx))
   val fcomp_fflags = fcompOut.fflags & fflags_mask(fcomp.io.out.valid)
-  fcomp.io.out.ready := io.out(fcompidx).ready
+  fcomp.io.out.ready := io.out(fmaidx).ready
   fcomp.io.flush := io.flush
-  fcomp.io.in.bits.rm := getRM(io.in(fcompidx).bits.ctrl.funct3, csr_rm)
+  fcomp.io.in.bits.rm := getRM(io.in(fmaidx).bits.ctrl.funct3, csr_rm)
   val fpuOutValid = Seq(fma.io.out.valid, fdivsqrt.io.out.valid, fconv.io.out.valid, fcomp.io.out.valid).reduce(_||_)
   val fpu_fflags = Seq(fma_fflags, fdivsqrt_fflags, fconv_fflags, fcomp_fflags).reduce(_|_)
 //  for(i <- 0 to FuType.num-1){
@@ -238,7 +238,7 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   lsu.io.flush := io.flush
   io.out(lsuidx).bits.decode <> lsu.io.DecodeOut
   io.out(lsuidx).bits.decode.ctrl.rfWen := lsu.io.DecodeOut.ctrl.rfWen
-  val toFReg = VecInit(fmaidx, fdivsqrtidx, fconvidx, lsuidx).map(i => io.out(i).bits.decode.ctrl.fReg.wen && io.out(i).valid).reduce(_||_)
+  val toFReg = io.out(fmaidx).bits.decode.ctrl.fReg.wen && io.out(fmaidx).valid
 
   //CSRU
   val csridx = FuType.csr
@@ -305,20 +305,26 @@ class new_SIMD_EXU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
   io.out(FuType.lsu).valid := lsu.io.out.valid && !lsuexp
   io.out(FuType.mdu).valid := mdu.io.out.valid
   io.out(FuType.csr).valid := io.in(csridx).valid || lsuexp
-  io.out(FuType.fma).valid := fma.io.out.valid
-  io.out(FuType.fdivsqrt).valid := fdivsqrt.io.out.valid
-  io.out(FuType.fconv).valid := fconv.io.out.valid
-  io.out(FuType.fcomp).valid := fcomp.io.out.valid
+  io.out(FuType.fma).valid := Mux(io.in(fmaidx).bits.ctrl.fuType === fmaidx,fma.io.out.valid,
+                                                                                   Mux(io.in(fmaidx).bits.ctrl.fuType === fdivsqrtidx,fdivsqrt.io.out.valid,
+                                                                                                                                             Mux(io.in(fmaidx).bits.ctrl.fuType === fconvidx,fconv.io.out.valid,
+                                                                                                                                                                                                    fcomp.io.out.valid)))
+  //io.out(FuType.fdivsqrt).valid := fdivsqrt.io.out.valid
+  //io.out(FuType.fconv).valid := fconv.io.out.valid
+  //io.out(FuType.fcomp).valid := fcomp.io.out.valid
 
   io.out(FuType.alu).bits.commits := aluOut
   io.out(FuType.lsu).bits.commits := Mux(io.out(lsuidx).bits.decode.ctrl.fReg.wen && lsu.io.DecodeOut.ctrl.fuOpType === LSUOpType.lw,float.box(lsuOut(31, 0), float.fp64), lsuOut)
   io.out(FuType.csr).bits.commits := csrOut
   io.out(FuType.mdu).bits.commits := mduOut
   io.out(FuType.alu1).bits.commits:= alu1Out
-  io.out(FuType.fma).bits.commits := fmaOut.result
-  io.out(FuType.fdivsqrt).bits.commits := fdivsqrtOut.result
-  io.out(FuType.fconv).bits.commits := fconvOut.result
-  io.out(FuType.fcomp).bits.commits := fcompOut.result
+  io.out(FuType.fma).bits.commits := Mux(io.in(fmaidx).bits.ctrl.fuType === fmaidx,fmaOut.result,
+                                                                                   Mux(io.in(fmaidx).bits.ctrl.fuType === fdivsqrtidx,fdivsqrtOut.result,
+                                                                                                                                             Mux(io.in(fmaidx).bits.ctrl.fuType === fconvidx,fconvOut.result,
+                                                                                                                                                                                                    fcompOut.result)))
+  //io.out(FuType.fdivsqrt).bits.commits := fdivsqrtOut.result
+  //io.out(FuType.fconv).bits.commits := fconvOut.result
+  //io.out(FuType.fcomp).bits.commits := fcompOut.result
 
   for(i <- 0 to FuType.num-1){io.out(i).bits.vector_commits := 0.U}
   io.out(FuType.lsu).bits.vector_commits := lsuVectorOut

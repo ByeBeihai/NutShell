@@ -84,7 +84,7 @@ class FMUL(val expWidth: Int, val sigWidth: Int) extends Module {
   val rm = io.in.bits.roundingMode
   val resultShifted = Wire(new RawFloat(expWidth, sigWidth + 3))
   resultShifted.sign := resultSign
-  resultShifted.exp := resultExpShifted
+  resultShifted.exp := resultExpShifted.tail(1)
   resultShifted.sig := resultSigShifted.head(sigWidth + 2) ## resultSigShifted.tail(sigWidth + 2).orR
   val tininess_rounder = Module(new TininessRounder(expWidth, sigWidth))
   tininess_rounder.io.in := resultShifted
@@ -160,7 +160,10 @@ class FMUL(val expWidth: Int, val sigWidth: Int) extends Module {
   io.out.bits.result := Mux(special_case_happen, special_result, common_result)
   io.out.bits.fflags := Mux(special_case_happen, special_fflags, common_fflags)
 
-  io.out.bits.tofadd.fp_prod := Cat(resultSign, resultExpShifted, resultSigShifted.tail(1).head(2 * sigWidth - 1) | resultSigShifted.tail(2 * sigWidth).orR)
+  io.out.bits.tofadd.fp_prod := resultSign ##
+    resultExpShifted.tail(1) ##
+    resultSigShifted.tail(1).head(2 * sigWidth - 2) ##
+    resultSigShifted.tail(2 * sigWidth - 1).orR
   io.out.bits.tofadd.inter_flags.isInv := special_iv
   io.out.bits.tofadd.inter_flags.isInf := hasInf
   io.out.bits.tofadd.inter_flags.isNaN := nan_result

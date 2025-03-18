@@ -116,6 +116,7 @@ class new_SIMD_WBU(implicit val p: NutCoreConfig) extends NutCoreModule with Has
     }    
     if (!p.FPGAPlatform) {
       when(reset.asBool){(0 to NRReg-1).map(k => rf.write(k.U, 0.U))}
+      //when(reset.asBool){(0 to NRReg-1).map(k => fpRf.write(k.U, 0.U))}
       val difftest = Module(new DifftestArchIntRegState)
       difftest.io.clock  := clock
       difftest.io.coreid := 0.U 

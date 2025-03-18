@@ -726,7 +726,8 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule w
   def MultiOperatorMatch(futype1:UInt,futype2:UInt,isBru:Bool):Bool =(((futype1 === FuType.alu) && (futype2 === FuType.alu1) && !isBru)
                                                                     ||((futype1 === FuType.mou) && (futype2 ===FuType.csr))
                                                                     ||(if(Polaris_SIMDU_WAY_NUM == 2){(futype1 === FuType.simdu) && (futype2 === FuType.simdu1)}else{false.B})
-                                                                    ||(if(Polaris_SNN_WAY_NUM   == 2){(futype1 === FuType.snnu) && (futype2 === FuType.snnu1)}else{false.B}))
+                                                                    ||(if(Polaris_SNN_WAY_NUM   == 2){(futype1 === FuType.snnu) && (futype2 === FuType.snnu1)}else{false.B})
+                                                                    ||((futype1 === FuType.fdivsqrt || futype1 === FuType.fconv || futype1 === FuType.fcomp) && (futype2 === FuType.fma)))
   for(i <- 0 to FuType.num-1){
     exu.io.in(i).bits := exu_bits(i)
     exu.io.in(i).valid := exu_valid(i)
@@ -762,7 +763,7 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule w
           exu_bits_next(j) := isu.io.out(i).bits
           exu_valid_next(j) := true.B
           match_operaotr(i)(j) := true.B 
-          exu_bits_next(j).ctrl.fuType := j.U
+          //exu_bits_next(j).ctrl.fuType := j.U
         Debug("isu.io.out(i).bits.ctrl.fuType %x j %d isu.io.out(i).bits.ctrl.isBru %x\n", isu.io.out(i).bits.ctrl.fuType, j.U, isu.io.out(i).bits.ctrl.isBru)
       }
       Debug("i %x j %x operator_matched %x issue_matched %x isu.io.out.valid %x exu.io.in.ready %x isu.io.out.bits.ctrl.fuType === j.U %x MultiOperatorMatch(isu.io.out(i).bits.ctrl.fuType,j.U) %x \n",i.U,j.U,operator_matched,issue_matched,isu.io.out(i).valid,exu.io.in(j).ready,isu.io.out(i).bits.ctrl.fuType === j.U,MultiOperatorMatch(isu.io.out(i).bits.ctrl.fuType,j.U,isu.io.out(i).bits.ctrl.isBru))

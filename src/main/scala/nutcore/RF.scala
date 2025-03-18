@@ -105,7 +105,7 @@ class InstQueue extends NutCoreModule with HasRegFileParameter{
   Debug("[Inst_Q] Headptr %x TailPtr %x FlagNow %x set_num %x flush %x\n", HeadPtr,TailPtr, FlagNow,io.setnum,io.flush)
 }
 
-class InstBoard extends NutCoreModule with HasRegFileParameter{
+class InstBoard(float: Boolean = false) extends NutCoreModule with HasRegFileParameter{
   val io = IO(new Bundle{
       val Wen        = Vec(NRReg, Input(Bool()))
       val clear      = Vec(NRReg, Input(Bool()))
@@ -123,7 +123,7 @@ class InstBoard extends NutCoreModule with HasRegFileParameter{
     }
   }
   def update() = {
-    for(i <- 1 to NRReg-1){
+    for(i <- 0 to NRReg-1){
       when(io.Wen(i)){
         InstBoard(i) := io.WInstNo(i)
         validBoard(i):= true.B
@@ -131,7 +131,9 @@ class InstBoard extends NutCoreModule with HasRegFileParameter{
         validBoard(i) := false.B
       }
     }
-    validBoard(0):=false.B
+    if(!float){
+      validBoard(0):=false.B
+    }
   }
 
   when(io.flush || reset.asBool){

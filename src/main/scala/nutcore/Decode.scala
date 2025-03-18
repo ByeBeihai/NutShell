@@ -68,7 +68,7 @@ object SrcType {
 }
 
 object FuType extends HasNutCoreConst {
-  def num = 5 + Polaris_Independent_Bru + Polaris_SIMDU_WAY_NUM + Polaris_SNN_WAY_NUM + 4
+  def num = 5 + Polaris_Independent_Bru + Polaris_SIMDU_WAY_NUM + Polaris_SNN_WAY_NUM + 1
   def width = 4
   def aluint = if(Polaris_Independent_Bru == 1){Polaris_Independent_Bru + 3 + Polaris_SIMDU_WAY_NUM}else{0}
   def alu = aluint.U(width.W)
