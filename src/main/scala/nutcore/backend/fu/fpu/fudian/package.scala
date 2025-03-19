@@ -114,4 +114,27 @@ package object fudian {
     val result = Output(UInt(len.W))
   }
 
+  class PipelineReg[T <: Data](gen: T) extends Module {
+    val io = IO(new Bundle {
+      val in  = Flipped(Decoupled(gen))
+      val out = Decoupled(gen)
+      val flush = Input(Bool())
+    })
+    val validReg = RegInit(false.B)
+    val dataReg  = Reg(gen)
+
+    when(io.out.ready) {
+      validReg := false.B
+    }
+    when(io.in.fire) {
+      validReg := true.B
+      dataReg  := io.in.bits
+    }
+    when(io.flush){
+      validReg := false.B
+    }
+    io.in.ready := !validReg || io.out.ready
+    io.out.valid := validReg
+    io.out.bits  := dataReg
+  }
 }

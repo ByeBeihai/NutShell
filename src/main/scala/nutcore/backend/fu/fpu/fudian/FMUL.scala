@@ -16,20 +16,18 @@ class FMULToFADD(val expWidth: Int, val sigWidth: Int) extends Bundle {
   val inter_flags = new FMULToFADD_fflags
 }
 
-class FMULIn (val expWidth: Int, val sigWidth: Int) extends Bundle {
-  val a, b = Output(UInt((expWidth + sigWidth).W))
-  val roundingMode = Output(UInt(3.W))
-}
-class FMULOut (val expWidth: Int, val sigWidth: Int) extends Bundle {
-  val result = Output(UInt((expWidth + sigWidth).W))
-  val fflags = Output(UInt(5.W))
-  val tofadd = Output(new FMULToFADD(expWidth, sigWidth))
-}
-
 class FMUL(val expWidth: Int, val sigWidth: Int) extends Module {
   val io = IO(new Bundle() {
-    val in = Flipped(Decoupled(new FMULIn(expWidth, sigWidth)))
-    val out = Decoupled(new FMULOut(expWidth, sigWidth))
+    val flush = Input(Bool())
+    val in = Flipped(Decoupled(new Bundle() {
+      val a, b = Output(UInt((expWidth + sigWidth).W))
+      val roundingMode = Output(UInt(3.W))
+    }))
+    val out = Decoupled(new Bundle() {
+      val result = Output(UInt((expWidth + sigWidth).W))
+      val fflags = Output(UInt(5.W))
+      val tofadd = Output(new FMULToFADD(expWidth, sigWidth))
+    })
   })
   val fp_a = FloatPoint.fromUInt(io.in.bits.a, expWidth, sigWidth)
   val fp_b = FloatPoint.fromUInt(io.in.bits.b, expWidth, sigWidth)
@@ -43,38 +41,67 @@ class FMUL(val expWidth: Int, val sigWidth: Int) extends Module {
   val expSum = raw_a.exp +& raw_b.exp
   val biasInt = FloatPoint.expBias(expWidth)
   val expSumMinusBias = Cat(0.U(1.W), expSum) - biasInt.U
-  val expUnderflow = expSumMinusBias.head(1).asBool
-  val expDiffAbs = Mux(
-    expUnderflow,
-    ~expSumMinusBias.tail(1) + 1.U,
+  val s1_exp_underflow = expSumMinusBias.head(1).asBool
+  val s1_exp_diff_abs = Mux(
+    s1_exp_underflow,
+    (~expSumMinusBias.tail(1)).asUInt + 1.U,
     expSumMinusBias.tail(1)
   )
-  val expOverflow = expDiffAbs > ((1 << expWidth) - 2).U
-  val resultExpNoShift = PriorityMux(
+  val s1_exp_overflow = s1_exp_diff_abs > ((1 << expWidth) - 2).U
+
+  val s1_exp_no_shift = PriorityMux(
     Seq(
-      (expUnderflow | hasZero) -> 0.U,
-      expOverflow -> ((1 << expWidth) - 1).U,
-      true.B -> expDiffAbs
+      (s1_exp_underflow | hasZero) -> 0.U,
+      s1_exp_overflow -> ((1 << expWidth) - 1).U,
+      true.B -> s1_exp_diff_abs
     )
   )
-  val resultSigNoShift = (raw_a.sig * raw_b.sig)(sigWidth * 2 - 1, 0)
+  val s1_sig_no_shift = (raw_a.sig * raw_b.sig)(sigWidth * 2 - 1, 0)
+
+  val aLZC = LZC(raw_a.sig)
+  val bLZC = LZC(raw_b.sig)
+  val s1_lzc_raw = aLZC + bLZC
+  val s1_error_mask = Cat(1.U(1.W), 0.U((sigWidth * 2 - 1).W)) >> s1_lzc_raw
+
+  class FMUL_S1_S2 extends Bundle{
+    val sig_no_shift = Output(UInt((sigWidth * 2).W))
+    val exp_no_shift = Output(UInt((expWidth + 1).W))
+    val exp_diff_abs = Output(UInt((expWidth + 1).W))
+    val exp_underflow = Output(Bool())
+    val exp_overflow = Output(Bool())
+    val lzc_raw = Output(UInt(s1_lzc_raw.getWidth.W))
+    val error_mask = Output(UInt((sigWidth * 2).W))
+  }
+  val pipeline_s1_s2 = Module(new PipelineReg(new FMUL_S1_S2))
+  pipeline_s1_s2.io.in.bits.exp_overflow := s1_exp_overflow
+  pipeline_s1_s2.io.in.bits.exp_underflow := s1_exp_underflow
+  pipeline_s1_s2.io.in.bits.exp_no_shift := s1_exp_no_shift
+  pipeline_s1_s2.io.in.bits.sig_no_shift := s1_sig_no_shift
+  pipeline_s1_s2.io.in.bits.exp_diff_abs := s1_exp_diff_abs
+  pipeline_s1_s2.io.in.bits.lzc_raw := s1_lzc_raw
+  pipeline_s1_s2.io.in.bits.error_mask := s1_error_mask
+  pipeline_s1_s2.io.flush := io.flush
+  pipeline_s1_s2.io.in.valid := io.in.valid
+  pipeline_s1_s2.io.out.ready := io.out.ready
+  val s2_sig_no_shift = pipeline_s1_s2.io.out.bits.sig_no_shift
+  val s2_exp_no_shift = pipeline_s1_s2.io.out.bits.exp_no_shift
+  val s2_exp_diff_abs = pipeline_s1_s2.io.out.bits.exp_diff_abs
+  val s2_exp_underflow = pipeline_s1_s2.io.out.bits.exp_underflow
+  val s2_exp_overflow = pipeline_s1_s2.io.out.bits.exp_overflow
+  val s2_lzc_raw = pipeline_s1_s2.io.out.bits.lzc_raw
+  val s2_error_mask = pipeline_s1_s2.io.out.bits.error_mask
   /*------------------------------------------------------------------------
   Shift
   *------------------------------------------------------------------------*/
-  val aLZC = LZC(raw_a.sig)
-  val bLZC = LZC(raw_b.sig)
-  val lzcRaw = aLZC + bLZC
-  val ErrorDetectMask = Cat(1.U(1.W), 0.U((sigWidth * 2 - 1).W)) >> lzcRaw
-  val lzcError = !(resultSigNoShift & ErrorDetectMask).orR
-  val lzc = Mux(lzcError, lzcRaw + 1.U, lzcRaw)
-  //  val rightShiftLimit = (expSumMinusBias_abs + lzc) > (sigWidth * 2).U
-  val resultExpRightShifted = resultExpNoShift
-  val (resultSigRightShifted, rightShiftSticky) = ShiftRightJam(resultSigNoShift, expDiffAbs)
-  val leftShiftLimit = (resultExpNoShift + 1.U) <= lzc
-  val resultSigLeftShifted = (resultSigNoShift << Mux(leftShiftLimit, resultExpNoShift, lzc))(sigWidth * 2 - 1, 0)
+  val lzcError = !(s2_sig_no_shift & s2_error_mask).orR
+  val lzc = Mux(lzcError, s2_lzc_raw + 1.U, s2_lzc_raw)
 
-  val resultExpShifted = Mux(leftShiftLimit || expUnderflow, 0.U, resultExpNoShift - lzc + 1.U)
-  val resultSigShifted = Mux(expUnderflow,
+  val (resultSigRightShifted, rightShiftSticky) = ShiftRightJam(s2_sig_no_shift, s2_exp_diff_abs)
+  val leftShiftLimit = (s2_exp_no_shift + 1.U) <= lzc
+  val resultSigLeftShifted = (s2_sig_no_shift << Mux(leftShiftLimit, s2_exp_no_shift, lzc))(sigWidth * 2 - 1, 0)
+
+  val resultExpShifted = Mux(leftShiftLimit || s2_exp_underflow, 0.U, s2_exp_no_shift - lzc + 1.U)
+  val resultSigShifted = Mux(s2_exp_overflow,
     Cat(resultSigRightShifted, rightShiftSticky),
     Cat(resultSigLeftShifted, 0.U)
   )
@@ -105,7 +132,7 @@ class FMUL(val expWidth: Int, val sigWidth: Int) extends Module {
     rounder.io.cout,
     resultShifted.exp === ((BigInt(1) << expWidth) - 2).U,
     resultShifted.exp === ((BigInt(1) << expWidth) - 1).U
-  ) || expOverflow
+  ) || s2_exp_overflow
   val common_ix = rounder.io.inexact | common_of
   val common_uf = tininess & common_ix
 
@@ -129,11 +156,10 @@ class FMUL(val expWidth: Int, val sigWidth: Int) extends Module {
   val special_result = Mux(nan_result,
     Cat(0.U(1.W), Fill(expWidth + 1, 1.U(1.W)), 0.U((sigWidth - 2).W)), // default NaN
     Mux(hasInf,
-      Cat(
-        resultShifted.sign,
+      Cat(resultSign,
         ((BigInt(1) << expWidth) - 1).U(expWidth.W),
         0.U((sigWidth - 1).W)), // inf
-      Cat(resultShifted.sign, 0.U((expWidth + sigWidth - 1).W)) // zero
+      Cat(resultSign, 0.U((expWidth + sigWidth - 1).W)) // zero
     )
   )
   val special_fflags = Cat(special_iv, false.B, false.B, false.B, false.B)
@@ -150,13 +176,12 @@ class FMUL(val expWidth: Int, val sigWidth: Int) extends Module {
     Mux(rmin, Fill(sigWidth - 1, 1.U(1.W)), 0.U((sigWidth - 1).W)),
     sig_rounded
   )
-  val common_result =
-    Cat(resultShifted.sign, common_exp, common_sig)
+  val common_result = Cat(resultShifted.sign, common_exp, common_sig)
 
   val common_fflags = Cat(false.B, false.B, common_of, common_uf, common_ix)
 
-  io.out.valid := io.in.valid
-  io.in.ready := io.out.fire() || !io.in.valid
+  io.out.valid := pipeline_s1_s2.io.out.valid
+  io.in.ready := pipeline_s1_s2.io.in.ready
   io.out.bits.result := Mux(special_case_happen, special_result, common_result)
   io.out.bits.fflags := Mux(special_case_happen, special_fflags, common_fflags)
 
@@ -173,7 +198,7 @@ class FMUL(val expWidth: Int, val sigWidth: Int) extends Module {
 object FMUL {
   def apply(a: UInt, b: UInt, rm: UInt,
             expWidth: Int, sigWidth: Int,
-            pre_valid: Bool, post_ready: Bool) = {
+            pre_valid: Bool, post_ready: Bool, flush: Bool) = {
     val fmul = Module(new FMUL(expWidth, sigWidth))
 
     //    val prehandshaked = pre_valid && fmul.io.in.ready
@@ -185,6 +210,7 @@ object FMUL {
     //      valid := true.B
     //    }
 
+    fmul.io.flush := flush
     fmul.io.in.valid := pre_valid
     //    fmul.io.in.bits.a := RegEnable(a, prehandshaked)
     //    fmul.io.in.bits.b := RegEnable(b, prehandshaked)
