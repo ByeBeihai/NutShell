@@ -858,10 +858,11 @@ class new_Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule w
   io.redirect <> redirect
 
   // forward logic of exu and vector-ldst
-  isu.io.forward(0+0) <> exu.io.forward(FuType.aluint)  
-  isu.io.forward(1+0) <> exu.io.forward(FuType.alu1int)  
-  isu.io.forward(2+0) <> exu.io.forward(FuType.lsuint)  
-  isu.io.forward(3+0) <> exu.io.forward(FuType.mduint)
+  isu.io.int_forward(0+0) <> exu.io.forward(FuType.aluint)  
+  isu.io.int_forward(1+0) <> exu.io.forward(FuType.alu1int)  
+  isu.io.int_forward(2+0) <> exu.io.forward(FuType.lsuint)  
+  isu.io.int_forward(3+0) <> exu.io.forward(FuType.mduint)
+  isu.io.float_forward(0) <> exu.io.forward(FuType.lsuint)
   /*
   isu.io.forward(3+Polaris_SIMDU_WAY_NUM + Polaris_SNN_WAY_NUM + 1 ) <> exu.io.forward(FuType.fmaint)
   isu.io.forward(3+Polaris_SIMDU_WAY_NUM + Polaris_SNN_WAY_NUM + 2) <> exu.io.forward(FuType.fdivsqrtint)
