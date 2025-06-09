@@ -1,3 +1,37 @@
+/**************************************************************************************
+* Copyright (c) 2025 Institute of Computing Technology, CAS
+* Copyright (c) 2025 University of Chinese Academy of Sciences
+* 
+* polaris is licensed under Mulan PSL v2.
+* You can use this software according to the terms and conditions of the Mulan PSL v2. 
+* You may obtain a copy of Mulan PSL v2 at:
+*             http://license.coscl.org.cn/MulanPSL2 
+* 
+* THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER 
+* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR 
+* FIT FOR A PARTICULAR PURPOSE.  
+*
+* See the Mulan PSL v2 for more details.  
+***************************************************************************************/
+/**************************************************************************************
+* Copyright (c) 2020 Institute of Computing Technology, CAS
+* Copyright (c) 2020 University of Chinese Academy of Sciences
+* 
+* NutShell is licensed under Mulan PSL v2.
+* You can use this software according to the terms and conditions of the Mulan PSL v2. 
+* You may obtain a copy of Mulan PSL v2 at:
+*             http://license.coscl.org.cn/MulanPSL2 
+* 
+* THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER 
+* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR 
+* FIT FOR A PARTICULAR PURPOSE.  
+*
+* See the Mulan PSL v2 for more details.  
+***************************************************************************************/
+/**************************************************************************************
+* Reference:
+* Zong, J., Wang, J., Li, G., Wu, R., Zhao D.*, Polaris 23: a high throughput neuromorphic processing element by RISC-V customized instruction extension for spiking neural network (RV-SNN 2.0) and SIMD-style implementation of LIF model with backpropagation STDP. J Supercomput 81, 398 (2025)
+***************************************************************************************/
 package nutcore.backend.fu.fpu.fudian
 
 import chisel3._
@@ -7,6 +41,7 @@ import sun.awt.geom.AreaOp.SubOp
 class FarPath(val expWidth: Int, val sigWidth: Int, val outSigWidth: Int)
   extends Module {
   val io = IO(new Bundle() {
+    val flush = Input(Bool())
     val in = Flipped(Decoupled(Output(new Bundle() {
       val a, b = new RawFloat(expWidth, sigWidth)
       val inv = Bool()
@@ -23,10 +58,11 @@ class FarPath(val expWidth: Int, val sigWidth: Int, val outSigWidth: Int)
     }))
   })
   val shiftNum = io.in.bits.shiftNum
-  val tinyAdd = io.in.bits.tinyAdd
+  val s1_tinyAdd = io.in.bits.tinyAdd
   val aIsZero = !io.in.bits.a.exp.orR
   val bIsZero = !io.in.bits.b.exp.orR
   val bothZero = aIsZero & bIsZero
+  val s1_may_of = io.in.bits.b.exp.andR && io.in.bits.addSig
   val result_sign = io.in.bits.a.sign
   val (alignedSigB, sigB_sticky) = ShiftRightJam(Cat(io.in.bits.b.sig, 0.U(2.W)), shiftNum)
 
@@ -35,27 +71,15 @@ class FarPath(val expWidth: Int, val sigWidth: Int, val outSigWidth: Int)
   val adder_in_sigB = Mux(io.in.bits.addSig, pos_sigB, neg_sigB)
   val adder_in_sigA = Cat(0.U(1.W), io.in.bits.a.sig, 0.U(3.W))
 
-//  class FarPath_S1_S2 extends Bundle{
-//    val adder_in_sigA = Output(UInt((sigWidth + 4).W))
-//    val adder_in_sigB = Output(UInt((sigWidth + 4).W))
-//  }
-//  val pipeline_s1_s2 = Module(new PipelineReg(new FarPath_S1_S2))
-//  pipeline_s1_s2.io.in.valid := io.in.valid
-//  pipeline_s1_s2.io.out.ready := io.out.ready
-//  pipeline_s1_s2.io.in.bits.adder_in_sigA := s1_adder_in_sigA
-//  pipeline_s1_s2.io.in.bits.adder_in_sigB := s1_adder_in_sigB
-//  val s2_adder_in_sigA = pipeline_s1_s2.io.out.bits.adder_in_sigA
-//  val s2_adder_in_sigB = pipeline_s1_s2.io.out.bits.adder_in_sigB
-
   val resultSigInNormalCase = adder_in_sigA + adder_in_sigB
   val resultSigInZeroCase = adder_in_sigA
   val result_sig_raw = Mux(bIsZero, resultSigInZeroCase, resultSigInNormalCase)
-
   val cout = result_sig_raw.head(1).asBool
   val keep = result_sig_raw.tail(1).head(1).asBool
   val borrow = result_sig_raw.head(2) === 0.U
-  val resultSigNoRound = PriorityMux(
-    Seq(cout, keep||tinyAdd, borrow),
+  val s1_sign = io.in.bits.inv ^ result_sign
+  val s1_sig = PriorityMux(
+    Seq(cout, keep||s1_tinyAdd, borrow),
     Seq(
       result_sig_raw.head(outSigWidth + 2) ## result_sig_raw.tail(outSigWidth + 2).orR,
       result_sig_raw.tail(1).head(outSigWidth + 2) ## result_sig_raw.tail(outSigWidth + 3).orR,
@@ -63,54 +87,73 @@ class FarPath(val expWidth: Int, val sigWidth: Int, val outSigWidth: Int)
     )
   )
 
-  val resultExpNoRound = PriorityMux(
+  val s1_exp = PriorityMux(
     Seq(
       cout -> (io.in.bits.a.exp + 1.U),
       (keep || bothZero) -> io.in.bits.a.exp,
-      (borrow || tinyAdd) -> (io.in.bits.a.exp - 1.U)
+      (borrow || s1_tinyAdd) -> (io.in.bits.a.exp - 1.U)
     )
   )
+
+  class FarPath_S1_S2 extends Bundle{
+    val sig = Output(UInt((outSigWidth + 3).W))
+    val exp = Output(UInt(expWidth.W))
+    val sign = Output(Bool())
+    val tinyAdd = Output(Bool())
+    val may_of = Output(Bool())
+    val rm = Output(UInt(3.W))
+  }
+  val pipeline_s1_s2 = Module(new PipelineReg(new FarPath_S1_S2))
+  pipeline_s1_s2.io.flush := io.flush || io.out.fire()
+  pipeline_s1_s2.io.in.valid := io.in.valid
+  pipeline_s1_s2.io.out.ready := io.out.ready
+  pipeline_s1_s2.io.in.bits.sign := s1_sign
+  pipeline_s1_s2.io.in.bits.exp := s1_exp
+  pipeline_s1_s2.io.in.bits.sig := s1_sig
+  pipeline_s1_s2.io.in.bits.rm := io.in.bits.roundingMode
+  pipeline_s1_s2.io.in.bits.tinyAdd := s1_tinyAdd
+  pipeline_s1_s2.io.in.bits.may_of := s1_may_of
+  val s2_sign = pipeline_s1_s2.io.out.bits.sign
+  val s2_sig = pipeline_s1_s2.io.out.bits.sig
+  val s2_exp = pipeline_s1_s2.io.out.bits.exp
+  val s2_rm = pipeline_s1_s2.io.out.bits.rm
+  val s2_tinyAdd = pipeline_s1_s2.io.out.bits.tinyAdd
+  val s2_may_of = pipeline_s1_s2.io.out.bits.may_of
+
   val farPathResult = Wire(new RawFloat(expWidth, outSigWidth + 3))
-  farPathResult.exp  := resultExpNoRound
-  farPathResult.sign := io.in.bits.inv ^ result_sign
-  farPathResult.sig  := resultSigNoRound
+  farPathResult.exp  := s2_exp
+  farPathResult.sign := s2_sign
+  farPathResult.sig  := s2_sig
 
   val far_path_tininess_rounder = Module(new TininessRounder(expWidth, outSigWidth))
   far_path_tininess_rounder.io.in := farPathResult
-  far_path_tininess_rounder.io.rm := io.in.bits.roundingMode
-  val far_path_tininess = tinyAdd && far_path_tininess_rounder.io.tininess
+  far_path_tininess_rounder.io.rm := s2_rm
+  val far_path_tininess = s2_tinyAdd && far_path_tininess_rounder.io.tininess
 
   val far_path_rounder = RoundingUnit(
-    in = resultSigNoRound.tail(1),
-    rm = io.in.bits.roundingMode,
-    sign = result_sign,
+    in = s2_sig.tail(1),
+    rm = s2_rm,
+    sign = s2_sign,
     width = outSigWidth - 1
   )
 
-  val far_path_exp_rounded = far_path_rounder.io.cout + resultExpNoRound
+  val far_path_exp_rounded = far_path_rounder.io.cout + s2_exp
   val far_path_sig_rounded = far_path_rounder.io.out
 
-  val far_path_may_of = io.in.bits.b.exp.andR && io.in.bits.addSig
-  val far_path_may_uf = far_path_tininess && !far_path_may_of
+  val far_path_may_uf = far_path_tininess && !s2_may_of
 
   val far_path_of_before_round =
-    resultExpNoRound === ((BigInt(1) << expWidth) - 1).U
+    s2_exp === ((BigInt(1) << expWidth) - 1).U
   val far_path_of_after_round = far_path_rounder.io.cout &&
-    resultExpNoRound === ((BigInt(1) << expWidth) - 2).U
+    s2_exp === ((BigInt(1) << expWidth) - 2).U
 
-//  io.out.valid := pipeline_s1_s2.io.out.valid
-//  io.in.ready := pipeline_s1_s2.io.in.ready
-//  io.out.valid := io.in.valid
-//  io.in.ready := io.out.ready
-  io.out.valid := DontCare
-  io.in.ready := DontCare
-  io.out.bits.far_path_of :=
-    far_path_of_before_round || far_path_of_after_round || far_path_may_of
+  io.out.valid := pipeline_s1_s2.io.out.valid
+  io.in.ready := pipeline_s1_s2.io.in.ready
+  io.out.bits.far_path_of := far_path_of_before_round || far_path_of_after_round || s2_may_of
   io.out.bits.far_path_ix := far_path_rounder.io.inexact | io.out.bits.far_path_of
   io.out.bits.far_path_uf := far_path_may_uf & io.out.bits.far_path_ix
 
-  io.out.bits.result :=
-    Cat(farPathResult.sign, far_path_exp_rounded, far_path_sig_rounded)
+  io.out.bits.result := Cat(farPathResult.sign, far_path_exp_rounded, far_path_sig_rounded)
 }
 
 class ClosePath(val expWidth: Int, val sigWidth: Int, val outSigWidth: Int) extends Module {
@@ -173,6 +216,7 @@ class ClosePath(val expWidth: Int, val sigWidth: Int, val outSigWidth: Int) exte
     val lza_error = Output(Bool())
     val shift_limit = Output(Bool())
     val sig_is_zero = Output(Bool())
+    val rm = Output(UInt(3.W))
   }
   val pipeline_s1_s2 = Module(new PipelineReg(new ClosePath_S1_S2))
   pipeline_s1_s2.io.in.bits.sign := s1_sign
@@ -181,9 +225,11 @@ class ClosePath(val expWidth: Int, val sigWidth: Int, val outSigWidth: Int) exte
   pipeline_s1_s2.io.in.bits.lza_error := s1_lza_error
   pipeline_s1_s2.io.in.bits.shift_limit := s1_shift_limit
   pipeline_s1_s2.io.in.bits.sig_is_zero := s1_sig_is_zero
-  pipeline_s1_s2.io.flush := io.flush
+  pipeline_s1_s2.io.in.bits.rm := io.in.bits.roundingMode
+  pipeline_s1_s2.io.flush := io.flush || io.out.fire()
   pipeline_s1_s2.io.in.valid := io.in.valid
   pipeline_s1_s2.io.out.ready := io.out.ready
+  val s2_rm = pipeline_s1_s2.io.out.bits.rm
   val s2_sign = pipeline_s1_s2.io.out.bits.sign
   val s2_exp = pipeline_s1_s2.io.out.bits.exp
   val s2_sig = pipeline_s1_s2.io.out.bits.sig
@@ -209,12 +255,12 @@ class ClosePath(val expWidth: Int, val sigWidth: Int, val outSigWidth: Int) exte
 
   val near_path_tininess_rounder = Module(new TininessRounder(expWidth, outSigWidth))
   near_path_tininess_rounder.io.in := closePathResult
-  near_path_tininess_rounder.io.rm := io.in.bits.roundingMode
+  near_path_tininess_rounder.io.rm := s2_rm
   val near_path_tininess = near_path_tininess_rounder.io.tininess
 
   val near_path_rounder = RoundingUnit(
     in = closePathResult.sig.tail(1),
-    rm = io.in.bits.roundingMode,
+    rm = s2_rm,
     sign = closePathResult.sign,
     width = outSigWidth - 1
   )
@@ -291,8 +337,9 @@ class FADD(inExpWidth: Int, inSigWidth: Int, outSigWidth: Int) extends Module {
   farPath.io.in.bits.tinyAdd := decode_a.expIsZero & decode_b.expIsZero
   farPath.io.in.bits.shiftNum := shiftNum
   farPath.io.in.bits.roundingMode := io.in.bits.roundingMode
-  farPath.io.in.valid := DontCare
-  farPath.io.out.ready := DontCare
+  farPath.io.in.valid := io.in.valid & !special_case_happen & !closePathSel
+  farPath.io.out.ready := io.out.ready
+  farPath.io.flush := io.flush
   val farPathResult = farPath.io.out.bits.result
   val far_path_of = farPath.io.out.bits.far_path_of
   val far_path_ix = farPath.io.out.bits.far_path_ix
@@ -372,9 +419,8 @@ class FADD(inExpWidth: Int, inSigWidth: Int, outSigWidth: Int) extends Module {
     common_inexact
   )
 
-//  io.out.valid := Mux(closePathSel, closePath.io.out.valid, farPath.io.out.valid) | (special_case_happen & io.in.valid)
-  io.out.valid := Mux(closePathSel, closePath.io.out.valid, io.in.valid)
-  io.in.ready := closePath.io.in.ready
+  io.out.valid := Mux(special_case_happen, io.in.valid, closePath.io.out.valid | farPath.io.out.valid)
+  io.in.ready := closePath.io.in.ready & farPath.io.in.ready
   io.out.bits.result := Mux(
     special_case_happen,
     special_path_result,

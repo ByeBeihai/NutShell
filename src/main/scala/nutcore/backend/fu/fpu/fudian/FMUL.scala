@@ -1,3 +1,37 @@
+/**************************************************************************************
+* Copyright (c) 2025 Institute of Computing Technology, CAS
+* Copyright (c) 2025 University of Chinese Academy of Sciences
+* 
+* polaris is licensed under Mulan PSL v2.
+* You can use this software according to the terms and conditions of the Mulan PSL v2. 
+* You may obtain a copy of Mulan PSL v2 at:
+*             http://license.coscl.org.cn/MulanPSL2 
+* 
+* THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER 
+* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR 
+* FIT FOR A PARTICULAR PURPOSE.  
+*
+* See the Mulan PSL v2 for more details.  
+***************************************************************************************/
+/**************************************************************************************
+* Copyright (c) 2020 Institute of Computing Technology, CAS
+* Copyright (c) 2020 University of Chinese Academy of Sciences
+* 
+* NutShell is licensed under Mulan PSL v2.
+* You can use this software according to the terms and conditions of the Mulan PSL v2. 
+* You may obtain a copy of Mulan PSL v2 at:
+*             http://license.coscl.org.cn/MulanPSL2 
+* 
+* THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER 
+* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR 
+* FIT FOR A PARTICULAR PURPOSE.  
+*
+* See the Mulan PSL v2 for more details.  
+***************************************************************************************/
+/**************************************************************************************
+* Reference:
+* Zong, J., Wang, J., Li, G., Wu, R., Zhao D.*, Polaris 23: a high throughput neuromorphic processing element by RISC-V customized instruction extension for spiking neural network (RV-SNN 2.0) and SIMD-style implementation of LIF model with backpropagation STDP. J Supercomput 81, 398 (2025)
+***************************************************************************************/
 package nutcore.backend.fu.fpu.fudian
 
 import chisel3._
@@ -37,7 +71,7 @@ class FMUL(val expWidth: Int, val sigWidth: Int) extends Module {
   /*------------------------------------------------------------------------
   *------------------------------------------------------------------------*/
   val hasZero = decode_a.isZero | decode_b.isZero
-  val resultSign = fp_a.sign ^ fp_b.sign
+  val s1_sign = fp_a.sign ^ fp_b.sign
   val expSum = raw_a.exp +& raw_b.exp
   val biasInt = FloatPoint.expBias(expWidth)
   val expSumMinusBias = Cat(0.U(1.W), expSum) - biasInt.U
@@ -64,6 +98,7 @@ class FMUL(val expWidth: Int, val sigWidth: Int) extends Module {
   val s1_error_mask = Cat(1.U(1.W), 0.U((sigWidth * 2 - 1).W)) >> s1_lzc_raw
 
   class FMUL_S1_S2 extends Bundle{
+    val sign = Output(Bool())
     val sig_no_shift = Output(UInt((sigWidth * 2).W))
     val exp_no_shift = Output(UInt((expWidth + 1).W))
     val exp_diff_abs = Output(UInt((expWidth + 1).W))
@@ -71,8 +106,10 @@ class FMUL(val expWidth: Int, val sigWidth: Int) extends Module {
     val exp_overflow = Output(Bool())
     val lzc_raw = Output(UInt(s1_lzc_raw.getWidth.W))
     val error_mask = Output(UInt((sigWidth * 2).W))
+    val rm = Output(UInt(3.W))
   }
   val pipeline_s1_s2 = Module(new PipelineReg(new FMUL_S1_S2))
+  pipeline_s1_s2.io.in.bits.sign := s1_sign
   pipeline_s1_s2.io.in.bits.exp_overflow := s1_exp_overflow
   pipeline_s1_s2.io.in.bits.exp_underflow := s1_exp_underflow
   pipeline_s1_s2.io.in.bits.exp_no_shift := s1_exp_no_shift
@@ -80,9 +117,11 @@ class FMUL(val expWidth: Int, val sigWidth: Int) extends Module {
   pipeline_s1_s2.io.in.bits.exp_diff_abs := s1_exp_diff_abs
   pipeline_s1_s2.io.in.bits.lzc_raw := s1_lzc_raw
   pipeline_s1_s2.io.in.bits.error_mask := s1_error_mask
-  pipeline_s1_s2.io.flush := io.flush
+  pipeline_s1_s2.io.in.bits.rm := io.in.bits.roundingMode
+  pipeline_s1_s2.io.flush := io.flush || io.out.fire()
   pipeline_s1_s2.io.in.valid := io.in.valid
   pipeline_s1_s2.io.out.ready := io.out.ready
+  val s2_sign = pipeline_s1_s2.io.out.bits.sign
   val s2_sig_no_shift = pipeline_s1_s2.io.out.bits.sig_no_shift
   val s2_exp_no_shift = pipeline_s1_s2.io.out.bits.exp_no_shift
   val s2_exp_diff_abs = pipeline_s1_s2.io.out.bits.exp_diff_abs
@@ -90,6 +129,7 @@ class FMUL(val expWidth: Int, val sigWidth: Int) extends Module {
   val s2_exp_overflow = pipeline_s1_s2.io.out.bits.exp_overflow
   val s2_lzc_raw = pipeline_s1_s2.io.out.bits.lzc_raw
   val s2_error_mask = pipeline_s1_s2.io.out.bits.error_mask
+  val s2_rm = pipeline_s1_s2.io.out.bits.rm
   /*------------------------------------------------------------------------
   Shift
   *------------------------------------------------------------------------*/
@@ -108,18 +148,17 @@ class FMUL(val expWidth: Int, val sigWidth: Int) extends Module {
   /*------------------------------------------------------------------------
   Rounding
   *------------------------------------------------------------------------*/
-  val rm = io.in.bits.roundingMode
   val resultShifted = Wire(new RawFloat(expWidth, sigWidth + 3))
-  resultShifted.sign := resultSign
+  resultShifted.sign := s2_sign
   resultShifted.exp := resultExpShifted.tail(1)
   resultShifted.sig := resultSigShifted.head(sigWidth + 2) ## resultSigShifted.tail(sigWidth + 2).orR
   val tininess_rounder = Module(new TininessRounder(expWidth, sigWidth))
   tininess_rounder.io.in := resultShifted
-  tininess_rounder.io.rm := rm
+  tininess_rounder.io.rm := s2_rm
   val tininess = tininess_rounder.io.tininess
   val rounder = RoundingUnit(
     resultShifted.sig.tail(1), // hidden bit is not needed
-    rm,
+    s2_rm,
     resultShifted.sign,
     sigWidth - 1
   )
@@ -136,7 +175,7 @@ class FMUL(val expWidth: Int, val sigWidth: Int) extends Module {
   val common_ix = rounder.io.inexact | common_of
   val common_uf = tininess & common_ix
 
-  val rmin = RoundingUnit.is_rmin(rm, resultShifted.sign)
+  val rmin = RoundingUnit.is_rmin(s2_rm, resultShifted.sign)
 
   val of_exp = Mux(rmin,
     ((BigInt(1) << expWidth) - 2).U(expWidth.W),
@@ -156,10 +195,10 @@ class FMUL(val expWidth: Int, val sigWidth: Int) extends Module {
   val special_result = Mux(nan_result,
     Cat(0.U(1.W), Fill(expWidth + 1, 1.U(1.W)), 0.U((sigWidth - 2).W)), // default NaN
     Mux(hasInf,
-      Cat(resultSign,
+      Cat(s1_sign,
         ((BigInt(1) << expWidth) - 1).U(expWidth.W),
         0.U((sigWidth - 1).W)), // inf
-      Cat(resultSign, 0.U((expWidth + sigWidth - 1).W)) // zero
+      Cat(s1_sign, 0.U((expWidth + sigWidth - 1).W)) // zero
     )
   )
   val special_fflags = Cat(special_iv, false.B, false.B, false.B, false.B)
@@ -180,12 +219,12 @@ class FMUL(val expWidth: Int, val sigWidth: Int) extends Module {
 
   val common_fflags = Cat(false.B, false.B, common_of, common_uf, common_ix)
 
-  io.out.valid := pipeline_s1_s2.io.out.valid
+  io.out.valid := Mux(special_case_happen, io.in.valid, pipeline_s1_s2.io.out.valid)
   io.in.ready := pipeline_s1_s2.io.in.ready
   io.out.bits.result := Mux(special_case_happen, special_result, common_result)
   io.out.bits.fflags := Mux(special_case_happen, special_fflags, common_fflags)
 
-  io.out.bits.tofadd.fp_prod := resultSign ##
+  io.out.bits.tofadd.fp_prod := s2_sign ##
     resultExpShifted.tail(1) ##
     resultSigShifted.tail(1).head(2 * sigWidth - 2) ##
     resultSigShifted.tail(2 * sigWidth - 1).orR

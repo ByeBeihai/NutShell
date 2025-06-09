@@ -1,3 +1,37 @@
+/**************************************************************************************
+* Copyright (c) 2025 Institute of Computing Technology, CAS
+* Copyright (c) 2025 University of Chinese Academy of Sciences
+* 
+* polaris is licensed under Mulan PSL v2.
+* You can use this software according to the terms and conditions of the Mulan PSL v2. 
+* You may obtain a copy of Mulan PSL v2 at:
+*             http://license.coscl.org.cn/MulanPSL2 
+* 
+* THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER 
+* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR 
+* FIT FOR A PARTICULAR PURPOSE.  
+*
+* See the Mulan PSL v2 for more details.  
+***************************************************************************************/
+/**************************************************************************************
+* Copyright (c) 2020 Institute of Computing Technology, CAS
+* Copyright (c) 2020 University of Chinese Academy of Sciences
+* 
+* NutShell is licensed under Mulan PSL v2.
+* You can use this software according to the terms and conditions of the Mulan PSL v2. 
+* You may obtain a copy of Mulan PSL v2 at:
+*             http://license.coscl.org.cn/MulanPSL2 
+* 
+* THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER 
+* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR 
+* FIT FOR A PARTICULAR PURPOSE.  
+*
+* See the Mulan PSL v2 for more details.  
+***************************************************************************************/
+/**************************************************************************************
+* Reference:
+* Zong, J., Wang, J., Li, G., Wu, R., Zhao D.*, Polaris 23: a high throughput neuromorphic processing element by RISC-V customized instruction extension for spiking neural network (RV-SNN 2.0) and SIMD-style implementation of LIF model with backpropagation STDP. J Supercomput 81, 398 (2025)
+***************************************************************************************/
 package nutcore
 
 import chisel3._
@@ -52,21 +86,21 @@ class FMA_impl(ftype: FType)extends Module {
 
   val fmulInValid = useMul && io.in.valid
   val fmulOutValid, fmulInReady, faddOutValid, faddInReady = Wire(Bool())
-  val fmul = FMUL(a, b, rm, ftype.expWidth, ftype.sigWidth, fmulInValid, faddInReady, io.flush || io.out.fire)
+  val fmul = FMUL(a, b, rm, ftype.expWidth, ftype.sigWidth, fmulInValid, faddInReady, io.flush || io.out.fire())
   val fmulResult = fmul._1
   fmulOutValid := fmul._2
   fmulInReady := fmul._3
 
   //**********************************************************************//
-  val pipeline = Module(new PipelineReg(new FMULToFADD(ftype.expWidth, ftype.sigWidth)))
-  pipeline.io.in.bits.fp_prod := fmulResult.tofadd.fp_prod
-  pipeline.io.in.bits.inter_flags := fmulResult.tofadd.inter_flags
-  pipeline.io.flush := io.flush
-  pipeline.io.in.valid := fmulOutValid && useAdd
-  pipeline.io.out.ready := faddInReady
-  val mul2add_valid = pipeline.io.out.valid
-  val fp_prod = pipeline.io.out.bits.fp_prod
-  val inter_fflags = pipeline.io.out.bits.inter_flags
+  val pipeline_mul_add = Module(new PipelineReg(new FMULToFADD(ftype.expWidth, ftype.sigWidth)))
+  pipeline_mul_add.io.in.bits.fp_prod := fmulResult.tofadd.fp_prod
+  pipeline_mul_add.io.in.bits.inter_flags := fmulResult.tofadd.inter_flags
+  pipeline_mul_add.io.flush := io.flush|| io.out.fire()
+  pipeline_mul_add.io.in.valid := fmulOutValid && useAdd
+  pipeline_mul_add.io.out.ready := faddInReady
+  val mul2add_valid = pipeline_mul_add.io.out.valid
+  val fp_prod = pipeline_mul_add.io.out.bits.fp_prod
+  val inter_fflags = pipeline_mul_add.io.out.bits.inter_flags
   //**********************************************************************//
 
   val faddInValid = !useMul && io.in.valid || mul2add_valid
@@ -76,11 +110,28 @@ class FMA_impl(ftype: FType)extends Module {
   faddIn(0) := Mux(useMul, fp_prod, padd_tail(a, mul2add_width))
   faddIn(1) := padd_tail(Mux(useMul, c, b), mul2add_width)
   val fadd = FADD(faddIn(0), faddIn(1), rm, isSub, isInv, ftype.expWidth, 2 * ftype.sigWidth, ftype.sigWidth,
-    faddInValid, io.out.ready, io.flush || io.out.fire, mul2add_valid, false.B, Some(inter_fflags))
+    faddInValid, io.out.ready, io.flush || io.out.fire(), mul2add_valid, false.B, Some(inter_fflags))
   faddOutValid := fadd._3
   faddInReady := fadd._4
 
-  io.in.ready := faddInReady & fmulInReady
+  val s_idle :: s_exec :: s_wait:: Nil = Enum(3)
+  val state = RegInit(s_idle)
+
+  when(io.flush){
+    state := s_idle
+  }.elsewhen(io.in.fire()){
+    state := s_exec
+  }.elsewhen(io.out.fire()){
+    state := s_idle
+  }.elsewhen(io.out.valid && !io.out.fire()){
+    state := s_wait
+  }.elsewhen(state === s_wait && io.out.fire()){
+    state := s_idle
+  }otherwise{
+    state := state
+  }
+
+  io.in.ready := state === s_idle
   io.out.valid := Mux(useAdd, faddOutValid, fmulOutValid)
   io.out.bits.result := Mux(useAdd, fadd._1, fmulResult.result)
   io.out.bits.fflags := Mux(useAdd, fadd._2, fmulResult.fflags)
@@ -130,22 +181,6 @@ class FMA extends Module with FMAOpType {
   dfma.io.out.ready := io.out.ready
   dfma.io.flush := io.flush
 
-//  val s_idle :: s_exec :: s_wait :: Nil = Enum(3)
-//  val state = RegInit(s_idle)
-//  when(io.flush) {
-//    state := s_idle
-//  }.elsewhen(io.in.fire) {
-//    state := s_exec
-//  }.elsewhen(io.out.fire) {
-//    state := s_idle
-//  }.elsewhen((sfma.io.out.valid || dfma.io.out.valid)) {
-//    state := s_wait
-//  }.elsewhen(state === s_wait && io.out.fire()) {
-//    state := s_idle
-//  } otherwise {
-//    state := state
-//  }
-
   val outresult = Mux(isSingle(func), box(sfma.io.out.bits.result, D), dfma.io.out.bits.result)
   val outfflags = Mux(isSingle(func), sfma.io.out.bits.fflags, dfma.io.out.bits.fflags)
 
@@ -158,4 +193,8 @@ class FMA extends Module with FMAOpType {
   //BoringUtils.addSource(dfma.io.out.valid,"ilaDFMAoutValid")
   //BoringUtils.addSource(sfma.io.out.valid,"ilaSFMAoutValid")
   //}
+}
+
+object FMA extends App {
+  emitVerilog(new FMA, Array("--target-dir", "generated"))
 }
