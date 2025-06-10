@@ -16,7 +16,7 @@
 
 package top
 
-import nutcore._
+import PolarisCore._
 import bus.simplebus._
 import device._
 import utils._
@@ -27,12 +27,12 @@ import chisel3.util.experimental.BoringUtils
 
 // To run the following cache random test, do the following:
 // * uncomment the following class
-// * comment the NutCoreSimTop class in nutcore/src/test/scala/top/NutCoreSim.scala
-// * define the macro CACHE_TEST in nutcore/src/test/csrc/emu.h:141
-// * run 'make cache' under nutcore/
+// * comment the PolarisCoreSimTop class in PolarisCore/src/test/scala/top/PolarisCoreSim.scala
+// * define the macro CACHE_TEST in PolarisCore/src/test/csrc/emu.h:141
+// * run 'make cache' under PolarisCore/
 
 /*
-class NutCoreSimTop extends Module {
+class PolarisCoreSimTop extends Module {
   val io = IO(new Bundle{
     val difftest = new DiffTestIO
   })
@@ -160,7 +160,7 @@ class NutCoreSimTop extends Module {
       GTimer(), cohIn.resp.bits.rdata, cohAddr)
   }
 
-  // only use to keep consistent with NutCoreSimTop
+  // only use to keep consistent with PolarisCoreSimTop
   io.difftest := DontCare
   dontTouch(io.difftest)
 }

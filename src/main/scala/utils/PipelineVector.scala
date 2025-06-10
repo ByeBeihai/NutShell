@@ -33,7 +33,7 @@
 * Zong, J., Wang, J., Li, G., Wu, R., Zhao D.*, Polaris 23: a high throughput neuromorphic processing element by RISC-V customized instruction extension for spiking neural network (RV-SNN 2.0) and SIMD-style implementation of LIF model with backpropagation STDP. J Supercomput 81, 398 (2025)
 ***************************************************************************************/
 
-package nutcore
+package PolarisCore
 
 import chisel3._
 import chisel3.util._
